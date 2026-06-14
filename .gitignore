@@ -1,0 +1,9 @@
+# Config files — contain your Apps Script URL (keep private)
+forge/*/config.js
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/

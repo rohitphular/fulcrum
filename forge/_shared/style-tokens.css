@@ -1,0 +1,19 @@
+/* =============================================================================
+   FULCRUM FORGE — Design tokens
+   Shared across all forge modules. Link this file from every module's index.html.
+   Do not duplicate these variables inside a module's own <style> block.
+============================================================================= */
+:root {
+  --ink:         #16202C;
+  --canvas:      #EEF1F5;
+  --panel:       #FFFFFF;
+  --ember:       #DC5B3B;
+  --ember-soft:  #F4C9BC;
+  --teal:        #0F9D8C;
+  --teal-soft:   #BFE7E1;
+  --muted:       #6B7787;
+  --hair:        #DCE2EA;
+  --hair-strong: #C3CCD7;
+  --grotesk: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono:    'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+}
