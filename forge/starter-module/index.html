@@ -241,6 +241,21 @@ function pinError(msg) {
   el('pinInput').addEventListener('animationend', () => el('pinInput').classList.remove('shake'), { once: true });
 }
 
+async function fetchGeo() {
+  try {
+    const res  = await fetch('https://ipapi.co/json/');
+    const data = await res.json();
+    return {
+      ip:      data.ip            || 'unknown',
+      city:    data.city          || '',
+      country: data.country_name  || '',
+      ua:      navigator.userAgent
+    };
+  } catch (_) {
+    return { ip: 'unknown', city: '', country: '', ua: navigator.userAgent };
+  }
+}
+
 async function submitPin() {
   const pin = el('pinInput').value.trim();
   if (!pin) { pinError('Enter your PIN.'); return; }
@@ -248,7 +263,8 @@ async function submitPin() {
   el('pinSubmit').disabled = true;
   el('pinError').textContent = 'Connecting…';
 
-  SheetsClient.init({ scriptUrl: window.CONFIG.SCRIPT_URL, pin });
+  const meta = await fetchGeo();
+  SheetsClient.init({ scriptUrl: window.CONFIG.SCRIPT_URL, pin, meta });
 
   try {
     const res = await SheetsClient.list();
@@ -257,6 +273,9 @@ async function submitPin() {
       hidePinGate();
       items = res.data || [];
       renderTable();
+    } else if (res.error === 'locked') {
+      pinError('Access locked. Contact admin to unlock.');
+      el('pinSubmit').disabled = true;
     } else {
       pinError('Wrong PIN. Try again.');
       el('pinSubmit').disabled = false;
@@ -273,7 +292,8 @@ async function loadItems() {
   try {
     const res = await SheetsClient.list();
     if (!res.ok) {
-      if (res.error === 'auth') { sessionStorage.removeItem('forge_pin'); showPinGate(); return; }
+      if (res.error === 'locked') { sessionStorage.removeItem('forge_pin'); pinError('Access locked. Contact admin to unlock.'); showPinGate(); return; }
+      if (res.error === 'auth')   { sessionStorage.removeItem('forge_pin'); showPinGate(); return; }
       showMsg('Failed to load items: ' + (res.error || 'unknown error'), 'warn');
       return;
     }
