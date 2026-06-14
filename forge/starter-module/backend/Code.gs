@@ -3,7 +3,7 @@
 // Deploy as: Execute as Me · Anyone can access
 //
 // Script Properties required (Extensions → Apps Script → Project Settings):
-//   PIN          — your chosen PIN
+//   PIN_SECRET   — your chosen PIN
 //   TOTP_SECRET  — Base32 secret key (e.g. JBSWY3DPEHPK3PXP), same key you
 //                  enter into Google Authenticator / Authy
 //
@@ -290,7 +290,7 @@ function getSheet() {
 }
 
 function checkPin(pin) {
-  return pin === PropertiesService.getScriptProperties().getProperty('PIN');
+  return pin === PropertiesService.getScriptProperties().getProperty('PIN_SECRET');
 }
 
 function json(obj) {

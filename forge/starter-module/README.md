@@ -43,7 +43,7 @@ These are referenced via relative paths (`../_shared/`) from `index.html`.
 
    | Property name | Value |
    |---|---|
-   | `PIN` | Your chosen PIN (numbers recommended, e.g. `482917`) |
+   | `PIN_SECRET` | Your chosen PIN (numbers recommended, e.g. `482917`) |
    | `TOTP_SECRET` | A Base32 secret key — see below for how to generate one |
 
 4. Click **Save script properties**.
