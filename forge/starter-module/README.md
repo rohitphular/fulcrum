@@ -35,15 +35,34 @@ These are referenced via relative paths (`../_shared/`) from `index.html`.
 
 ---
 
-### Step 3 — Set your PIN
+### Step 3 — Set your PIN and TOTP secret
 
 1. In Apps Script, go to **Project Settings** (the gear icon on the left).
 2. Scroll to **Script Properties** → click **Add script property**.
-3. Property name: `PIN`
-4. Value: your chosen PIN (any string — numbers recommended, e.g. `482917`).
-5. Click **Save script properties**.
+3. Add two properties:
 
-The PIN is stored inside Google's infrastructure, not in any file. Do not put it in `config.js` or any committed file.
+   | Property name | Value |
+   |---|---|
+   | `PIN` | Your chosen PIN (numbers recommended, e.g. `482917`) |
+   | `TOTP_SECRET` | A Base32 secret key — see below for how to generate one |
+
+4. Click **Save script properties**.
+
+**Generating a TOTP secret:**
+- Go to [https://it-tools.tech/otp-generator](https://it-tools.tech/otp-generator) or any TOTP secret generator
+- Copy the Base32 secret (e.g. `JBSWY3DPEHPK3PXP`) — it's a string of uppercase letters and digits 2–7
+- Paste it as the `TOTP_SECRET` value
+
+**Setting up your authenticator app (Google Authenticator / Authy):**
+1. Open your authenticator app → tap **+** → **Enter a setup key**
+2. Account name: `Fulcrum` (or anything you like)
+3. Key: paste your `TOTP_SECRET` value
+4. Type: **Time based**
+5. Tap **Add**
+
+You will now see a 6-digit code that refreshes every 30 seconds. Enter this alongside your PIN when logging in.
+
+Both secrets are stored inside Google's infrastructure. Do not put them in `config.js` or any committed file.
 
 ---
 

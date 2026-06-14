@@ -2,16 +2,16 @@
 // FULCRUM FORGE — Apps Script backend
 // Deploy as: Execute as Me · Anyone can access
 //
-// Before deploying, set the PIN:
-//   Extensions → Apps Script → Project Settings → Script Properties
-//   Add property: PIN = <your-chosen-pin>
+// Script Properties required (Extensions → Apps Script → Project Settings):
+//   PIN          — your chosen PIN
+//   TOTP_SECRET  — Base32 secret key (e.g. JBSWY3DPEHPK3PXP), same key you
+//                  enter into Google Authenticator / Authy
 //
-// Sheet tabs required:
-//   starter       — data (columns defined in COLUMNS below)
-//   audit_access  — created automatically on first request; one row per IP
+// Sheet tabs:
+//   starter       — data; created automatically on first request
+//   audit_access  — one row per IP; created automatically on first request
 //
-// To unlock a locked IP: open audit_access, set is_locked to FALSE for that row
-// (or delete the row entirely to reset all counts).
+// To unlock a locked IP: open audit_access, set is_locked to FALSE for that row.
 // =============================================================================
 
 const SHEET_NAME       = 'starter';
@@ -36,19 +36,34 @@ const MAX_FAILURES = 3;
 // -----------------------------------------------------------------------------
 
 function doGet(e) {
-  const meta = extractMeta(e.parameter);
+  const meta   = extractMeta(e.parameter);
+  const action = e.parameter.action || 'list';
 
   if (checkLocked(meta.ip)) return json({ ok: false, error: 'locked' });
 
-  if (!checkPin(e.parameter.pin)) {
-    recordAccess(meta, false);
-    return json({ ok: false, error: 'auth' });
+  // verify — called once at login; requires PIN + TOTP
+  if (action === 'verify') {
+    if (!checkPin(e.parameter.pin)) {
+      recordAccess(meta, false);
+      return json({ ok: false, error: 'auth' });
+    }
+    if (!verifyTotp(e.parameter.totp)) {
+      // Wrong TOTP: don't count toward IP lockout — it's a separate factor
+      return json({ ok: false, error: 'totp_invalid' });
+    }
+    recordAccess(meta, true);
+    return json({ ok: true });
   }
 
-  recordAccess(meta, true);
-
-  const action = e.parameter.action || 'list';
-  if (action === 'list') return json({ ok: true, data: listRows() });
+  // list — called after login; PIN only (TOTP verified at login)
+  if (action === 'list') {
+    if (!checkPin(e.parameter.pin)) {
+      recordAccess(meta, false);
+      return json({ ok: false, error: 'auth' });
+    }
+    recordAccess(meta, true);
+    return json({ ok: true, data: listRows() });
+  }
 
   return json({ ok: false, error: 'unknown_action' });
 }
@@ -137,6 +152,51 @@ function deleteRow(id) {
 }
 
 // -----------------------------------------------------------------------------
+// TOTP — RFC 6238 (HMAC-SHA1, 30-second window, 6 digits)
+// -----------------------------------------------------------------------------
+
+function base32Decode(input) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const s     = input.toUpperCase().replace(/[^A-Z2-7]/g, '');
+  const bytes = [];
+  let buf = 0, bits = 0;
+  for (let i = 0; i < s.length; i++) {
+    buf = (buf << 5) | chars.indexOf(s[i]);
+    bits += 5;
+    if (bits >= 8) { bits -= 8; bytes.push((buf >> bits) & 0xff); }
+  }
+  return bytes;
+}
+
+function generateTotp(keyBytes, counter) {
+  const msg = new Array(8).fill(0);
+  let   c   = counter;
+  for (let i = 7; i >= 0; i--) { msg[i] = c & 0xff; c = Math.floor(c / 256); }
+
+  const hmac   = Utilities.computeHmacSignature(Utilities.MacAlgorithm.HMAC_SHA_1, msg, keyBytes);
+  const offset = hmac[19] & 0xf;
+  const code   = ((hmac[offset]   & 0x7f) << 24)
+               | ((hmac[offset+1] & 0xff) << 16)
+               | ((hmac[offset+2] & 0xff) << 8)
+               |  (hmac[offset+3] & 0xff);
+  return String(code % 1000000).padStart(6, '0');
+}
+
+function verifyTotp(token) {
+  const secret = PropertiesService.getScriptProperties().getProperty('TOTP_SECRET');
+  if (!secret || !token || String(token).length !== 6) return false;
+
+  const key = base32Decode(secret);
+  const T   = Math.floor(Date.now() / 1000 / 30);
+
+  // Allow ±1 window (30 s) for clock skew
+  for (let d = -1; d <= 1; d++) {
+    if (generateTotp(key, T + d) === String(token)) return true;
+  }
+  return false;
+}
+
+// -----------------------------------------------------------------------------
 // Audit — one row per IP, running totals
 // -----------------------------------------------------------------------------
 
@@ -173,39 +233,35 @@ function recordAccess(meta, success) {
     if (values[i][0] !== ip) continue;
 
     const rowNum       = i + 1;
-    const totalAttempts = (Number(values[i][6])  || 0) + 1;
-    const successCount  = (Number(values[i][7])  || 0) + (success ? 1 : 0);
-    const failureCount  = (Number(values[i][8])  || 0) + (success ? 0 : 1);
+    const totalAttempts = (Number(values[i][6]) || 0) + 1;
+    const successCount  = (Number(values[i][7]) || 0) + (success ? 1 : 0);
+    const failureCount  = (Number(values[i][8]) || 0) + (success ? 0 : 1);
     const lastFailedAt  = success ? values[i][9] : now;
     const shouldLock    = !success && failureCount >= MAX_FAILURES;
     const isLocked      = values[i][10] === true || shouldLock;
     const lockedAt      = shouldLock ? now : (values[i][11] || '');
 
-    sheet.getRange(rowNum, 4).setValue(meta.ua);               // user_agent (update — device may change)
-    sheet.getRange(rowNum, 6).setValue(now);                   // last_seen
-    sheet.getRange(rowNum, 7).setValue(totalAttempts);         // total_attempts
-    sheet.getRange(rowNum, 8).setValue(successCount);          // success_count
-    sheet.getRange(rowNum, 9).setValue(failureCount);          // failure_count
-    sheet.getRange(rowNum, 10).setValue(lastFailedAt);         // last_failed_at
-    sheet.getRange(rowNum, 11).setValue(isLocked);             // is_locked
-    sheet.getRange(rowNum, 12).setValue(lockedAt);             // locked_at
+    sheet.getRange(rowNum, 4).setValue(meta.ua);
+    sheet.getRange(rowNum, 6).setValue(now);
+    sheet.getRange(rowNum, 7).setValue(totalAttempts);
+    sheet.getRange(rowNum, 8).setValue(successCount);
+    sheet.getRange(rowNum, 9).setValue(failureCount);
+    sheet.getRange(rowNum, 10).setValue(lastFailedAt);
+    sheet.getRange(rowNum, 11).setValue(isLocked);
+    sheet.getRange(rowNum, 12).setValue(lockedAt);
     return;
   }
 
   // New IP — create row
   sheet.appendRow([
-    ip,                    // ip
-    meta.city,             // city
-    meta.country,          // country
-    meta.ua,               // user_agent
-    now,                   // first_seen
-    now,                   // last_seen
-    1,                     // total_attempts
-    success ? 1 : 0,       // success_count
-    success ? 0 : 1,       // failure_count
-    success ? '' : now,    // last_failed_at
-    !success && 1 >= MAX_FAILURES,  // is_locked
-    !success && 1 >= MAX_FAILURES ? now : ''  // locked_at
+    ip, meta.city, meta.country, meta.ua,
+    now, now,
+    1,
+    success ? 1 : 0,
+    success ? 0 : 1,
+    success ? '' : now,
+    !success && 1 >= MAX_FAILURES,
+    !success && 1 >= MAX_FAILURES ? now : ''
   ]);
 }
 

@@ -43,6 +43,7 @@ const SheetsClient = (() => {
 
   return {
     init,
+    verify: (totp)       => _get({ action: 'verify', totp }),
     list:   ()           => _get({ action: 'list' }),
     create: (fields)     => _post({ action: 'create', ...fields }),
     update: (id, fields) => _post({ action: 'update', id, ...fields }),
