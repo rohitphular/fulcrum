@@ -47,6 +47,8 @@ const SheetsClient = (() => {
     list:   ()           => _get({ action: 'list' }),
     create: (fields)     => _post({ action: 'create', ...fields }),
     update: (id, fields) => _post({ action: 'update', id, ...fields }),
-    remove: (id)         => _post({ action: 'delete', id })
+    remove: (id)         => _post({ action: 'delete', id }),
+    get:    (params)     => _get(params),
+    post:   (body)       => _post(body)
   };
 })();

@@ -4,3 +4,6 @@
 # IDE
 .idea/
 .vscode/
+
+# Dev task files
+**/dev-tasks/
