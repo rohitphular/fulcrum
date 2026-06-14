@@ -4,6 +4,8 @@
    Do not duplicate these variables inside a module's own <style> block.
 ============================================================================= */
 :root {
+  color-scheme: light;
+
   --ink:         #16202C;
   --canvas:      #EEF1F5;
   --panel:       #FFFFFF;
@@ -14,6 +16,24 @@
   --muted:       #6B7787;
   --hair:        #DCE2EA;
   --hair-strong: #C3CCD7;
+  --row-hover:   rgba(22, 32, 44, .04);
+
   --grotesk: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono:    'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ink:         #E2E8F0;
+  --canvas:      #0D1117;
+  --panel:       #161B22;
+  --ember:       #F07055;
+  --ember-soft:  #3D1E14;
+  --teal:        #26C0B0;
+  --teal-soft:   #0C3534;
+  --muted:       #8B96A8;
+  --hair:        #21262D;
+  --hair-strong: #30363D;
+  --row-hover:   rgba(255, 255, 255, .05);
 }

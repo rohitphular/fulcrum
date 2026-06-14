@@ -55,6 +55,18 @@ function toQuote(amount, fromCurrency) {
   return ((parseFloat(amount) || 0) / from) * to;
 }
 
+// ── Loading indicator ─────────────────────────────────────────────────────────
+function showLoading() { el('loadingBar').classList.remove('hidden'); }
+function hideLoading() { el('loadingBar').classList.add('hidden'); }
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('dt_theme', theme);
+  const btn = el('themeToggle');
+  if (btn) btn.textContent = theme === 'dark' ? '☀' : '☽';
+}
+
 // ── Message banner ────────────────────────────────────────────────────────────
 function showMsg(text, type = 'success') {
   const b = el('msgBanner');
@@ -140,6 +152,7 @@ async function submitPin() {
 
 // ── Data loading ──────────────────────────────────────────────────────────────
 async function loadAll() {
+  showLoading();
   try {
     const [debtsRes, ratesRes, paymentsRes] = await Promise.all([
       DebtAPI.listDebts(), DebtAPI.listRates(), DebtAPI.listPayments()
@@ -173,6 +186,8 @@ async function loadAll() {
     renderAll();
   } catch (_) {
     showMsg('Network error loading data. Try refreshing.', 'warn');
+  } finally {
+    hideLoading();
   }
 }
 
@@ -647,6 +662,8 @@ function cancelDeleteDebt()   { debtsUI.deleteId = null; renderDebts(); }
 async function confirmDeleteDebt() {
   const id = debtsUI.deleteId;
   debtsUI.deleteId = null;
+  const btn = document.querySelector('[data-action="confirm-delete"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
   try {
     const res = await DebtAPI.deleteDebt(id);
     if (res.ok) {
@@ -890,6 +907,8 @@ function cancelDeletePayment()   { paymentsUI.deleteId = null; renderPayments();
 async function confirmDeletePayment() {
   const id = paymentsUI.deleteId;
   paymentsUI.deleteId = null;
+  const btn = document.querySelector('[data-action="pay-confirm-delete"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
   try {
     const res = await DebtAPI.deletePayment(id);
     if (res.ok) {
@@ -1029,6 +1048,9 @@ async function saveRate(currency) {
     return;
   }
 
+  const saveBtn = el('ratesBody')?.querySelector('[data-action="rate-save"]');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+
   const rateRecord = state.rates.find(r => r.currency === currency);
 
   try {
@@ -1039,9 +1061,11 @@ async function saveRate(currency) {
       await loadAll();
     } else {
       showMsg('Update failed: ' + (res.error || 'unknown'), 'warn');
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
     }
   } catch (_) {
     showMsg('Network error. Try again.', 'warn');
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
   }
 }
 // ── PROJECTOR MODULE ──────────────────────────────────────────────────────────
@@ -1401,6 +1425,12 @@ function wireProjectorEvents() {
   }
 }
 
+// ── Event: theme toggle ───────────────────────────────────────────────────────
+el('themeToggle').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  setTheme(current === 'dark' ? 'light' : 'dark');
+});
+
 // ── Event: quote currency change ──────────────────────────────────────────────
 el('quoteCurrencySelect').addEventListener('change', e => {
   setQuoteCurrency(e.target.value);
@@ -1424,6 +1454,11 @@ el('totpInput').addEventListener('keydown', e => { if (e.key === 'Enter') submit
     el('pinOverlay').classList.add('hidden');
     return;
   }
+
+  // Restore theme preference (falls back to OS preference)
+  const savedTheme = localStorage.getItem('dt_theme') ||
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  setTheme(savedTheme);
 
   // Restore quote currency preference from previous session
   const savedQuote = localStorage.getItem('dt_quote_currency');

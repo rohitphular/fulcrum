@@ -12,6 +12,8 @@
 </head>
 <body>
 
+<div class="loading-bar hidden" id="loadingBar"></div>
+
 <!-- Auth overlay -->
 <div class="overlay" id="pinOverlay">
   <div class="pin-card">
@@ -41,15 +43,18 @@
         <p class="eyebrow">forge · debt-tracker</p>
         <h1>Debt Tracker</h1>
       </div>
-      <div class="quote-currency-wrap">
-        <label class="quote-label" for="quoteCurrencySelect">Quote</label>
-        <select id="quoteCurrencySelect" class="quote-select">
-          <option value="GBP">£ GBP</option>
-          <option value="INR">₹ INR</option>
-          <option value="USD">$ USD</option>
-          <option value="EUR">€ EUR</option>
-          <option value="AED">AED</option>
-        </select>
+      <div class="header-controls">
+        <button class="theme-btn" id="themeToggle" aria-label="Toggle colour theme">☽</button>
+        <div class="quote-currency-wrap">
+          <label class="quote-label" for="quoteCurrencySelect">Quote</label>
+          <select id="quoteCurrencySelect" class="quote-select">
+            <option value="GBP">£ GBP</option>
+            <option value="INR">₹ INR</option>
+            <option value="USD">$ USD</option>
+            <option value="EUR">€ EUR</option>
+            <option value="AED">AED</option>
+          </select>
+        </div>
       </div>
     </div>
     <nav class="tab-nav" id="tabNav">
