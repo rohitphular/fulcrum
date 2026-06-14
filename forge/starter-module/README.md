@@ -22,18 +22,7 @@ These are referenced via relative paths (`../_shared/`) from `index.html`.
 ### Step 1 — Create the Google Sheet
 
 1. Go to [sheets.google.com](https://sheets.google.com) and create a new spreadsheet.
-2. Rename the default sheet tab to **`starter`** (right-click the tab → Rename).
-3. Add the header row in row 1 — type each header in its own cell:
-
-   | A | B | C | D | E | F |
-   |---|---|---|---|---|---|
-   | `id` | `name` | `description` | `status` | `created_at` | `updated_at` |
-
-   Exact column order and names matter. Do not add spaces or change capitalisation.
-
-4. Keep the sheet in plain text format — do not apply date formatting, number formatting, or merged cells to any column.
-
-> The `audit_access` sheet tab is created **automatically** by Apps Script on the first request. You do not need to create it manually.
+2. Leave it empty — both the `starter` and `audit_access` sheet tabs are created **automatically** by Apps Script on the first request.
 
 ---
 

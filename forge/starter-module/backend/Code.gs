@@ -223,7 +223,14 @@ function extractMeta(source) {
 }
 
 function getSheet() {
-  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  let   sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME);
+    sheet.appendRow(COLUMNS);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
 }
 
 function checkPin(pin) {
