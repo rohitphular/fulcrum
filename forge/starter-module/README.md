@@ -4,6 +4,19 @@ A minimal CRUD template backed by Google Sheets. Form to add items, table to edi
 
 ---
 
+## Shared dependencies
+
+This module relies on two shared files from `forge/_shared/`:
+
+| File | Purpose |
+|---|---|
+| `sheets-client.js` | Shared HTTP layer — handles all GET/POST calls to Apps Script. Do not modify per-module. |
+| `style-tokens.css` | Shared design tokens (colours, fonts). Do not modify per-module. |
+
+These are referenced via relative paths (`../_shared/`) from `index.html`.
+
+---
+
 ## What you need to do
 
 ### Step 1 — Create the Google Sheet
@@ -61,17 +74,36 @@ The PIN is stored inside Google's infrastructure, not in any file. Do not put it
 
 1. Copy `config.example.js` to `config.js` in this folder.
 2. Open `config.js` and replace `YOUR_DEPLOYMENT_ID` with the URL you copied above.
-3. `config.js` is gitignored — it will not be committed.
+3. `config.js` is committed to the repo (private repo — the URL is safe here).
 
 ---
 
 ### Step 6 — Open the app
 
-Open `index.html` in a browser (or serve from GitHub Pages).
+**Locally:**
+Open `index.html` directly in a browser (`file://...` path works fine).
+
+**Via GitHub Pages:**
+```
+https://<your-github-username>.github.io/<repo-name>/forge/starter-module/
+```
 
 - If `config.js` is missing, a setup banner appears.
 - If `config.js` is present, a PIN prompt appears. Enter the PIN you set in Step 3.
 - The PIN is stored in `sessionStorage` — it clears when the browser tab closes.
+
+---
+
+## Hosting on GitHub Pages
+
+The repo is served via GitHub Pages from the `main` branch root.
+
+**Important:** The `_shared/` folder starts with an underscore. Jekyll (GitHub Pages default processor) skips underscore directories. A `.nojekyll` file at the repo root disables Jekyll so `_shared/` is served correctly. Do not remove `.nojekyll`.
+
+Steps to enable GitHub Pages on a new repo:
+1. Make the repo public (free tier requirement).
+2. Go to repo **Settings → Pages → Branch: `main`, folder: `/ (root)` → Save**.
+3. Your module is live at `https://<username>.github.io/<repo>/forge/starter-module/`.
 
 ---
 
@@ -112,17 +144,18 @@ Do **not** change:
 
 ```
 forge/
+  .nojekyll                  ← disables Jekyll so _shared/ is served by GitHub Pages
   _shared/
-    sheets-client.js      ← shared HTTP layer (do not modify per-module)
-    style-tokens.css      ← shared design tokens (do not modify per-module)
+    sheets-client.js         ← shared HTTP layer (do not modify per-module)
+    style-tokens.css         ← shared design tokens (do not modify per-module)
   starter-module/
-    index.html            ← the app
-    config.example.js     ← committed template
-    config.js             ← gitignored — your actual Script URL
+    index.html               ← the app
+    config.example.js        ← committed template
+    config.js                ← your actual Script URL (committed — private repo)
     backend/
-      Code.gs             ← Apps Script source
-      appsscript.json     ← Apps Script manifest
-    README.md             ← this file
+      Code.gs                ← Apps Script source
+      appsscript.json        ← Apps Script manifest
+    README.md                ← this file
 ```
 
 ---
