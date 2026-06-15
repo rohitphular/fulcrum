@@ -285,16 +285,7 @@ function getSheet() {
     sheet = ss.insertSheet(SHEET_NAME);
     sheet.appendRow(COLUMNS);
     sheet.setFrozenRows(1);
-    return sheet;
   }
-  // Migrate: append any expected header columns that are missing from existing sheets.
-  // Safe to call on every request — reads headers and adds only what's absent.
-  const lastCol = sheet.getLastColumn();
-  const headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
-  let added = 0;
-  COLUMNS.forEach(col => {
-    if (!headers.includes(col)) sheet.getRange(1, lastCol + ++added).setValue(col);
-  });
   return sheet;
 }
 
