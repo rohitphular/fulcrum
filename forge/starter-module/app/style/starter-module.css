@@ -40,7 +40,7 @@ input:focus-visible, textarea:focus-visible { outline: none; }
 .pin-submit { width: 100%; margin-top: 14px; padding: 12px; }
 
 /* ── layout ── */
-.wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 80px; }
+.app-shell { max-width: 900px; margin: 0 auto; padding: 32px 20px 80px; }
 
 /* ── header ── */
 .module-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }

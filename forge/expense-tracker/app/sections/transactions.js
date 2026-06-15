@@ -4,11 +4,8 @@ import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { filteredTx } from '../core/daterange.js';
 import { ExpenseAPI } from '../core/api.js';
 
-let addFormOpen    = false;
-let filterOpen     = false;
-let editId         = null;   // null = add mode; tx.id string = edit mode
-let editTx         = null;   // full tx object being edited
-let deleteDialogTx = null;   // tx shown in the admin-contact dialog
+let addFormOpen = false;
+let filterOpen  = false;
 
 export function renderTransactions() {
   const txEl = el('transactionsContent');
@@ -18,7 +15,6 @@ export function renderTransactions() {
   const warnRows  = rows.filter(tx => !tx.id || !tx.date || !VALID_TX_TYPES.includes(tx.transaction_type));
 
   txEl.innerHTML = `
-    ${renderAdminDeleteDialog()}
     ${renderAddForm()}
     ${renderFilterBar()}
     ${warnRows.length ? `<div class="warning-count" id="warnToggle">⚠ ${warnRows.length} row${warnRows.length > 1 ? 's' : ''} have warnings — click to expand</div>` : ''}
@@ -31,7 +27,6 @@ export function renderTransactions() {
 
   attachFilterEvents();
   attachAddFormEvents();
-  attachTableEvents();
 
   el('exportCsv')?.addEventListener('click', () => exportData('csv', rows));
   el('exportJson')?.addEventListener('click', () => exportData('json', rows));
@@ -40,88 +35,6 @@ export function renderTransactions() {
     el('warnToggle')?.addEventListener('click', () => el('warnTable')?.classList.toggle('hidden'));
   }
 }
-
-// ── Admin-contact delete dialog ───────────────────────────────────────────────
-
-function renderAdminDeleteDialog() {
-  if (!deleteDialogTx) return '';
-  const tx = deleteDialogTx;
-  return `
-  <div class="overlay" id="deleteDialogOverlay">
-    <div class="pin-card" style="max-width:420px">
-      <p class="pin-eyebrow">Admin action required</p>
-      <h2 style="margin:0 0 10px">Delete Transaction</h2>
-      <p style="color:var(--muted);font-size:13.5px;margin:0 0 16px;line-height:1.6">
-        Deletion is restricted to admin access. To remove this transaction, open the Google Sheet and delete the corresponding row directly.
-      </p>
-      <div style="background:var(--canvas);border:1px solid var(--hair);border-radius:10px;padding:12px 14px;font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.9">
-        <div><span style="color:var(--ink);font-weight:600">ID &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>${esc(String(tx.id))}</div>
-        <div><span style="color:var(--ink);font-weight:600">Date &nbsp;&nbsp;&nbsp;&nbsp;</span>${esc(fmtDate(tx.date))}</div>
-        <div><span style="color:var(--ink);font-weight:600">Type &nbsp;&nbsp;&nbsp;&nbsp;</span>${esc(tx.transaction_type || '—')}</div>
-        <div><span style="color:var(--ink);font-weight:600">Amount &nbsp;&nbsp;</span>${esc(fmtNative(tx.amount, tx.currency))}</div>
-        <div><span style="color:var(--ink);font-weight:600">Account &nbsp;</span>${esc(tx.account || '—')}</div>
-        ${tx.counterparty ? `<div><span style="color:var(--ink);font-weight:600">With &nbsp;&nbsp;&nbsp;&nbsp;</span>${esc(tx.counterparty)}</div>` : ''}
-      </div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <button class="btn btn-secondary" id="closeDeleteDialog">Close</button>
-        <button class="btn btn-secondary btn-sm" id="copyTxId" style="font-family:var(--mono)">Copy ID</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-function attachTableEvents() {
-  // Close dialog — button or backdrop click
-  el('closeDeleteDialog')?.addEventListener('click', () => { deleteDialogTx = null; renderTransactions(); });
-  el('deleteDialogOverlay')?.addEventListener('click', e => {
-    if (e.target === el('deleteDialogOverlay')) { deleteDialogTx = null; renderTransactions(); }
-  });
-
-  // Copy ID
-  el('copyTxId')?.addEventListener('click', () => {
-    const id = String(deleteDialogTx?.id || '');
-    navigator.clipboard?.writeText(id).then(() => {
-      const btn = el('copyTxId');
-      if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { if (el('copyTxId')) el('copyTxId').textContent = 'Copy ID'; }, 1500); }
-    });
-  });
-
-  // Row action buttons — edit and request-delete
-  el('txTableBody')?.addEventListener('click', e => {
-    const editBtn   = e.target.closest('[data-action="edit"]');
-    const deleteBtn = e.target.closest('[data-action="req-delete"]');
-
-    if (editBtn) {
-      const tx = state.transactions.find(t => String(t.id) === editBtn.dataset.txId);
-      if (!tx) return;
-      editId = tx.id; editTx = tx; addFormOpen = true;
-      renderTransactions();
-      setTimeout(() => el('addFormWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-    }
-
-    if (deleteBtn) {
-      deleteDialogTx = state.transactions.find(t => String(t.id) === deleteBtn.dataset.txId) || null;
-      renderTransactions();
-    }
-  });
-
-  // Pagination
-  el('prevPage')?.addEventListener('click', () => { state.txPage--; renderTransactions(); });
-  el('nextPage')?.addEventListener('click', () => { state.txPage++; renderTransactions(); });
-
-  // Sort headers
-  el('transactionsContent')?.querySelectorAll('th[data-sort]').forEach(th => {
-    th.addEventListener('click', () => {
-      const col = th.dataset.sort;
-      state.txSort.dir = state.txSort.col === col && state.txSort.dir === 'asc' ? 'desc' : (state.txSort.col === col ? 'asc' : 'desc');
-      state.txSort.col = col;
-      state.txPage = 1;
-      renderTransactions();
-    });
-  });
-}
-
-// ── Transactions table ────────────────────────────────────────────────────────
 
 function renderTxTable(validRows, warnRows) {
   const sorted = sortTx([...validRows]);
@@ -141,9 +54,8 @@ function renderTxTable(validRows, warnRows) {
     const typeLabel = tx.transaction_type === 'money-in' ? 'in'       : tx.transaction_type === 'money-out' ? 'out'       : 'xfer';
     const missingRate = !state.rateMap[tx.currency];
     const rowRate     = tx.fx_rate && parseFloat(tx.fx_rate) > 0;
-    const isEditing   = editId && String(tx.id) === String(editId);
 
-    return `<tr${isEditing ? ' style="background:color-mix(in srgb,var(--ember) 6%,transparent)"' : ''}>
+    return `<tr>
       <td class="td-mono">${esc(fmtDate(tx.date))}</td>
       <td><span class="badge ${badgeCls}">${typeLabel}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}</td>
       <td>${esc(tx.account || '—')}</td>
@@ -155,19 +67,13 @@ function renderTxTable(validRows, warnRows) {
       <td class="td-muted">${esc(tx.payment_method || '—')}</td>
       <td class="td-muted">${tx.tags ? tx.tags.split(';').map(t => `<span class="badge" style="background:var(--canvas)">${esc(t.trim())}</span>`).join(' ') : '—'}</td>
       <td class="td-muted">${esc(tx.notes || '—')}</td>
-      <td style="white-space:nowrap">
-        <span class="row-actions">
-          <button class="btn-link" data-action="edit" data-tx-id="${esc(String(tx.id))}">${isEditing ? 'Editing…' : 'Edit'}</button>
-          <button class="btn-link danger" data-action="req-delete" data-tx-id="${esc(String(tx.id))}">Delete</button>
-        </span>
-      </td>
     </tr>`;
   }).join('');
 
   const warnRowsHtml = warnRows.length ? `
     <tbody id="warnTable" class="hidden">
       ${warnRows.map(tx => `<tr>
-        <td colspan="12"><span class="badge badge-warn">⚠ malformed</span> id=${esc(String(tx.id||'?'))} type=${esc(tx.transaction_type||'?')} date=${esc(String(tx.date||'?'))}</td>
+        <td colspan="11"><span class="badge badge-warn">⚠ malformed</span> id=${esc(String(tx.id||'?'))} type=${esc(tx.transaction_type||'?')} date=${esc(String(tx.date||'?'))}</td>
       </tr>`).join('')}
     </tbody>` : '';
 
@@ -178,7 +84,7 @@ function renderTxTable(validRows, warnRows) {
       <button class="btn btn-secondary btn-sm" id="nextPage" ${state.txPage >= pages ? 'disabled' : ''}>Next →</button>
     </div>` : `<div class="pagination">${total} rows</div>`;
 
-  return `
+  const html = `
     <div class="table-wrap">
       <table>
         <thead><tr>
@@ -193,14 +99,29 @@ function renderTxTable(validRows, warnRows) {
           <th>Method</th>
           <th>Tags</th>
           <th>Notes</th>
-          <th style="width:110px"></th>
         </tr></thead>
-        <tbody id="txTableBody">${rows || '<tr class="empty-row"><td colspan="12">No transactions in this period.</td></tr>'}</tbody>
+        <tbody>${rows}</tbody>
         ${warnRowsHtml}
       </table>
     </div>
     ${pagination}
   `;
+
+  setTimeout(() => {
+    el('transactionsContent')?.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        state.txSort.dir = state.txSort.col === col && state.txSort.dir === 'asc' ? 'desc' : (state.txSort.col === col ? 'asc' : 'desc');
+        state.txSort.col = col;
+        state.txPage = 1;
+        renderTransactions();
+      });
+    });
+    el('prevPage')?.addEventListener('click', () => { state.txPage--; renderTransactions(); });
+    el('nextPage')?.addEventListener('click', () => { state.txPage++; renderTransactions(); });
+  }, 0);
+
+  return html;
 }
 
 function sortTx(rows) {
@@ -220,132 +141,87 @@ function sortTx(rows) {
   });
 }
 
-// ── Add / Edit form ───────────────────────────────────────────────────────────
-
-function txDate(tx) {
-  if (!tx?.date) return todayISO();
-  const d = tx.date;
-  if (d instanceof Date) return d.toISOString().slice(0, 10);
-  return String(d).slice(0, 10);
-}
+// ── Add-transaction form ──────────────────────────────────────────────────────
 
 function renderAddForm() {
-  const isEdit = editId !== null;
-  const tx     = editTx || {};
-
-  const majors = isEdit
-    ? [...new Set(state.categories.filter(c => c.transaction_type === tx.transaction_type).map(c => c.major_category))]
-    : [];
-  const minors = isEdit
-    ? state.categories.filter(c => c.transaction_type === tx.transaction_type && c.major_category === tx.major_category).map(c => c.minor_category)
-    : [];
-
-  const showTransfer = isEdit ? tx.transaction_type === 'money-transfer' : false;
-  const showFx       = isEdit ? (tx.currency && tx.currency !== state.quoteCurrency) : false;
-
   return `
-  <div class="add-form-wrap" id="addFormWrap">
+  <div class="add-form-wrap">
     <button class="add-form-toggle" id="addFormToggle">
-      ${isEdit
-        ? `Editing <span style="font-family:var(--mono);font-size:11px;color:var(--ember)">${esc(String(editId))}</span>`
-        : 'Add transaction'}
-      <span class="plus-icon">${addFormOpen || isEdit ? '×' : '+'}</span>
+      Add transaction
+      <span class="plus-icon">${addFormOpen ? '×' : '+'}</span>
     </button>
-    <div class="add-form-body ${addFormOpen || isEdit ? '' : 'hidden'}" id="addFormBody">
+    <div class="add-form-body ${addFormOpen ? '' : 'hidden'}" id="addFormBody">
       <div class="form-grid">
         <div class="field">
           <label for="afDate">Date *</label>
-          <input type="date" id="afDate" value="${esc(isEdit ? txDate(tx) : todayISO())}">
+          <input type="date" id="afDate" value="${todayISO()}">
         </div>
         <div class="field">
           <label for="afType">Type *</label>
           <select id="afType">
-            ${['money-in','money-out','money-transfer'].map(t =>
-              `<option value="${esc(t)}" ${isEdit && tx.transaction_type === t ? 'selected' : ''}>${esc(t)}</option>`
-            ).join('')}
+            ${['money-in','money-out','money-transfer'].map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('')}
           </select>
         </div>
         <div class="field">
           <label for="afAccount">Account *</label>
           <select id="afAccount">
             <option value="">— select —</option>
-            ${state.accounts.map(a =>
-              `<option value="${esc(a.name)}" ${isEdit && tx.account === a.name ? 'selected' : ''}>${esc(a.name)} (${esc(a.currency)})</option>`
-            ).join('')}
+            ${state.accounts.map(a => `<option value="${esc(a.name)}">${esc(a.name)} (${esc(a.currency)})</option>`).join('')}
           </select>
         </div>
         <div class="field">
           <label for="afAmount">Amount *</label>
-          <input type="number" id="afAmount" min="0.01" step="0.01" placeholder="0.00"
-            value="${isEdit ? esc(String(tx.amount ?? '')) : ''}">
+          <input type="number" id="afAmount" min="0.01" step="0.01" placeholder="0.00">
         </div>
         <div class="field">
           <label for="afCurrency">Currency *</label>
           <select id="afCurrency">
-            ${state.rates.map(r =>
-              `<option value="${esc(r.currency)}" ${isEdit && tx.currency === r.currency ? 'selected' : ''}>${esc(r.symbol||'')} ${esc(r.currency)}</option>`
-            ).join('')}
+            ${state.rates.map(r => `<option value="${esc(r.currency)}">${esc(r.symbol||'')} ${esc(r.currency)}</option>`).join('')}
           </select>
         </div>
         <div class="field">
           <label for="afMajor">Major category *</label>
-          <select id="afMajor">
-            ${isEdit
-              ? `<option value="">— select —</option>${majors.map(m => `<option value="${esc(m)}" ${tx.major_category === m ? 'selected' : ''}>${esc(m)}</option>`).join('')}`
-              : '<option value="">— select type first —</option>'}
-          </select>
+          <select id="afMajor"><option value="">— select type first —</option></select>
         </div>
         <div class="field">
           <label for="afMinor">Minor category *</label>
-          <select id="afMinor">
-            ${isEdit
-              ? `<option value="">— select —</option>${minors.map(m => `<option value="${esc(m)}" ${tx.minor_category === m ? 'selected' : ''}>${esc(m)}</option>`).join('')}`
-              : '<option value="">— select major first —</option>'}
-          </select>
+          <select id="afMinor"><option value="">— select major first —</option></select>
         </div>
         <div class="field">
           <label for="afCounterparty">Counterparty</label>
-          <input type="text" id="afCounterparty" placeholder="Tesco, employer, …"
-            value="${isEdit ? esc(tx.counterparty || '') : ''}">
+          <input type="text" id="afCounterparty" placeholder="Tesco, employer, …">
         </div>
         <div class="field">
           <label for="afCountry">Country</label>
-          <input type="text" id="afCountry" placeholder="UK"
-            value="${isEdit ? esc(tx.country || '') : ''}">
+          <input type="text" id="afCountry" placeholder="UK">
         </div>
         <div class="field">
           <label for="afMethod">Payment method</label>
           <select id="afMethod">
             <option value="">— optional —</option>
-            ${['card','cash','bank','UPI','other'].map(m =>
-              `<option value="${m}" ${isEdit && tx.payment_method === m ? 'selected' : ''}>${m}</option>`
-            ).join('')}
+            ${['card','cash','bank','UPI','other'].map(m => `<option value="${m}">${m}</option>`).join('')}
           </select>
         </div>
-        <div class="field" id="afTransferIdWrap" ${showTransfer ? '' : 'style="display:none"'}>
+        <div class="field" id="afTransferIdWrap" style="display:none">
           <label for="afTransferId">Transfer ID</label>
-          <input type="text" id="afTransferId" placeholder="T-YYYY-MM-DD-1"
-            value="${isEdit ? esc(tx.transfer_id || '') : ''}">
+          <input type="text" id="afTransferId" placeholder="T-YYYY-MM-DD-1">
         </div>
-        <div class="field" id="afFxRateWrap" ${showFx ? '' : 'style="display:none"'}>
-          <label for="afFxRate">FX rate (units per 1 ${esc(state.quoteCurrency)})</label>
-          <input type="number" id="afFxRate" min="0" step="any" placeholder="optional override"
-            value="${isEdit && tx.fx_rate ? esc(String(tx.fx_rate)) : ''}">
+        <div class="field" id="afFxRateWrap" style="display:none">
+          <label for="afFxRate">FX rate (units per 1 GBP)</label>
+          <input type="number" id="afFxRate" min="0" step="any" placeholder="optional override">
         </div>
         <div class="field">
           <label for="afTags">Tags</label>
-          <input type="text" id="afTags" placeholder="reimbursable, work"
-            value="${isEdit ? esc((tx.tags || '').replace(/;/g, ', ')) : ''}">
+          <input type="text" id="afTags" placeholder="reimbursable, work">
         </div>
         <div class="field form-grid-full">
           <label for="afNotes">Notes</label>
-          <input type="text" id="afNotes" placeholder="free text"
-            value="${isEdit ? esc(tx.notes || '') : ''}">
+          <input type="text" id="afNotes" placeholder="free text">
         </div>
       </div>
       <div class="form-actions">
-        <button class="btn btn-primary" id="afSubmit">${isEdit ? 'Update' : 'Save'}</button>
-        <button class="btn btn-secondary" id="afReset">${isEdit ? 'Cancel edit' : 'Clear'}</button>
+        <button class="btn btn-primary" id="afSubmit">Save</button>
+        <button class="btn btn-secondary" id="afReset">Clear</button>
       </div>
       <div class="pin-error" id="afError"></div>
     </div>
@@ -353,15 +229,7 @@ function renderAddForm() {
 }
 
 function attachAddFormEvents() {
-  el('addFormToggle')?.addEventListener('click', () => {
-    if (editId) {
-      // Cancel edit mode
-      editId = null; editTx = null; addFormOpen = false;
-    } else {
-      addFormOpen = !addFormOpen;
-    }
-    renderTransactions();
-  });
+  el('addFormToggle')?.addEventListener('click', () => { addFormOpen = !addFormOpen; renderTransactions(); });
 
   el('afType')?.addEventListener('change', () => {
     const type   = el('afType').value;
@@ -379,30 +247,23 @@ function attachAddFormEvents() {
   });
 
   el('afCurrency')?.addEventListener('change', () => {
-    el('afFxRateWrap').style.display = el('afCurrency').value !== state.quoteCurrency ? '' : 'none';
+    el('afFxRateWrap').style.display = el('afCurrency').value !== 'GBP' ? '' : 'none';
   });
 
   el('afAccount')?.addEventListener('change', () => {
     const acc = state.accounts.find(a => a.name === el('afAccount').value);
     if (acc) el('afCurrency').value = acc.currency;
-    el('afFxRateWrap').style.display = el('afCurrency').value !== state.quoteCurrency ? '' : 'none';
+    el('afFxRateWrap').style.display = el('afCurrency').value !== 'GBP' ? '' : 'none';
   });
 
   el('afSubmit')?.addEventListener('click', saveTransaction);
-
   el('afReset')?.addEventListener('click', () => {
-    if (editId) {
-      // Cancel edit
-      editId = null; editTx = null; addFormOpen = false;
-      renderTransactions();
-    } else {
-      ['afDate','afAmount','afCounterparty','afCountry','afTags','afNotes','afFxRate','afTransferId']
-        .forEach(id => { if (el(id)) el(id).value = id === 'afDate' ? todayISO() : ''; });
-      el('afType').value    = 'money-in';
-      el('afMajor').innerHTML = '<option value="">— select type first —</option>';
-      el('afMinor').innerHTML = '<option value="">— select major first —</option>';
-      el('afError').textContent = '';
-    }
+    ['afDate','afAmount','afCounterparty','afCountry','afTags','afNotes','afFxRate','afTransferId']
+      .forEach(id => { if (el(id)) el(id).value = id === 'afDate' ? todayISO() : ''; });
+    el('afType').value    = 'money-in';
+    el('afMajor').innerHTML = '<option value="">— select type first —</option>';
+    el('afMinor').innerHTML = '<option value="">— select major first —</option>';
+    el('afError').textContent = '';
   });
 }
 
@@ -426,39 +287,32 @@ async function saveTransaction() {
   const tags             = el('afTags').value.trim();
   const notes            = el('afNotes').value.trim();
 
-  if (!date)                                { errEl.textContent = 'Date is required.';            return; }
-  if (!account)                             { errEl.textContent = 'Account is required.';         return; }
-  if (!amount || parseFloat(amount) <= 0)   { errEl.textContent = 'Enter a positive amount.';     return; }
-  if (!major_category)                      { errEl.textContent = 'Major category is required.';  return; }
-  if (!minor_category)                      { errEl.textContent = 'Minor category is required.';  return; }
+  if (!date)                                { errEl.textContent = 'Date is required.';             return; }
+  if (!account)                             { errEl.textContent = 'Account is required.';          return; }
+  if (!amount || parseFloat(amount) <= 0)   { errEl.textContent = 'Enter a positive amount.';      return; }
+  if (!major_category)                      { errEl.textContent = 'Major category is required.';   return; }
+  if (!minor_category)                      { errEl.textContent = 'Minor category is required.';   return; }
 
-  const isEdit = editId !== null;
-  btn.disabled = true; btn.textContent = isEdit ? 'Updating…' : 'Saving…';
+  btn.disabled = true; btn.textContent = 'Saving…';
   showLoading();
-
-  const payload = {
-    date, transaction_type, account, amount: parseFloat(amount), currency,
-    major_category, minor_category, counterparty, country, payment_method,
-    transfer_id, fx_rate: fx_rate ? parseFloat(fx_rate) : '',
-    tags, notes,
-  };
-
   try {
-    const res = isEdit
-      ? await ExpenseAPI.updateTransaction({ id: editId, ...payload })
-      : await ExpenseAPI.createTransaction(payload);
-
+    const res = await ExpenseAPI.createTransaction({
+      date, transaction_type, account, amount: parseFloat(amount), currency,
+      major_category, minor_category, counterparty, country, payment_method,
+      transfer_id, fx_rate: fx_rate ? parseFloat(fx_rate) : '',
+      tags, notes,
+    });
     if (res.ok) {
-      showMsg(isEdit ? 'Transaction updated.' : 'Transaction saved.');
-      editId = null; editTx = null; addFormOpen = false;
+      showMsg('Transaction saved.');
+      addFormOpen = false;
       document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
       errEl.textContent = 'Error: ' + (res.error || 'unknown');
-      btn.disabled = false; btn.textContent = isEdit ? 'Update' : 'Save';
+      btn.disabled = false; btn.textContent = 'Save';
     }
   } catch (_) {
     errEl.textContent = 'Connection error.';
-    btn.disabled = false; btn.textContent = isEdit ? 'Update' : 'Save';
+    btn.disabled = false; btn.textContent = 'Save';
   } finally {
     hideLoading();
   }

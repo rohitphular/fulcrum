@@ -1,7 +1,7 @@
 import { state, setQuoteCurrency } from './core/state.js';
 import { el } from './core/utils.js';
 import { showLoading, hideLoading, showMsg } from './core/ui.js';
-import { showPinGate, submitPin } from './core/auth.js';
+import { showPinGate, hidePinGate, submitPin, readSession, clearSession } from './core/auth.js';
 import { showSection } from './core/nav.js';
 import { DebtAPI } from './core/api.js';
 import { renderDashboard } from './sections/dashboard.js';
@@ -27,7 +27,7 @@ async function loadAll() {
 
     if (!debtsRes.ok) {
       if (debtsRes.error === 'auth' || debtsRes.error === 'locked') {
-        sessionStorage.removeItem('dt_pin');
+        clearSession();
         showPinGate();
         return;
       }
@@ -89,8 +89,8 @@ el('totpInput').addEventListener('keydown', e => { if (e.key === 'Enter') submit
 
 (function init() {
   if (window.__configMissing || !window.CONFIG?.SCRIPT_URL) {
+    hidePinGate();
     el('setupBanner').classList.remove('hidden');
-    el('pinOverlay').classList.add('hidden');
     return;
   }
 
@@ -107,9 +107,10 @@ el('totpInput').addEventListener('keydown', e => { if (e.key === 'Enter') submit
   const section = sessionStorage.getItem('dt_section') || 'dashboard';
   showSection(section);
 
-  const pin = sessionStorage.getItem('dt_pin');
-  if (pin) {
-    SheetsClient.init({ scriptUrl: window.CONFIG.SCRIPT_URL, pin });
+  const session = readSession();
+  if (session) {
+    SheetsClient.init({ scriptUrl: window.CONFIG.SCRIPT_URL, pin: session.pin });
+    hidePinGate();
     loadAll();
   } else {
     showPinGate();

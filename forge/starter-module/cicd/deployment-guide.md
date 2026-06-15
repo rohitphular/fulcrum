@@ -193,6 +193,30 @@ The deployment URL stays the same — `config.js` does not need to change.
 
 ## Operations reference
 
+### Session management
+
+After a successful PIN + TOTP login, the app stores a session in `sessionStorage` under the key `sm_session`:
+
+```json
+{ "pin": "your-pin", "expires_at": 1718143200000 }
+
+> Session key is `sm_session` — unique per app, prevents collision with other Forge apps on the same origin.
+```
+
+| Scenario | Behaviour |
+|---|---|
+| Refresh page (F5) | Session survives — no re-login required |
+| Close tab | `sessionStorage` is cleared — re-login required on next open |
+| Kill / restart browser | `sessionStorage` is cleared — re-login required |
+| Session older than 6 hours | TTL expired — re-login required on next action |
+| GAS returns `auth` / `locked` | Session cleared automatically — login screen shown |
+
+**To force immediate re-login** (e.g. after a PIN change): close the tab and reopen it, or open DevTools → Application → Session Storage → delete `sm_session`.
+
+**To change the TTL**: edit `SESSION_TTL` in `app/core/auth.js` (value in milliseconds).
+
+---
+
 ### Unlock a locked IP
 
 After 3 failed PIN attempts, the IP is locked.
@@ -235,9 +259,11 @@ The Google Sheet is the source of truth. Download as `.xlsx` or use Google Takeo
 forge/starter-module/
   app/
     index.html              App shell — open this in a browser
-    starter-module.js       All frontend logic
+    main.js                 Frontend entry point (ES module)
     starter-module.css      Module styles
     config.js               Your Script URL (create manually — see Step 5)
+    core/                   State, API, utils, UI, auth modules
+    sections/               Items table and form (items.js)
   backend/
     .clasp.json             Links this folder to the GAS project
     appsscript.json         GAS runtime manifest

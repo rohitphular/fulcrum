@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../../_shared/style-tokens.css">
-<link rel="stylesheet" href="starter-module.css">
+<link rel="stylesheet" href="style/starter-module.css">
 </head>
 <body>
 
@@ -33,7 +33,7 @@
   </div>
 </div>
 
-<div class="wrap">
+<div class="app-shell hidden" id="appShell">
 
   <!-- Setup banner (shown when config.js is missing) -->
   <div class="banner warn hidden" id="setupBanner">
@@ -116,6 +116,6 @@
 
 <script src="../../_shared/sheets-client.js"></script>
 <script src="config.js" onerror="window.__configMissing=true"></script>
-<script src="starter-module.js"></script>
+<script type="module" src="main.js"></script>
 </body>
 </html>

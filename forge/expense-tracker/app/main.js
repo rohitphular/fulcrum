@@ -6,7 +6,7 @@ import { showLoading, hideLoading, showMsg } from './core/ui.js';
 import { showSection } from './core/nav.js';
 import { renderDashboard } from './sections/dashboard.js';
 import { renderTransactions } from './sections/transactions.js';
-import { showPinGate, hidePinGate, fetchGeo, submitPin } from './core/auth.js';
+import { showPinGate, hidePinGate, fetchGeo, submitPin, readSession, clearSession } from './core/auth.js';
 
 // ── Quote currency ────────────────────────────────────────────────────────────
 
@@ -43,7 +43,7 @@ async function loadAll() {
 
     if (!txRes.ok) {
       if (txRes.error === 'auth' || txRes.error === 'locked') {
-        sessionStorage.removeItem('et_pin'); showPinGate(); return;
+        clearSession(); showPinGate(); return;
       }
       showMsg('Failed to load transactions: ' + (txRes.error || 'unknown'), 'warn');
     } else {
@@ -125,15 +125,17 @@ async function init() {
 
   // Config check
   if (window.__configMissing) {
+    hidePinGate();
     el('setupBanner').classList.remove('hidden');
     return;
   }
 
   // PIN gate
-  const savedPin = sessionStorage.getItem('et_pin');
-  if (savedPin) {
+  const session = readSession();
+  if (session) {
     const meta = await fetchGeo();
-    SheetsClient.init({ scriptUrl: window.CONFIG.SCRIPT_URL, pin: savedPin, meta });
+    SheetsClient.init({ scriptUrl: window.CONFIG.SCRIPT_URL, pin: session.pin, meta });
+    hidePinGate();
 
     const cached = sessionStorage.getItem('et_transactions_cache');
     if (cached) { try { state.transactions = JSON.parse(cached); } catch (_) {} }

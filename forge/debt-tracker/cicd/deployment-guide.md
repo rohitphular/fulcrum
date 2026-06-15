@@ -183,6 +183,28 @@ The deployment URL stays the same — `config.js` does not need to change.
 
 ## Operations reference
 
+### Session management
+
+After a successful PIN + TOTP login, the app stores a session in `sessionStorage` under the key `dt_session`:
+
+```json
+{ "pin": "your-pin", "expires_at": 1718143200000 }
+```
+
+| Scenario | Behaviour |
+|---|---|
+| Refresh page (F5) | Session survives — no re-login required |
+| Close tab | `sessionStorage` is cleared — re-login required on next open |
+| Kill / restart browser | `sessionStorage` is cleared — re-login required |
+| Session older than 6 hours | TTL expired — re-login required on next action |
+| GAS returns `auth` / `locked` | Session cleared automatically — login screen shown |
+
+**To force immediate re-login** (e.g. after a PIN change): close the tab and reopen it, or open DevTools → Application → Session Storage → delete `dt_session`.
+
+**To change the TTL**: edit `SESSION_TTL` in `app/core/auth.js` (value in milliseconds).
+
+---
+
 ### Unlock a locked IP
 
 After 3 consecutive failed PIN attempts, an IP is permanently locked.
