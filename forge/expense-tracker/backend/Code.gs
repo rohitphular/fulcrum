@@ -34,7 +34,7 @@ const TRANSACTION_COLUMNS = [
 // 8=counterparty  9=notes  10=tags  11=transfer_id
 // 12=fx_rate  13=country  14=payment_method
 
-const CATEGORY_COLUMNS = ['transaction_type', 'major_category', 'minor_category'];
+const CATEGORY_COLUMNS = ['transaction_type', 'major_category', 'minor_category', 'tag_keywords'];
 const ACCOUNT_COLUMNS  = ['name', 'currency', 'type', 'notes'];
 const RATES_COLUMNS    = ['currency', 'rate', 'symbol', 'updated_at'];
 
@@ -212,6 +212,9 @@ function doPost(e) {
 
   if (body.action === 'create_transaction') return json(createTransaction(body));
   if (body.action === 'upsert_rate')        return json(upsertRate(body));
+  if (body.action === 'create_category')    return json(createCategory(body));
+  if (body.action === 'update_category')    return json(updateCategory(body));
+  if (body.action === 'delete_category')    return json(deleteCategory(body));
 
   return json({ ok: false, error: 'unknown_action' });
 }
@@ -285,12 +288,12 @@ function normaliseTags(tags) {
 
 function listCategories() {
   const sheet = getOrCreateSheet(CATEGORIES_SHEET, CATEGORY_COLUMNS);
-  const rows  = sheetToObjects(sheet);
-  if (rows.length === 0) {
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) {
     seedCategories();
-    return sheetToObjects(sheet);
+    return sheetToObjectsWithRow(sheet);
   }
-  return rows;
+  return sheetToObjectsWithRow(sheet);
 }
 
 function seedCategories() {
@@ -298,6 +301,58 @@ function seedCategories() {
   const existing = sheet.getDataRange().getValues();
   if (existing.length > 1) return; // already seeded
   CATEGORY_SEED.forEach(row => sheet.appendRow(row));
+}
+
+function createCategory(body) {
+  if (!body.transaction_type || !VALID_TYPES.includes(body.transaction_type))
+    return { ok: false, error: 'invalid_transaction_type' };
+  if (!String(body.major_category || '').trim()) return { ok: false, error: 'missing_major_category' };
+  if (!String(body.minor_category || '').trim()) return { ok: false, error: 'missing_minor_category' };
+
+  const sheet = getOrCreateSheet(CATEGORIES_SHEET, CATEGORY_COLUMNS);
+  sheet.appendRow([
+    body.transaction_type,
+    String(body.major_category).trim(),
+    String(body.minor_category).trim(),
+    normaliseKeywords(body.tag_keywords || ''),
+  ]);
+  return { ok: true };
+}
+
+function updateCategory(body) {
+  if (!body.row_num) return { ok: false, error: 'missing_row_num' };
+  if (!body.transaction_type || !VALID_TYPES.includes(body.transaction_type))
+    return { ok: false, error: 'invalid_transaction_type' };
+  if (!String(body.major_category || '').trim()) return { ok: false, error: 'missing_major_category' };
+  if (!String(body.minor_category || '').trim()) return { ok: false, error: 'missing_minor_category' };
+
+  const sheet   = getOrCreateSheet(CATEGORIES_SHEET, CATEGORY_COLUMNS);
+  const rowNum  = Number(body.row_num);
+  const lastRow = sheet.getLastRow();
+  if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
+
+  sheet.getRange(rowNum, 1, 1, 4).setValues([[
+    body.transaction_type,
+    String(body.major_category).trim(),
+    String(body.minor_category).trim(),
+    normaliseKeywords(body.tag_keywords || ''),
+  ]]);
+  return { ok: true };
+}
+
+function deleteCategory(body) {
+  if (!body.row_num) return { ok: false, error: 'missing_row_num' };
+  const sheet   = getOrCreateSheet(CATEGORIES_SHEET, CATEGORY_COLUMNS);
+  const rowNum  = Number(body.row_num);
+  const lastRow = sheet.getLastRow();
+  if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
+  sheet.deleteRow(rowNum);
+  return { ok: true };
+}
+
+function normaliseKeywords(keywords) {
+  if (!keywords) return '';
+  return String(keywords).split(',').map(k => k.trim().toLowerCase()).filter(Boolean).join(', ');
 }
 
 // -----------------------------------------------------------------------------
@@ -530,7 +585,18 @@ function sheetToObjects(sheet) {
   const headers = values[0];
   return values.slice(1).map(row => {
     const obj = {};
-    headers.forEach((h, i) => { obj[h] = row[i]; });
+    headers.forEach((h, i) => { obj[h] = row[i] ?? ''; });
+    return obj;
+  });
+}
+
+function sheetToObjectsWithRow(sheet) {
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+  const headers = values[0];
+  return values.slice(1).map((row, i) => {
+    const obj = { _row: i + 2 }; // 1-based sheet row; +1 for header row
+    headers.forEach((h, j) => { obj[h] = row[j] ?? ''; });
     return obj;
   });
 }
