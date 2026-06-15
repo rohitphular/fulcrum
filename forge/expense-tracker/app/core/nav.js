@@ -1,10 +1,10 @@
 import { state } from './state.js';
 import { el } from './utils.js';
-import { renderDashboard } from './dashboard.js';
-import { renderTransactions } from './transactions.js';
-import { renderAccounts } from './accounts.js';
-import { renderCategories } from './categories.js';
-import { renderRates } from './rates.js';
+import { renderDashboard } from '../sections/dashboard.js';
+import { renderTransactions } from '../sections/transactions.js';
+import { renderAccounts } from '../sections/accounts.js';
+import { renderCategories } from '../sections/categories.js';
+import { renderRates } from '../sections/rates.js';
 
 const SECTIONS = ['dashboard', 'transactions', 'accounts', 'categories', 'rates'];
 

@@ -1,12 +1,12 @@
 /* global SheetsClient */
-import { state } from './state.js';
-import { ExpenseAPI } from './api.js';
-import { el, esc } from './utils.js';
-import { showLoading, hideLoading, showMsg } from './ui.js';
-import { showSection } from './nav.js';
-import { renderDashboard } from './dashboard.js';
-import { renderTransactions } from './transactions.js';
-import { showPinGate, hidePinGate, fetchGeo, submitPin } from './auth.js';
+import { state } from './core/state.js';
+import { ExpenseAPI } from './core/api.js';
+import { el, esc } from './core/utils.js';
+import { showLoading, hideLoading, showMsg } from './core/ui.js';
+import { showSection } from './core/nav.js';
+import { renderDashboard } from './sections/dashboard.js';
+import { renderTransactions } from './sections/transactions.js';
+import { showPinGate, hidePinGate, fetchGeo, submitPin } from './core/auth.js';
 
 // ── Quote currency ────────────────────────────────────────────────────────────
 

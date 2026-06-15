@@ -302,6 +302,9 @@ h2 { font-size: 18px; font-weight: 700; margin: 0; }
 .btn-link:hover { text-decoration: underline; }
 .btn-link.danger { color: var(--ember); }
 
+.row-actions { display: flex; gap: 12px; align-items: center; white-space: nowrap; }
+.confirm-text { font-size: 12.5px; color: var(--muted); }
+
 /* ── collapsible panels (add form + filter bar) ── */
 .add-form-wrap,
 .filter-bar {

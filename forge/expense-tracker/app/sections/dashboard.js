@@ -1,7 +1,7 @@
 /* global Chart */
-import { state } from './state.js';
-import { el, getSymbol, toBase } from './utils.js';
-import { getRangeBounds, filteredTx } from './daterange.js';
+import { state } from '../core/state.js';
+import { el, getSymbol, toBase } from '../core/utils.js';
+import { getRangeBounds, filteredTx } from '../core/daterange.js';
 
 export function destroyAllCharts() {
   Object.values(state.charts).forEach(c => { try { c.destroy(); } catch (_) {} });

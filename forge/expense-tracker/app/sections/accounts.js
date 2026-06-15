@@ -1,5 +1,5 @@
-import { state } from './state.js';
-import { el, esc } from './utils.js';
+import { state } from '../core/state.js';
+import { el, esc } from '../core/utils.js';
 
 export function renderAccounts() {
   const el2 = el('accountsContent');

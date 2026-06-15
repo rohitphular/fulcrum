@@ -1,7 +1,7 @@
-import { state } from './state.js';
-import { el, esc } from './utils.js';
-import { showLoading, hideLoading, showMsg } from './ui.js';
-import { ExpenseAPI } from './api.js';
+import { state } from '../core/state.js';
+import { el, esc } from '../core/utils.js';
+import { showLoading, hideLoading, showMsg } from '../core/ui.js';
+import { ExpenseAPI } from '../core/api.js';
 
 export function renderCategories() {
   const el2 = el('categoriesContent');
@@ -124,8 +124,8 @@ function renderCatEditRow(cat) {
     <td><input class="rate-edit-input" id="catEditMinor-${r}" value="${esc(cat.minor_category)}" placeholder="Minor"></td>
     <td><input class="rate-edit-input" style="width:100%;min-width:160px" id="catEditKeywords-${r}" value="${esc(String(cat.tag_keywords || ''))}" placeholder="tesco, sainsbury, …"></td>
     <td><div class="row-actions">
-      <button class="btn btn-primary btn-sm" data-action="cat-save-edit" data-row="${r}">Save</button>
-      <button class="btn btn-secondary btn-sm" data-action="cat-cancel-edit">Cancel</button>
+      <button class="btn-link" data-action="cat-save-edit" data-row="${r}">Save</button>
+      <button class="btn-link" data-action="cat-cancel-edit">Cancel</button>
     </div></td>
   </tr>`;
 }
