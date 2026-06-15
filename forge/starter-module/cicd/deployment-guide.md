@@ -6,9 +6,12 @@ This guide covers first-time setup and ongoing maintenance. Use this as the refe
 
 ## Prerequisites
 
-- A Google account
-- The `forge/_shared/` folder present in this repo (required by `app/index.html`)
-- An authenticator app (Google Authenticator, Authy, or similar) on your phone
+| What | Why |
+|---|---|
+| Google account | Hosts the spreadsheet and Apps Script |
+| TOTP authenticator app | Google Authenticator, Authy, or any RFC 6238-compatible app |
+| `clasp` CLI | Required for script-based deployments — `npm install -g @google/clasp` |
+| `clasp login` done | One-time OAuth — run `clasp login` and authenticate |
 
 ---
 
@@ -26,7 +29,7 @@ This guide covers first-time setup and ongoing maintenance. Use this as the refe
 
 1. In your spreadsheet, go to **Extensions → Apps Script**.
 2. Delete the default `myFunction` code in `Code.gs`.
-3. Copy the entire contents of `backend/Code.gs` from this repo and paste it in.
+3. Copy the entire contents of `backend/Code.js` from this repo and paste it in.
 4. Click **Save** (the floppy disk icon or Ctrl+S).
 
 **Update the Apps Script manifest (`appsscript.json`):**
@@ -50,36 +53,33 @@ This guide covers first-time setup and ongoing maintenance. Use this as the refe
 
 9. Click **Save**.
 
-> Without the `"webapp"` block in the manifest, the deployment step will not offer the Web App option and the app will fail to connect. Adjust `timeZone` to your local zone if needed (e.g. `"Asia/Kolkata"`).
+> Without the `"webapp"` block, the deployment step will not offer the Web App option. Adjust `timeZone` if needed (e.g. `"Asia/Kolkata"`).
 
 ---
 
 ### Step 3 — Set your PIN and TOTP secret
 
-1. In Apps Script, go to **Project Settings** (gear icon on the left sidebar).
-2. Scroll to **Script Properties** → click **Add script property**.
-3. Add two properties:
+1. In Apps Script, go to **Project Settings** → **Script Properties** → **Add script property**.
+2. Add two properties:
 
 | Property name | Value |
 |---|---|
 | `PIN_SECRET` | Your chosen PIN (numbers recommended, e.g. `482917`) |
 | `TOTP_SECRET` | A Base32 secret key — see below |
 
-4. Click **Save script properties**.
+3. Click **Save script properties**.
 
 **Generating a TOTP secret:**
-- Go to [https://it-tools.tech/otp-generator](https://it-tools.tech/otp-generator) or any TOTP generator.
+
+- Run locally: `python3 -c "import base64, os; print(base64.b32encode(os.urandom(20)).decode())"`
+- Or use [https://it-tools.tech/otp-generator](https://it-tools.tech/otp-generator)
 - Copy the Base32 secret (e.g. `JBSWY3DPEHPK3PXP`) — uppercase letters and digits 2–7.
-- Paste it as the `TOTP_SECRET` value.
 
 **Adding to your authenticator app:**
 1. Open your authenticator app → tap **+** → **Enter a setup key**.
 2. Account name: `Fulcrum Starter` (or anything you like).
 3. Key: paste your `TOTP_SECRET` value.
-4. Type: **Time based**.
-5. Tap **Add**.
-
-You will see a 6-digit code that refreshes every 30 seconds. Enter it alongside your PIN when signing in.
+4. Type: **Time based** → Tap **Add**.
 
 Both secrets are stored inside Google's infrastructure. Do not put them in `config.js` or any committed file.
 
@@ -93,9 +93,8 @@ Both secrets are stored inside Google's infrastructure. Do not put them in `conf
    - **Description:** `starter-module v1` (or anything)
    - **Execute as:** `Me`
    - **Who has access:** `Anyone`
-4. Click **Deploy** — authorise when prompted (grants the script access to your spreadsheet).
-5. Copy the **Web app URL** — it looks like:
-   `https://script.google.com/macros/s/AKfycb.../exec`
+4. Click **Deploy** — authorise when prompted.
+5. Copy the **Web app URL**: `https://script.google.com/macros/s/AKfycb.../exec`
 
 The URL must end in `/exec` (not `/dev`).
 
@@ -103,7 +102,7 @@ The URL must end in `/exec` (not `/dev`).
 
 ### Step 5 — Configure the app
 
-1. Create `app/config.js` with the following content:
+1. Create `app/config.js`:
 
 ```js
 window.CONFIG = {
@@ -112,25 +111,20 @@ window.CONFIG = {
 ```
 
 2. Replace `YOUR_DEPLOYMENT_ID` with the Web App URL you copied above.
-3. `config.js` is committed to the repo. The Apps Script URL alone gives no access — the PIN + TOTP gate protects your data.
+3. `config.js` is committed to the repo. The URL alone gives no access — the PIN + TOTP gate protects your data.
 
 ---
 
 ### Step 6 — Open the app
 
-**Locally:**
-Open `app/index.html` directly in a browser (`file://` path works fine).
+**Locally:** Open `app/index.html` directly in a browser (`file://` path works fine).
 
 **Via GitHub Pages:**
 ```
 https://<your-github-username>.github.io/<repo-name>/forge/starter-module/app/
 ```
 
-On first load:
-- If `config.js` is missing, a setup banner appears.
-- If `config.js` is present, the PIN + TOTP sign-in screen appears.
-- Enter your PIN and the 6-digit code from your authenticator app.
-- The PIN is stored in `sessionStorage` — it clears when you close the browser tab.
+On first load: enter your PIN and the 6-digit code from your authenticator app. The PIN is stored in `sessionStorage` — it clears when you close the tab.
 
 ---
 
@@ -143,18 +137,57 @@ On first load:
 
 ---
 
-## Subsequent backend deployments
+## Ongoing deployments
 
-Apps Script deployments are immutable snapshots. After editing `Code.gs`:
+### Script-based (recommended)
 
-1. Go to **Deploy → Manage deployments**.
-2. Click the **pencil (Edit)** icon on your deployment.
-3. Change the version to **New version**.
-4. Click **Deploy**.
+The deployment script handles git and clasp in one step.
 
-The URL stays the same — no change needed in `config.js`.
+**From the app directory:**
+```bash
+bash cicd/app-deployment.sh "starter-module: your change description"
+```
 
-Frontend changes (HTML / CSS / JS) take effect immediately on refresh — no deployment needed.
+**Or from the forge root (interactive menu):**
+```bash
+bash forge/deploy.sh
+# Select "starter-module", enter a commit message when prompted
+```
+
+Both do the same thing: `git add` → `git commit` → `git push` → `clasp push --force` → `clasp deploy`.
+
+> **Prerequisite:** `clasp` must be installed and `clasp login` must have been run at least once on this machine. See `backend/development-guide.md`.
+
+---
+
+### Manual — frontend only
+
+HTML / CSS / JS changes take effect immediately on refresh. No deployment needed.
+
+---
+
+### Manual — backend only (no git commit)
+
+When you want to push a GAS change without making a git commit:
+
+```bash
+cd backend/
+clasp push --force
+clasp deploy \
+  --deploymentId "AKfycbykwDFrvKj5vnScj16Y1cb9FA5TkS5I0yss1RrX6ps8N04seU1Tlhi5s_V8ZuNzgvlK" \
+  --description "your description"
+```
+
+The deployment URL stays the same — `config.js` does not need to change.
+
+---
+
+### Manual — via GAS editor
+
+1. Make your changes in the Apps Script editor.
+2. **Deploy → Manage deployments**.
+3. Click the **pencil (Edit)** icon on your deployment.
+4. Change the version to **New version** → click **Deploy**.
 
 ---
 
@@ -162,18 +195,18 @@ Frontend changes (HTML / CSS / JS) take effect immediately on refresh — no dep
 
 ### Unlock a locked IP
 
-After 3 failed PIN attempts, the IP is locked. To unlock:
+After 3 failed PIN attempts, the IP is locked.
+
 1. Open your spreadsheet → `audit_access` tab.
 2. Find the row for that IP.
-3. Set the `is_locked` column to `FALSE`.
+3. Set `is_locked` to `FALSE`.
 
 To reset all counts for that IP, delete the row entirely.
 
 ### Change your PIN
 
-1. Open Apps Script → **Project Settings → Script Properties**.
-2. Update `PIN_SECRET`.
-3. Close and reopen the browser tab (clears `sessionStorage`).
+1. Apps Script → **Project Settings → Script Properties** → update `PIN_SECRET`.
+2. Close and reopen the browser tab (clears `sessionStorage`).
 
 ### Change your TOTP secret
 
@@ -183,7 +216,7 @@ To reset all counts for that IP, delete the row entirely.
 
 ### Hosting on GitHub Pages
 
-The `_shared/` folder starts with an underscore. Jekyll (GitHub Pages default processor) skips underscore directories. A `.nojekyll` file at the repo root disables Jekyll so `_shared/` is served correctly — do not remove it.
+The `_shared/` folder starts with an underscore. Jekyll (GitHub Pages default) skips underscore directories. A `.nojekyll` file at the repo root disables Jekyll so `_shared/` is served correctly — do not remove it.
 
 To enable GitHub Pages:
 1. Make the repo public (free tier requirement).
@@ -192,7 +225,7 @@ To enable GitHub Pages:
 
 ### Backup
 
-The Google Sheet is the source of truth. Download it as `.xlsx` or use Google Takeout for a full backup.
+The Google Sheet is the source of truth. Download as `.xlsx` or use Google Takeout for a full backup.
 
 ---
 
@@ -206,8 +239,14 @@ forge/starter-module/
     starter-module.css      Module styles
     config.js               Your Script URL (create manually — see Step 5)
   backend/
-    Code.gs                 Apps Script backend — paste into the Apps Script editor
-    appsscript.json         Runtime settings — paste into the editor's appsscript.json
-  deployment-guide.md       This file
+    .clasp.json             Links this folder to the GAS project
+    appsscript.json         GAS runtime manifest
+    Code.js                 Apps Script backend source
+    development-guide.md    Clasp workflow reference for backend iteration
+  cicd/
+    app-deployment.sh       One-shot deploy: git + clasp push + clasp deploy
+    deployment-guide.md     This file
+  DESIGN.md                 Forge design system guide — UI patterns and conventions
   README.md                 Developer reference (UI patterns, schema, template guide)
+  dev-tasks/                Local scratch space — not committed
 ```
