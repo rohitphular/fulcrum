@@ -69,7 +69,6 @@ The following IDs **must** exist in `index.html` exactly as listed. The shared m
 | `totpInput` | `_shared/auth.js` | TOTP 6-digit input |
 | `pinSubmit` | `_shared/auth.js` | Unlock button |
 | `pinError` | `_shared/auth.js` | Error message element |
-| `loadingBar` | `_shared/ui.js` | Fixed top loading bar |
 | `msgBanner` | `_shared/ui.js` | Status message banner |
 | `msgText` | `_shared/ui.js` | Banner message text |
 | `msgIco` | `_shared/ui.js` | Banner icon (`›` / `!`) |
@@ -271,10 +270,12 @@ Currency functions are pure — caller passes `state.rateMap`, `state.quoteCurre
 ### `_shared/ui.js`
 
 ```js
-showLoading()             // show fixed top loading bar
-hideLoading()             // hide loading bar — always call in finally {}
+showLoading()             // show full-screen overlay with spinner (injected into body on first call)
+hideLoading()             // hide overlay — always call in finally {}
 showMsg(text, type?)      // show banner; type = 'success' (default) | 'warn'; auto-hides after 4.5s
 ```
+
+The overlay (`#loadingOverlay`) is created dynamically — it does NOT need a `<div>` in `index.html`. Its CSS lives in `_shared/style-tokens.css`.
 
 ---
 

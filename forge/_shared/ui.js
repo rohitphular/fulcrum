@@ -1,5 +1,18 @@
-export function showLoading() { document.getElementById('loadingBar').classList.remove('hidden'); }
-export function hideLoading() { document.getElementById('loadingBar').classList.add('hidden');    }
+let _overlay = null;
+
+function _getOverlay() {
+  if (!_overlay) {
+    _overlay = document.createElement('div');
+    _overlay.id = 'loadingOverlay';
+    _overlay.className = 'hidden';
+    _overlay.innerHTML = '<div class="forge-spinner"></div>';
+    document.body.appendChild(_overlay);
+  }
+  return _overlay;
+}
+
+export function showLoading() { _getOverlay().classList.remove('hidden'); }
+export function hideLoading() { _getOverlay().classList.add('hidden');    }
 
 export function showMsg(text, type = 'success') {
   const b = document.getElementById('msgBanner');

@@ -37,3 +37,28 @@
   --hair-strong: #30363D;
   --row-hover:   rgba(255, 255, 255, .05);
 }
+
+/* Loading overlay — injected dynamically by _shared/ui.js */
+#loadingOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+#loadingOverlay.hidden { display: none; }
+
+.forge-spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: forge-spin 0.7s linear infinite;
+}
+
+@keyframes forge-spin {
+  to { transform: rotate(360deg); }
+}
