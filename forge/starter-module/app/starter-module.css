@@ -85,6 +85,9 @@ h2 { font-size: 17px; font-weight: 600; margin: 0; }
 .btn-secondary { background: transparent; color: var(--muted); border: 1px solid var(--hair-strong); }
 .btn-secondary:hover { background: var(--canvas); }
 .btn:disabled  { opacity: .4; cursor: not-allowed; }
+.btn-sm        { padding: 6px 12px; font-size: 12.5px; }
+.btn-danger    { background: var(--ember); color: #fff; }
+.btn-danger:hover { opacity: .82; }
 
 /* ── table ── */
 .table-scroll { overflow-x: auto; border: 1px solid var(--hair); border-radius: 14px; background: var(--panel); }
