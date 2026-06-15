@@ -11,6 +11,7 @@ MSG="${1:-starter-module: code pushed}"
 echo "→ Staging and committing changes…"
 cd "$APP_DIR"
 git add .
+git add ../_shared/
 if git diff --cached --quiet; then
   echo "  Nothing to commit — skipping git commit."
 else
