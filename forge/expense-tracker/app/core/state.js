@@ -34,4 +34,8 @@ export const state = {
   catAddOpen:   false,
   catEditRow:   null,
   catDeleteRow: null,
+
+  accAddOpen:   false,
+  accEditRow:   null,
+  accDeleteRow: null,
 };

@@ -215,6 +215,9 @@ function doPost(e) {
   if (body.action === 'create_category')    return json(createCategory(body));
   if (body.action === 'update_category')    return json(updateCategory(body));
   if (body.action === 'delete_category')    return json(deleteCategory(body));
+  if (body.action === 'create_account')     return json(createAccount(body));
+  if (body.action === 'update_account')     return json(updateAccount(body));
+  if (body.action === 'delete_account')     return json(deleteAccount(body));
 
   return json({ ok: false, error: 'unknown_action' });
 }
@@ -359,8 +362,53 @@ function normaliseKeywords(keywords) {
 // Accounts
 // -----------------------------------------------------------------------------
 
+const VALID_ACCOUNT_TYPES = ['bank', 'savings', 'credit', 'cash', 'investment', 'other'];
+
 function listAccounts() {
-  return sheetToObjects(getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS));
+  return sheetToObjectsWithRow(getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS));
+}
+
+function createAccount(body) {
+  if (!String(body.name || '').trim())     return { ok: false, error: 'missing_name' };
+  if (!String(body.currency || '').trim()) return { ok: false, error: 'missing_currency' };
+
+  const sheet = getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS);
+  sheet.appendRow([
+    String(body.name).trim(),
+    String(body.currency).trim().toUpperCase(),
+    VALID_ACCOUNT_TYPES.includes(body.type) ? body.type : 'other',
+    String(body.notes || '').trim(),
+  ]);
+  return { ok: true };
+}
+
+function updateAccount(body) {
+  if (!body.row_num)                       return { ok: false, error: 'missing_row_num' };
+  if (!String(body.name || '').trim())     return { ok: false, error: 'missing_name' };
+  if (!String(body.currency || '').trim()) return { ok: false, error: 'missing_currency' };
+
+  const sheet   = getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS);
+  const rowNum  = Number(body.row_num);
+  const lastRow = sheet.getLastRow();
+  if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
+
+  sheet.getRange(rowNum, 1, 1, 4).setValues([[
+    String(body.name).trim(),
+    String(body.currency).trim().toUpperCase(),
+    VALID_ACCOUNT_TYPES.includes(body.type) ? body.type : 'other',
+    String(body.notes || '').trim(),
+  ]]);
+  return { ok: true };
+}
+
+function deleteAccount(body) {
+  if (!body.row_num) return { ok: false, error: 'missing_row_num' };
+  const sheet   = getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS);
+  const rowNum  = Number(body.row_num);
+  const lastRow = sheet.getLastRow();
+  if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
+  sheet.deleteRow(rowNum);
+  return { ok: true };
 }
 
 // -----------------------------------------------------------------------------

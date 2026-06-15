@@ -10,4 +10,7 @@ export const ExpenseAPI = {
   createCategory:    f    => SheetsClient.post({ action: 'create_category', ...f }),
   updateCategory:    f    => SheetsClient.post({ action: 'update_category', ...f }),
   deleteCategory:    f    => SheetsClient.post({ action: 'delete_category', ...f }),
+  createAccount:     f    => SheetsClient.post({ action: 'create_account', ...f }),
+  updateAccount:     f    => SheetsClient.post({ action: 'update_account', ...f }),
+  deleteAccount:     f    => SheetsClient.post({ action: 'delete_account', ...f }),
 };
