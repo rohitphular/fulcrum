@@ -24,13 +24,13 @@ const DEBT_COLUMNS = [
   'id', 'name', 'type', 'subtype', 'currency',
   'balance', 'rate', 'min_payment', 'min_percent', 'min_floor',
   'precomputed', 'include_in_projector', 'status',
-  'created_at', 'updated_at'
+  'created_at', 'updated_at', 'start_date', 'original_balance'
 ];
 // DEBT_COLUMNS indices (col number = index + 1):
 // 0=id  1=name  2=type  3=subtype  4=currency
 // 5=balance  6=rate  7=min_payment  8=min_percent  9=min_floor
 // 10=precomputed  11=include_in_projector  12=status
-// 13=created_at  14=updated_at
+// 13=created_at  14=updated_at  15=start_date  16=original_balance
 
 const PAYMENT_COLUMNS = [
   'id', 'debt_id', 'debt_name', 'amount', 'currency', 'date', 'note', 'created_at'
@@ -154,7 +154,9 @@ function createDebt(body) {
     body.include_in_projector !== false && body.include_in_projector !== 'false', // include_in_projector
     body.status || 'active',                                          // status
     now,                                                              // created_at
-    now                                                               // updated_at
+    now,                                                              // updated_at
+    body.start_date || '',                                            // start_date
+    Number(body.original_balance) || Number(body.balance) || 0        // original_balance
   ]);
   return { ok: true };
 }
@@ -184,6 +186,8 @@ function updateDebt(body) {
     sheet.getRange(r, 12).setValue(body.include_in_projector !== false && body.include_in_projector !== 'false');
     sheet.getRange(r, 13).setValue(body.status || 'active');
     sheet.getRange(r, 15).setValue(now);
+    sheet.getRange(r, 16).setValue(body.start_date || '');
+    // col 17 (original_balance) is never updated — set once on create
     return { ok: true };
   }
   return { ok: false, error: 'not_found' };
@@ -448,7 +452,15 @@ function getOrCreateSheet(name, columns) {
     sheet = ss.insertSheet(name);
     sheet.appendRow(columns);
     sheet.setFrozenRows(1);
+    return sheet;
   }
+  // Migrate: append any expected header columns that are missing from existing sheets
+  const lastCol = sheet.getLastColumn();
+  const headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+  let added = 0;
+  columns.forEach(col => {
+    if (!headers.includes(col)) sheet.getRange(1, lastCol + ++added).setValue(col);
+  });
   return sheet;
 }
 

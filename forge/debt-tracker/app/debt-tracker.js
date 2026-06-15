@@ -10,6 +10,7 @@ const state = {
   rates:         [],
   rateMap:       {},   // { GBP: 1, INR: 105, ... }  units of currency per 1 GBP
   quoteCurrency: 'GBP',
+  chart:         null, // Chart.js instance — destroyed before each dashboard re-render
 };
 
 // ── DebtAPI — wraps SheetsClient with debt-tracker-specific actions ───────────
@@ -55,6 +56,180 @@ function toQuote(amount, fromCurrency) {
   return ((parseFloat(amount) || 0) / from) * to;
 }
 
+// ── Date helpers ──────────────────────────────────────────────────────────────
+// Parse YYYY-MM-DD (or ISO strings) as local dates without timezone shift
+function parseLocalDate(s) {
+  if (!s) return new Date(NaN);
+  const parts = String(s).slice(0, 10).split('-').map(Number);
+  return parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(NaN);
+}
+
+// Extract a YYYY-MM-DD string safe for <input type="date"> value attributes
+function toDateInputVal(v) {
+  if (!v) return '';
+  const s = String(v).trim();
+  return s.length >= 10 ? s.slice(0, 10) : '';
+}
+
+// ── Balance-over-time series ──────────────────────────────────────────────────
+// Backwards-reconstructs monthly total debt by starting from the current balance
+// and adding back any payments that occurred AFTER each month-end.
+// Capped at original_balance when available (prevents interest overshoot).
+function buildMonthlyBalanceSeries() {
+  const trackedDebts = state.debts.filter(d =>
+    state.rateMap[d.currency] && state.rateMap[state.quoteCurrency]
+  );
+  if (!trackedDebts.length) return [];
+
+  const today = new Date();
+  let earliestMs = today.getTime();
+
+  trackedDebts.forEach(d => {
+    const sd = d.start_date ? parseLocalDate(d.start_date)
+             : d.created_at ? new Date(d.created_at) : null;
+    if (sd && !isNaN(sd) && sd.getTime() < earliestMs) earliestMs = sd.getTime();
+  });
+  state.payments.forEach(p => {
+    const pd = parseLocalDate(p.date);
+    if (!isNaN(pd) && pd.getTime() < earliestMs) earliestMs = pd.getTime();
+  });
+
+  // Build list of months from earliest to today (cap at 36 for readability)
+  const earliest = new Date(earliestMs);
+  const months   = [];
+  const c = new Date(earliest.getFullYear(), earliest.getMonth(), 1);
+  while (c.getTime() <= today.getTime()) {
+    months.push(new Date(c));
+    c.setMonth(c.getMonth() + 1);
+  }
+  if (months.length < 2) return [];
+  const displayMonths = months.length > 36 ? months.slice(-36) : months;
+
+  // Index payments by debt_id
+  const paysByDebt = {};
+  state.payments.forEach(p => {
+    if (!paysByDebt[p.debt_id]) paysByDebt[p.debt_id] = [];
+    paysByDebt[p.debt_id].push({ date: p.date, amount: parseFloat(p.amount) || 0 });
+  });
+
+  const todayMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  return displayMonths.map(monthStart => {
+    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0, 23, 59, 59);
+    const label    = monthStart.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+    const isCurrent = monthStart >= todayMonthStart;
+
+    let total = 0;
+    trackedDebts.forEach(d => {
+      const debtStart = d.start_date ? parseLocalDate(d.start_date)
+                      : d.created_at ? new Date(d.created_at) : null;
+      if (debtStart && !isNaN(debtStart) && debtStart > monthEnd) return;
+
+      const currentBal = parseFloat(d.balance) || 0;
+      if (isCurrent) { total += toQuote(currentBal, d.currency); return; }
+
+      // Add back payments that hadn't happened yet at this month-end
+      let bal = currentBal;
+      (paysByDebt[d.id] || []).forEach(p => {
+        if (parseLocalDate(p.date) > monthEnd) bal += p.amount;
+      });
+
+      // Cap at original_balance so interest accrual doesn't overshoot the start
+      const origBal = parseFloat(d.original_balance);
+      if (origBal > 0 && bal > origBal) bal = origBal;
+
+      total += toQuote(Math.max(0, bal), d.currency);
+    });
+
+    return { label, value: Math.max(0, total) };
+  });
+}
+
+// ── Chart renderer ────────────────────────────────────────────────────────────
+function renderDebtChart(series) {
+  const wrap = el('debtChartWrap');
+  if (!wrap) return;
+
+  if (typeof Chart === 'undefined') {
+    wrap.innerHTML = `<p class="chart-empty">Chart.js failed to load — check your internet connection.</p>`;
+    return;
+  }
+
+  if (!series.length) {
+    wrap.innerHTML = `<p class="chart-empty">Log payments in the Payments tab to see your debt reduction over time.</p>`;
+    return;
+  }
+
+  wrap.innerHTML = '<div class="chart-container"><canvas id="debtChart"></canvas></div>';
+  const ctx = el('debtChart').getContext('2d');
+
+  const isDark   = document.documentElement.getAttribute('data-theme') === 'dark';
+  const lineCol  = isDark ? '#26C0B0' : '#0F9D8C';
+  const fillCol  = isDark ? 'rgba(38,192,176,0.10)' : 'rgba(15,157,140,0.12)';
+  const gridCol  = isDark ? '#21262D' : '#DCE2EA';
+  const tickCol  = isDark ? '#8B96A8' : '#6B7787';
+  const tooltipBg = isDark ? '#161B22' : '#ffffff';
+  const tooltipFg = isDark ? '#E2E8F0' : '#16202C';
+  const sym      = CURRENCY_SYMBOLS[state.quoteCurrency] || (state.quoteCurrency + ' ');
+  const mono     = "'IBM Plex Mono', monospace";
+
+  state.chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: series.map(d => d.label),
+      datasets: [{
+        data: series.map(d => d.value),
+        borderColor: lineCol,
+        backgroundColor: fillCol,
+        fill: true,
+        tension: 0.35,
+        pointRadius: series.length > 20 ? 0 : 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: lineCol,
+        borderWidth: 2,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: tooltipBg,
+          borderColor: gridCol,
+          borderWidth: 1,
+          titleColor: tickCol,
+          bodyColor: tooltipFg,
+          titleFont: { family: mono, size: 10 },
+          bodyFont:  { family: mono, size: 12 },
+          callbacks: {
+            title: items => items[0].label,
+            label: ctx  => ' ' + sym + ctx.parsed.y.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: tickCol, font: { family: mono, size: 9 }, maxRotation: 45, maxTicksLimit: 12 },
+          grid:  { color: gridCol },
+          border: { display: false },
+        },
+        y: {
+          ticks: {
+            color: tickCol,
+            font: { family: mono, size: 9 },
+            maxTicksLimit: 5,
+            callback: v => sym + (v >= 1000 ? Math.round(v / 1000) + 'k' : Math.round(v)),
+          },
+          grid:   { color: gridCol },
+          border: { display: false },
+        },
+      },
+    },
+  });
+}
+
 // ── Loading indicator ─────────────────────────────────────────────────────────
 function showLoading() { el('loadingBar').classList.remove('hidden'); }
 function hideLoading() { el('loadingBar').classList.add('hidden'); }
@@ -65,6 +240,8 @@ function setTheme(theme) {
   localStorage.setItem('dt_theme', theme);
   const btn = el('themeToggle');
   if (btn) btn.textContent = theme === 'dark' ? '☀' : '☽';
+  // Re-render dashboard so the chart adopts the new theme's colours
+  if (state.debts.length || state.payments.length) renderDashboard();
 }
 
 // ── Message banner ────────────────────────────────────────────────────────────
@@ -267,6 +444,9 @@ function dashTypeSummaryHTML(active) {
 }
 
 function renderDashboard() {
+  // Always destroy the old chart before replacing DOM
+  if (state.chart) { state.chart.destroy(); state.chart = null; }
+
   const active  = state.debts.filter(d => d.status === 'active');
   const paidOff = state.debts.filter(d => d.status === 'paid_off');
 
@@ -309,9 +489,18 @@ function renderDashboard() {
       </div>
     </div>`;
 
+  const series = buildMonthlyBalanceSeries();
+  const chartSection = `
+    <div class="sec-head" style="margin-top:4px;">
+      <div class="sec-head-left"><h2>Balance over time</h2></div>
+      <span style="font-size:12.5px;color:var(--muted);">${esc(state.quoteCurrency)}&thinsp;&middot;&thinsp;all debts</span>
+    </div>
+    <div class="chart-wrap" id="debtChartWrap"></div>`;
+
   if (!active.length) {
-    el('dashboardContent').innerHTML = summaryCards +
+    el('dashboardContent').innerHTML = summaryCards + chartSection +
       `<p class="placeholder" style="margin-top:20px;">No active debts &mdash; add some in the Debts tab to see your breakdown.</p>`;
+    renderDebtChart(series);
     return;
   }
 
@@ -324,6 +513,7 @@ function renderDashboard() {
 
   el('dashboardContent').innerHTML = `
     ${summaryCards}
+    ${chartSection}
 
     <div class="sec-head" style="margin-top:28px;">
       <div class="sec-head-left"><h2>Breakdown</h2></div>
@@ -343,6 +533,8 @@ function renderDashboard() {
       </table>
     </div>
   `;
+
+  renderDebtChart(series);
 }
 // ── DEBTS MODULE ──────────────────────────────────────────────────────────────
 
@@ -506,6 +698,11 @@ function debtFormHTML() {
         </select>
       </div>` : '<input type="hidden" id="dStatus" value="active">'}
 
+      <div class="field">
+        <label for="dStartDate">Start date</label>
+        <input type="date" id="dStartDate" value="${esc(toDateInputVal(debt?.start_date))}">
+      </div>
+
     </div>
 
     <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:16px;">
@@ -631,6 +828,9 @@ async function saveDebt() {
     min_floor:            type === 'card'               ? (parseFloat(el('dMinFloor').value)          || 0) : 0,
     include_in_projector: el('dInclude').checked,
     status:               el('dStatus').value,
+    start_date:           el('dStartDate').value || '',
+    // original_balance is set once on create — backend ignores it on update
+    ...(debtsUI.editId ? {} : { original_balance: parseFloat(balance) }),
   };
 
   el('dSaveBtn').disabled = true;

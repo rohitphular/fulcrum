@@ -164,6 +164,47 @@ To reset everything for an IP, delete the row entirely.
 
 ---
 
+## UI patterns — included in the template
+
+These patterns ship ready-to-use in `index.html`. Do not remove them when building a new module — they are part of the standard forge UX contract.
+
+### Dark mode
+
+- A `☽` / `☀` theme button sits in the module header (top-right).
+- Theme preference is persisted to `localStorage` under the key `forge_theme`.
+- On init, the saved preference is restored; if none exists, the OS `prefers-color-scheme` value is used.
+- The `<html>` element carries `data-theme="light"` or `data-theme="dark"`. All colours come from CSS custom properties defined in `style-tokens.css` — no hardcoded hex values in module CSS.
+- Component-specific dark overrides (badges, cards, table borders, pin-card shadow) use `[data-theme="dark"] .classname` selectors.
+
+### Loading bar
+
+- A fixed 3 px bar runs across the very top of the page while any async operation is in flight.
+- `showLoading()` removes the `.hidden` class; `hideLoading()` adds it back.
+- Always call `hideLoading()` inside a `finally` block so the bar clears even on error.
+
+```js
+async function loadItems() {
+  showLoading();
+  try { … }
+  catch (_) { … }
+  finally { hideLoading(); }
+}
+```
+
+### Button disable during async operations
+
+- The delete confirm button and the form submit button are disabled and relabelled while the request is in flight.
+- This prevents double-submission and gives immediate feedback without a separate spinner.
+
+```js
+const btn = document.querySelector('[data-action="confirm-delete"]');
+if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+```
+
+Re-enable the button in the `catch` block if the operation fails (the success path re-renders the table, which replaces the button entirely).
+
+---
+
 ## Using this as a template for a new module
 
 Copy this entire folder to `forge/<new-module-name>/`. Then:
@@ -174,13 +215,16 @@ Copy this entire folder to `forge/<new-module-name>/`. Then:
 | Column definitions | `const COLUMNS` + `createRow()` + `updateRow()` in `Code.gs` |
 | Form fields | The `<form>` block in `index.html` |
 | Table columns | The `<thead>` and `renderTable()` function in `index.html` |
-| Page title / header copy | `<title>`, `.eyebrow`, `<h1>`, `.sub` in `index.html` |
+| Page title / header copy | `<title>`, `.pin-eyebrow`, `.eyebrow`, `<h1>`, `.sub` in `index.html` |
+| `localStorage` key for theme | `forge_theme` → `<module-name>_theme` in `setTheme()` and `init()` |
+| `sessionStorage` key for PIN | `forge_pin` → `<module-name>_pin` in `submitPin()` and `init()` |
 
 Do **not** change:
 - `../_shared/sheets-client.js` — shared, module-agnostic
 - `../_shared/style-tokens.css` — shared design tokens
 - The PIN gate logic in `index.html`
 - The `config.js` / `config.example.js` pattern
+- The loading bar, `setTheme()`, and button-disable patterns — these are the forge UX standard
 
 ---
 

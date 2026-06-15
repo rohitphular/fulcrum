@@ -423,6 +423,22 @@ td.td-amount-quote { font-family: var(--mono); font-size: 11px; color: var(--mut
   color: var(--ember);
 }
 
+/* ── balance-over-time chart ── */
+.chart-wrap {
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  padding: 20px 20px 12px;
+  margin-bottom: 24px;
+}
+[data-theme="dark"] .chart-wrap { border-color: var(--hair-strong); }
+.chart-container { position: relative; height: 200px; }
+.chart-empty {
+  font-family: var(--mono); font-size: 12px; letter-spacing: .04em;
+  color: var(--muted); text-align: center; padding: 28px 0; margin: 0;
+}
+@media (min-width: 640px) { .chart-container { height: 260px; } }
+
 /* ── per-type summary rows in dashboard table ── */
 .type-summary-row td {
   background: var(--canvas);
