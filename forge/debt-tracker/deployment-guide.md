@@ -106,17 +106,15 @@ Verify it generates 6-digit codes before continuing.
 
 ### Step 7 — Configure the frontend
 
-In the `app/` directory:
-```bash
-cp config.example.js config.js
-```
+Create `app/config.js` with the following content, replacing the URL with your Web App URL:
 
-Edit `config.js` and paste your Web App URL:
 ```js
 window.CONFIG = {
   SCRIPT_URL: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
 };
 ```
+
+The URL must end in `/exec` (not `/dev`). `config.js` is committed to the repo — the PIN + TOTP gate protects your data, not this URL.
 
 ---
 
@@ -193,8 +191,7 @@ forge/debt-tracker/
     index.html              Main app entry point — open this in a browser
     debt-tracker.js         All frontend logic
     debt-tracker.css        Styles
-    config.example.js       Template — copy to config.js and fill in SCRIPT_URL
-    config.js               Your local config (not committed)
+    config.js               Your Script URL (create manually — see Step 7)
   backend/
     Code.gs                 Apps Script backend — paste into the Apps Script editor
     appsscript.json         Runtime settings — paste into the editor's appsscript.json

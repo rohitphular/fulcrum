@@ -13,120 +13,13 @@ This module relies on two shared files from `forge/_shared/`:
 | `sheets-client.js` | Shared HTTP layer — handles all GET/POST calls to Apps Script. Do not modify per-module. |
 | `style-tokens.css` | Shared design tokens (colours, fonts). Do not modify per-module. |
 
-These are referenced via relative paths (`../_shared/`) from `index.html`.
+These are referenced via relative paths (`../../_shared/`) from `app/index.html`.
 
 ---
 
-## What you need to do
+## Setup & deployment
 
-### Step 1 — Create the Google Sheet
-
-1. Go to [sheets.google.com](https://sheets.google.com) and create a new spreadsheet.
-2. Leave it empty — both the `starter` and `audit_access` sheet tabs are created **automatically** by Apps Script on the first request.
-
----
-
-### Step 2 — Set up Apps Script
-
-1. In your spreadsheet, go to **Extensions → Apps Script**.
-2. Delete the default `myFunction` code in `Code.gs`.
-3. Copy the entire contents of `backend/Code.gs` from this repo and paste it in.
-4. Click **Save** (the floppy disk icon or Ctrl+S).
-
----
-
-### Step 3 — Set your PIN and TOTP secret
-
-1. In Apps Script, go to **Project Settings** (the gear icon on the left).
-2. Scroll to **Script Properties** → click **Add script property**.
-3. Add two properties:
-
-   | Property name | Value |
-   |---|---|
-   | `PIN_SECRET` | Your chosen PIN (numbers recommended, e.g. `482917`) |
-   | `TOTP_SECRET` | A Base32 secret key — see below for how to generate one |
-
-4. Click **Save script properties**.
-
-**Generating a TOTP secret:**
-- Go to [https://it-tools.tech/otp-generator](https://it-tools.tech/otp-generator) or any TOTP secret generator
-- Copy the Base32 secret (e.g. `JBSWY3DPEHPK3PXP`) — it's a string of uppercase letters and digits 2–7
-- Paste it as the `TOTP_SECRET` value
-
-**Setting up your authenticator app (Google Authenticator / Authy):**
-1. Open your authenticator app → tap **+** → **Enter a setup key**
-2. Account name: `Fulcrum` (or anything you like)
-3. Key: paste your `TOTP_SECRET` value
-4. Type: **Time based**
-5. Tap **Add**
-
-You will now see a 6-digit code that refreshes every 30 seconds. Enter this alongside your PIN when logging in.
-
-Both secrets are stored inside Google's infrastructure. Do not put them in `config.js` or any committed file.
-
----
-
-### Step 4 — Deploy as a Web App
-
-1. In Apps Script, click **Deploy → New deployment**.
-2. Click the gear icon next to "Select type" and choose **Web app**.
-3. Set:
-   - **Description:** `starter-module v1` (or anything)
-   - **Execute as:** `Me`
-   - **Who has access:** `Anyone`
-4. Click **Deploy**.
-5. Copy the **Web app URL** — it looks like:
-   `https://script.google.com/macros/s/AKfycb.../exec`
-
----
-
-### Step 5 — Configure the app
-
-1. Copy `config.example.js` to `config.js` in this folder.
-2. Open `config.js` and replace `YOUR_DEPLOYMENT_ID` with the URL you copied above.
-3. `config.js` is committed to the repo. The Apps Script URL alone gives no access — the PIN gate protects the data.
-
----
-
-### Step 6 — Open the app
-
-**Locally:**
-Open `index.html` directly in a browser (`file://...` path works fine).
-
-**Via GitHub Pages:**
-```
-https://<your-github-username>.github.io/<repo-name>/forge/starter-module/
-```
-
-- If `config.js` is missing, a setup banner appears.
-- If `config.js` is present, a PIN prompt appears. Enter the PIN you set in Step 3.
-- The PIN is stored in `sessionStorage` — it clears when the browser tab closes.
-
----
-
-## Hosting on GitHub Pages
-
-The repo is served via GitHub Pages from the `main` branch root.
-
-**Important:** The `_shared/` folder starts with an underscore. Jekyll (GitHub Pages default processor) skips underscore directories. A `.nojekyll` file at the repo root disables Jekyll so `_shared/` is served correctly. Do not remove `.nojekyll`.
-
-Steps to enable GitHub Pages on a new repo:
-1. Make the repo public (free tier requirement).
-2. Go to repo **Settings → Pages → Branch: `main`, folder: `/ (root)` → Save**.
-3. Your module is live at `https://<username>.github.io/<repo>/forge/starter-module/`.
-
----
-
-## How to re-deploy after changing Code.gs
-
-Apps Script deployments are immutable snapshots. After editing `Code.gs`:
-
-1. Go to **Deploy → Manage deployments**.
-2. Click the pencil (Edit) icon on your deployment.
-3. Change the version to **New version**.
-4. Click **Deploy**.
-
-The URL stays the same — no change needed in `config.js`.
+See **[deployment-guide.md](deployment-guide.md)** for the full step-by-step setup — creating the Sheet, configuring Apps Script, setting secrets, deploying the Web App, and operations reference.
 
 ---
 
@@ -208,7 +101,7 @@ When you add a new column, also update `createRow()` to append the value and `up
 
 ### Date field helpers
 
-If your module has `<input type="date">` fields, add these two helpers near the other date utilities in `index.html`:
+If your module has `<input type="date">` fields, add these two helpers near the other date utilities in the module JS file:
 
 ```js
 // Parse YYYY-MM-DD as a local date — avoids UTC midnight timezone shift
@@ -252,17 +145,18 @@ Copy this entire folder to `forge/<new-module-name>/`. Then:
 |---|---|
 | Sheet tab name | `const SHEET_NAME` in `backend/Code.gs` |
 | Column definitions | `const COLUMNS` + `createRow()` + `updateRow()` in `Code.gs` |
-| Form fields | The `<form>` block in `index.html` |
-| Table columns | The `<thead>` and `renderTable()` function in `index.html` |
-| Page title / header copy | `<title>`, `.pin-eyebrow`, `.eyebrow`, `<h1>`, `.sub` in `index.html` |
-| `localStorage` key for theme | `forge_theme` → `<module-name>_theme` in `setTheme()` and `init()` |
-| `sessionStorage` key for PIN | `forge_pin` → `<module-name>_pin` in `submitPin()` and `init()` |
+| Form fields | The `<form>` block in `app/index.html` |
+| Table columns | The `<thead>` and `renderTable()` function in `app/index.html` |
+| Page title / header copy | `<title>`, `.pin-eyebrow`, `.eyebrow`, `<h1>`, `.sub` in `app/index.html` |
+| JS/CSS filenames | Rename `starter-module.js` / `starter-module.css` and update the `<link>` / `<script>` tags in `index.html` |
+| `localStorage` key for theme | `forge_theme` → `<module-name>_theme` in `setTheme()` and `init()` in the JS file |
+| `sessionStorage` key for PIN | `forge_pin` → `<module-name>_pin` in `submitPin()` and `init()` in the JS file |
 
 Do **not** change:
 - `../_shared/sheets-client.js` — shared, module-agnostic
 - `../_shared/style-tokens.css` — shared design tokens
 - The PIN gate logic in `index.html`
-- The `config.js` / `config.example.js` pattern
+- The `config.js` pattern (create it manually — no `config.example.js`)
 - The loading bar, `setTheme()`, and button-disable patterns — these are the forge UX standard
 
 ---
@@ -276,9 +170,11 @@ forge/
     sheets-client.js         ← shared HTTP layer (do not modify per-module)
     style-tokens.css         ← shared design tokens (do not modify per-module)
   starter-module/
-    index.html               ← the app
-    config.example.js        ← committed template
-    config.js                ← your actual Script URL (committed — PIN protects data, not URL)
+    app/
+      index.html             ← the app
+      starter-module.js      ← all module logic
+      starter-module.css     ← module-specific styles
+      config.js              ← your Script URL (create manually — see Step 5)
     backend/
       Code.gs                ← Apps Script source
       appsscript.json        ← Apps Script manifest

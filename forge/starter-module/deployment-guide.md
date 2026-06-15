@@ -1,13 +1,13 @@
-# Expense Tracker — Deployment Guide
+# Starter Module — Deployment Guide
 
-This guide covers first-time setup and ongoing maintenance.
+This guide covers first-time setup and ongoing maintenance. Use this as the reference when scaffolding any new Forge module.
 
 ---
 
 ## Prerequisites
 
 - A Google account
-- The `forge/_shared/` folder present in this repo (required by `index.html`)
+- The `forge/_shared/` folder present in this repo (required by `app/index.html`)
 - An authenticator app (Google Authenticator, Authy, or similar) on your phone
 
 ---
@@ -17,8 +17,8 @@ This guide covers first-time setup and ongoing maintenance.
 ### Step 1 — Create the Google Sheet
 
 1. Go to [sheets.google.com](https://sheets.google.com) and create a new spreadsheet.
-2. Name it anything — e.g. `Fulcrum Expense Tracker`.
-3. Leave it empty — all sheet tabs (`transactions`, `categories`, `accounts`, `rates`, `audit_access`) are created **automatically** by Apps Script on the first request.
+2. Name it anything — e.g. `Fulcrum — Starter Module`.
+3. Leave it empty — both the `starter` and `audit_access` sheet tabs are created **automatically** by Apps Script on the first request.
 
 ---
 
@@ -31,7 +31,7 @@ This guide covers first-time setup and ongoing maintenance.
 
 **Update the Apps Script manifest (`appsscript.json`):**
 
-5. In the Apps Script editor, go to **Project Settings** (gear icon on the left).
+5. In the Apps Script editor, go to **Project Settings** (gear icon on the left sidebar).
 6. Tick **Show "appsscript.json" manifest file in editor**.
 7. Click the `appsscript.json` file in the left panel.
 8. Replace its entire contents with:
@@ -50,13 +50,13 @@ This guide covers first-time setup and ongoing maintenance.
 
 9. Click **Save**.
 
-> Without the `"webapp"` block in the manifest, the deployment step will not offer the Web App option and the app will fail to connect.
+> Without the `"webapp"` block in the manifest, the deployment step will not offer the Web App option and the app will fail to connect. Adjust `timeZone` to your local zone if needed (e.g. `"Asia/Kolkata"`).
 
 ---
 
 ### Step 3 — Set your PIN and TOTP secret
 
-1. In Apps Script, go to **Project Settings** (the gear icon on the left sidebar).
+1. In Apps Script, go to **Project Settings** (gear icon on the left sidebar).
 2. Scroll to **Script Properties** → click **Add script property**.
 3. Add two properties:
 
@@ -74,12 +74,14 @@ This guide covers first-time setup and ongoing maintenance.
 
 **Adding to your authenticator app:**
 1. Open your authenticator app → tap **+** → **Enter a setup key**.
-2. Account name: `Fulcrum Expense` (or anything you like).
+2. Account name: `Fulcrum Starter` (or anything you like).
 3. Key: paste your `TOTP_SECRET` value.
 4. Type: **Time based**.
 5. Tap **Add**.
 
 You will see a 6-digit code that refreshes every 30 seconds. Enter it alongside your PIN when signing in.
+
+Both secrets are stored inside Google's infrastructure. Do not put them in `config.js` or any committed file.
 
 ---
 
@@ -88,12 +90,14 @@ You will see a 6-digit code that refreshes every 30 seconds. Enter it alongside 
 1. In Apps Script, click **Deploy → New deployment**.
 2. Click the gear icon next to "Select type" and choose **Web app**.
 3. Set:
-   - **Description:** `expense-tracker v1`
+   - **Description:** `starter-module v1` (or anything)
    - **Execute as:** `Me`
    - **Who has access:** `Anyone`
-4. Click **Deploy**.
+4. Click **Deploy** — authorise when prompted (grants the script access to your spreadsheet).
 5. Copy the **Web app URL** — it looks like:
    `https://script.google.com/macros/s/AKfycb.../exec`
+
+The URL must end in `/exec` (not `/dev`).
 
 ---
 
@@ -107,55 +111,19 @@ window.CONFIG = {
 };
 ```
 
-2. Replace `YOUR_DEPLOYMENT_ID` with the Web App URL you copied (the full `/exec` URL).
+2. Replace `YOUR_DEPLOYMENT_ID` with the Web App URL you copied above.
 3. `config.js` is committed to the repo. The Apps Script URL alone gives no access — the PIN + TOTP gate protects your data.
 
 ---
 
-### Step 6 — Seed the categories
-
-The categories drive the dropdown cascade in the add-transaction form.
-
-**Option A — Automatic seed on first request (recommended):**
-The `listCategories()` function seeds the `categories` tab automatically if it is empty. On first load after sign-in, all categories are created for you.
-
-**Option B — Manual seed from Apps Script:**
-1. In Apps Script, click **Run** on the `seedCategories` function.
-2. Confirm the authorisation prompt on first run.
-3. The `categories` tab in your sheet will be populated with all standard categories.
-
-You can add, remove, or edit rows in the `categories` tab at any time — the app reads them live.
-
----
-
-### Step 7 — Add your accounts
-
-The `accounts` tab is managed directly in the Sheet (account management from the app is out of scope for v1).
-
-1. Open your spreadsheet and go to the `accounts` tab (created automatically after step 6).
-2. Add one row per account:
-
-| Column | Example |
-|---|---|
-| `name` | `HDFC Savings` |
-| `currency` | `INR` |
-| `type` | `savings` |
-| `notes` | `primary India account` |
-
-Valid types: `savings`, `current`, `credit`, `cash`, `investment`, `other`.
-
-The `account` field on every transaction must match a name in this tab exactly. The app will still show transactions with unknown accounts — no rows are dropped.
-
----
-
-### Step 8 — Open the app
+### Step 6 — Open the app
 
 **Locally:**
 Open `app/index.html` directly in a browser (`file://` path works fine).
 
 **Via GitHub Pages:**
 ```
-https://<your-github-username>.github.io/<repo-name>/forge/expense-tracker/app/
+https://<your-github-username>.github.io/<repo-name>/forge/starter-module/app/
 ```
 
 On first load:
@@ -166,13 +134,12 @@ On first load:
 
 ---
 
-### Step 9 — Verify
+### Step 7 — Verify
 
-1. Sign in successfully — you should see the Dashboard with empty summary cards.
-2. Go to **Categories** — the full category tree should be visible.
-3. Go to **Accounts** — your accounts should appear.
-4. Go to **Rates** — GBP, INR, USD, EUR, AED should be pre-seeded.
-5. Go to **Transactions** → open the add form → add one transaction → confirm it appears in the table and in your Google Sheet.
+1. Sign in — the table should show "No items yet".
+2. Add an item via the form — confirm it appears in both the table and your Google Sheet.
+3. Edit and delete the item — confirm the sheet updates correctly.
+4. Toggle dark mode — confirm the theme persists on reload.
 
 ---
 
@@ -186,6 +153,8 @@ Apps Script deployments are immutable snapshots. After editing `Code.gs`:
 4. Click **Deploy**.
 
 The URL stays the same — no change needed in `config.js`.
+
+Frontend changes (HTML / CSS / JS) take effect immediately on refresh — no deployment needed.
 
 ---
 
@@ -204,7 +173,7 @@ To reset all counts for that IP, delete the row entirely.
 
 1. Open Apps Script → **Project Settings → Script Properties**.
 2. Update `PIN_SECRET`.
-3. Clear `sessionStorage` in the browser (or close and reopen the tab).
+3. Close and reopen the browser tab (clears `sessionStorage`).
 
 ### Change your TOTP secret
 
@@ -212,24 +181,33 @@ To reset all counts for that IP, delete the row entirely.
 2. Update `TOTP_SECRET` in Script Properties.
 3. Remove the old entry from your authenticator app and add the new secret.
 
+### Hosting on GitHub Pages
+
+The `_shared/` folder starts with an underscore. Jekyll (GitHub Pages default processor) skips underscore directories. A `.nojekyll` file at the repo root disables Jekyll so `_shared/` is served correctly — do not remove it.
+
+To enable GitHub Pages:
+1. Make the repo public (free tier requirement).
+2. Go to repo **Settings → Pages → Branch: `main`, folder: `/ (root)` → Save**.
+3. Your module is live at `https://<username>.github.io/<repo>/forge/starter-module/app/`.
+
 ### Backup
 
 The Google Sheet is the source of truth. Download it as `.xlsx` or use Google Takeout for a full backup.
 
 ---
 
-## Category conventions
+## File reference
 
-**Credit card payments:**
-
-Pick one convention and stick to it — mixing causes double-counting:
-
-- If your credit card is tracked as its own account in the `accounts` tab:
-  Use `money-transfer → Card payment → Pay credit card`.
-  This moves money from a bank account to a credit card account without affecting income/expense totals.
-
-- If credit cards are not tracked as accounts:
-  Use `money-out → Debt & finance → Credit card payment`.
-  This records the payment as an expense.
-
-The debt-tracker handles what you _owe_ on each card; the expense-tracker handles the _payment flow_.
+```
+forge/starter-module/
+  app/
+    index.html              App shell — open this in a browser
+    starter-module.js       All frontend logic
+    starter-module.css      Module styles
+    config.js               Your Script URL (create manually — see Step 5)
+  backend/
+    Code.gs                 Apps Script backend — paste into the Apps Script editor
+    appsscript.json         Runtime settings — paste into the editor's appsscript.json
+  deployment-guide.md       This file
+  README.md                 Developer reference (UI patterns, schema, template guide)
+```

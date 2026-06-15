@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Starter Module</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../_shared/style-tokens.css">
+<link rel="stylesheet" href="starter-module.css">
+</head>
+<body>
+
+<div class="loading-bar hidden" id="loadingBar"></div>
+
+<!-- PIN gate overlay -->
+<div class="overlay" id="pinOverlay">
+  <div class="pin-card">
+    <p class="pin-eyebrow">forge · starter-module</p>
+    <h2>Sign in</h2>
+    <p>Enter your PIN and the 6-digit code from your authenticator app.</p>
+    <div class="pin-field-label">PIN</div>
+    <div class="pin-input-wrap">
+      <input type="password" id="pinInput" inputmode="numeric" autocomplete="current-password" placeholder="••••••" maxlength="12">
+    </div>
+    <div class="pin-field-label">Authenticator code</div>
+    <div class="pin-input-wrap">
+      <input type="text" id="totpInput" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" maxlength="6" pattern="[0-9]{6}">
+    </div>
+    <div class="pin-error" id="pinError"></div>
+    <button class="btn btn-primary pin-submit" id="pinSubmit">Unlock</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- Setup banner (shown when config.js is missing) -->
+  <div class="banner warn hidden" id="setupBanner">
+    <span class="ico">!</span>
+    <div>
+      <strong>config.js not found.</strong> Create <code>app/config.js</code>
+      and fill in your Apps Script URL. See the README for setup instructions.
+    </div>
+  </div>
+
+  <!-- Status message -->
+  <div class="banner hidden" id="msgBanner">
+    <span class="ico" id="msgIco">›</span>
+    <div id="msgText"></div>
+  </div>
+
+  <header class="module-header">
+    <div class="module-header-copy">
+      <p class="eyebrow">forge · starter-module</p>
+      <h1>Starter Module</h1>
+      <p class="sub">A minimal CRUD template backed by Google Sheets. Add records via the form; edit or delete them from the table.</p>
+    </div>
+    <button class="theme-btn" id="themeToggle" aria-label="Toggle colour theme">☽</button>
+  </header>
+
+  <!-- Section 01 — Form -->
+  <section>
+    <div class="sec-head"><span class="sec-num">01</span><h2 id="formTitle">Add Item</h2></div>
+    <div class="card">
+      <form id="itemForm" novalidate>
+        <div class="form-grid">
+          <div class="field" id="fieldNameWrap">
+            <label for="fieldName">Name <span style="color:var(--ember)">*</span></label>
+            <input type="text" id="fieldName" placeholder="Item name" maxlength="200">
+            <div class="err-msg">Name is required.</div>
+          </div>
+          <div class="field">
+            <label for="fieldDescription">Description</label>
+            <input type="text" id="fieldDescription" placeholder="Optional description" maxlength="500">
+          </div>
+          <div class="field">
+            <label for="fieldStatus">Status</label>
+            <select id="fieldStatus">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="submitBtn">Add Item</button>
+          <button type="button" class="btn btn-secondary hidden" id="cancelEditBtn">Cancel edit</button>
+          <span id="formSpinner" class="hidden"><span class="spinner"></span>Saving&hellip;</span>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- Section 02 — Table -->
+  <section>
+    <div class="sec-head"><span class="sec-num">02</span><h2>Items</h2></div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr class="empty-row"><td colspan="5">Enter PIN to load data.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<script src="../../_shared/sheets-client.js"></script>
+<script src="config.js" onerror="window.__configMissing=true"></script>
+<script src="starter-module.js"></script>
+</body>
+</html>
