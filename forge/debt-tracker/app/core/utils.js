@@ -2,7 +2,7 @@ import {
   el, esc, fmtDate, parseLocalDate, toDateInputVal, todayISO,
   fmtAmount as _fmtAmount,
   toQuote   as _toQuote,
-} from '../../../../_shared/utils.js';
+} from '../../../_shared/utils.js';
 import { state, CURRENCY_SYMBOLS } from './state.js';
 
 export { el, esc, fmtDate, parseLocalDate, toDateInputVal, todayISO };

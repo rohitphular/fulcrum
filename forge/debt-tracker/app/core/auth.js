@@ -1,4 +1,4 @@
-import { createAuthModule } from '../../../../_shared/auth.js';
+import { createAuthModule } from '../../../_shared/auth.js';
 import { DebtAPI } from './api.js';
 
 export const { writeSession, readSession, clearSession, showPinGate, hidePinGate, submitPin } =
