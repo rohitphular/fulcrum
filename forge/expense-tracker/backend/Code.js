@@ -35,7 +35,7 @@ const TRANSACTION_COLUMNS = [
 // 12=fx_rate  13=country  14=payment_method
 
 const CATEGORY_COLUMNS = ['transaction_type', 'major_category', 'minor_category', 'tag_keywords'];
-const ACCOUNT_COLUMNS  = ['name', 'currency', 'type', 'notes'];
+const ACCOUNT_COLUMNS  = ['id', 'name', 'currency', 'type', 'opening_balance', 'current_balance', 'is_active', 'notes', 'created_at'];
 const RATES_COLUMNS    = ['currency', 'rate', 'symbol', 'updated_at'];
 
 const AUDIT_COLUMNS = [
@@ -364,8 +364,25 @@ function normaliseKeywords(keywords) {
 
 const VALID_ACCOUNT_TYPES = ['bank', 'savings', 'credit', 'cash', 'investment', 'other'];
 
+// ACCOUNT_COLUMNS indices (col number = index + 1):
+// 0=id  1=name  2=currency  3=type
+// 4=opening_balance  5=current_balance  6=is_active  7=notes  8=created_at
+
 function listAccounts() {
   return sheetToObjectsWithRow(getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS));
+}
+
+function generateAccountId(sheet) {
+  const values = sheet.getDataRange().getValues();
+  let max = 0;
+  for (let i = 1; i < values.length; i++) {
+    const id = String(values[i][0]);
+    if (id.startsWith('acc-')) {
+      const n = parseInt(id.slice(4), 10);
+      if (!isNaN(n) && n > max) max = n;
+    }
+  }
+  return 'acc-' + String(max + 1).padStart(3, '0');
 }
 
 function createAccount(body) {
@@ -373,13 +390,21 @@ function createAccount(body) {
   if (!String(body.currency || '').trim()) return { ok: false, error: 'missing_currency' };
 
   const sheet = getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS);
+  const id    = generateAccountId(sheet);
+  const now   = new Date().toISOString();
+
   sheet.appendRow([
+    id,
     String(body.name).trim(),
     String(body.currency).trim().toUpperCase(),
     VALID_ACCOUNT_TYPES.includes(body.type) ? body.type : 'other',
+    Number(body.opening_balance) || 0,
+    Number(body.current_balance) || 0,
+    true,
     String(body.notes || '').trim(),
+    now,
   ]);
-  return { ok: true };
+  return { ok: true, id };
 }
 
 function updateAccount(body) {
@@ -392,10 +417,14 @@ function updateAccount(body) {
   const lastRow = sheet.getLastRow();
   if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
 
-  sheet.getRange(rowNum, 1, 1, 4).setValues([[
+  // Update cols 2–8 (name through notes); col 1 (id) and col 9 (created_at) are immutable
+  sheet.getRange(rowNum, 2, 1, 7).setValues([[
     String(body.name).trim(),
     String(body.currency).trim().toUpperCase(),
     VALID_ACCOUNT_TYPES.includes(body.type) ? body.type : 'other',
+    Number(body.opening_balance) || 0,
+    Number(body.current_balance) || 0,
+    body.is_active === true || body.is_active === 'true',
     String(body.notes || '').trim(),
   ]]);
   return { ok: true };

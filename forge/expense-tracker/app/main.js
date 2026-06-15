@@ -51,8 +51,11 @@ async function loadAll() {
       sessionStorage.setItem('et_transactions_cache', JSON.stringify(state.transactions));
     }
 
-    if (catRes.ok)   state.categories = catRes.data || [];
-    if (accRes.ok)   state.accounts   = accRes.data || [];
+    if (catRes.ok) state.categories = catRes.data || [];
+    if (accRes.ok) {
+      state.accounts   = accRes.data || [];
+      state.accountMap = Object.fromEntries(state.accounts.map(a => [a.id, a]));
+    }
     if (ratesRes.ok) {
       state.rates   = ratesRes.data || [];
       state.rateMap = {};

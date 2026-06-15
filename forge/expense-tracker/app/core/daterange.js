@@ -46,8 +46,9 @@ export function filteredTx() {
       if (!tags.some(t => t.includes(f.tag.toLowerCase()))) return false;
     }
     if (f.search) {
-      const q   = f.search.toLowerCase();
-      const hay = [tx.counterparty, tx.notes, tx.account].join(' ').toLowerCase();
+      const q           = f.search.toLowerCase();
+      const accountName = state.accountMap[tx.account]?.name || '';
+      const hay         = [tx.counterparty, tx.notes, accountName].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;

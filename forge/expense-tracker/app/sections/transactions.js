@@ -58,7 +58,7 @@ function renderTxTable(validRows, warnRows) {
     return `<tr>
       <td class="td-mono">${esc(fmtDate(tx.date))}</td>
       <td><span class="badge ${badgeCls}">${typeLabel}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}</td>
-      <td>${esc(tx.account || '—')}</td>
+      <td>${esc(state.accountMap[tx.account]?.name || '—')}</td>
       <td class="td-mono">${esc(fmtNative(tx.amount, tx.currency))}${missingRate ? ' <span class="badge badge-warn" title="Currency not in rates tab">?</span>' : ''}</td>
       <td class="td-mono">${esc(fmtBase(tx.amount, tx.currency, tx.fx_rate))}${rowRate ? ' <span title="Row-level FX rate used" style="color:var(--muted);font-size:10px">†</span>' : ''}</td>
       <td>${esc(tx.major_category || '—')} ${tx.minor_category ? '→ ' + esc(tx.minor_category) : ''}</td>
@@ -166,7 +166,9 @@ function renderAddForm() {
           <label for="afAccount">Account *</label>
           <select id="afAccount">
             <option value="">— select —</option>
-            ${state.accounts.map(a => `<option value="${esc(a.name)}">${esc(a.name)} (${esc(a.currency)})</option>`).join('')}
+            ${state.accounts
+              .filter(a => a.is_active === true || a.is_active === 'TRUE' || a.is_active === 'true')
+              .map(a => `<option value="${esc(a.id)}">${esc(a.name)} (${esc(a.currency)})</option>`).join('')}
           </select>
         </div>
         <div class="field">
@@ -251,7 +253,7 @@ function attachAddFormEvents() {
   });
 
   el('afAccount')?.addEventListener('change', () => {
-    const acc = state.accounts.find(a => a.name === el('afAccount').value);
+    const acc = state.accounts.find(a => a.id === el('afAccount').value);
     if (acc) el('afCurrency').value = acc.currency;
     el('afFxRateWrap').style.display = el('afCurrency').value !== 'GBP' ? '' : 'none';
   });
@@ -323,14 +325,14 @@ async function saveTransaction() {
 function renderFilterBar() {
   const f        = state.filters;
   const allTypes = ['money-in', 'money-out', 'money-transfer'];
-  const allAccs  = [...new Set(state.accounts.map(a => a.name))];
+  const allAccs  = state.accounts;
   const allMajor = [...new Set(state.categories.map(c => c.major_category))];
   const allMinor = [...new Set(state.categories.map(c => c.minor_category))];
   const methods  = ['card','cash','bank','UPI','other'];
 
   const activeChips = [
     ...f.types.map(t    => ({ label: t,                   key: 'types',    val: t })),
-    ...f.accounts.map(a => ({ label: a,                   key: 'accounts', val: a })),
+    ...f.accounts.map(id => ({ label: state.accountMap[id]?.name || id, key: 'accounts', val: id })),
     ...f.major.map(m    => ({ label: m,                   key: 'major',    val: m })),
     ...f.minor.map(m    => ({ label: m,                   key: 'minor',    val: m })),
     ...(f.country ? [{ label: 'Country: '+f.country, key: 'country', val: '' }] : []),
@@ -358,7 +360,7 @@ function renderFilterBar() {
         <label>Account</label>
         <select id="filterAccount">
           <option value="">All accounts</option>
-          ${allAccs.map(a => `<option value="${esc(a)}" ${f.accounts.includes(a) ? 'selected' : ''}>${esc(a)}</option>`).join('')}
+          ${allAccs.map(a => `<option value="${esc(a.id)}" ${f.accounts.includes(a.id) ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}
         </select>
       </div>
       <div class="filter-row">

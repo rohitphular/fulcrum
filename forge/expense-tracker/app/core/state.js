@@ -4,6 +4,7 @@ export const state = {
   transactions:  [],
   categories:    [],
   accounts:      [],
+  accountMap:    {},   // { 'acc-001': account }  — keyed by account id
   rates:         [],
   rateMap:       {},   // { GBP: 1, INR: 105, … }  units per 1 GBP
   quoteCurrency: 'GBP',
