@@ -211,6 +211,7 @@ function doPost(e) {
   recordAccess(meta, true);
 
   if (body.action === 'create_transaction') return json(createTransaction(body));
+  if (body.action === 'update_transaction') return json(updateTransaction(body));
   if (body.action === 'upsert_rate')        return json(upsertRate(body));
   if (body.action === 'create_category')    return json(createCategory(body));
   if (body.action === 'update_category')    return json(updateCategory(body));
@@ -225,6 +226,44 @@ function doPost(e) {
 
 function listTransactions() {
   return sheetToObjects(getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS));
+}
+
+function updateTransaction(body) {
+  if (!body.id)             return { ok: false, error: 'missing_id' };
+  if (!body.date)           return { ok: false, error: 'missing_date' };
+  if (!body.transaction_type || !VALID_TYPES.includes(body.transaction_type))
+    return { ok: false, error: 'invalid_transaction_type' };
+  if (!body.amount || Number(body.amount) <= 0)
+    return { ok: false, error: 'invalid_amount' };
+  if (!body.currency) return { ok: false, error: 'missing_currency' };
+  if (!body.account)  return { ok: false, error: 'missing_account' };
+
+  const sheet  = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
+  const values = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) !== String(body.id)) continue;
+    sheet.getRange(i + 1, 1, 1, TRANSACTION_COLUMNS.length).setValues([[
+      body.id,
+      body.date,
+      body.transaction_type,
+      Number(body.amount),
+      body.currency,
+      body.account,
+      body.major_category   || '',
+      body.minor_category   || '',
+      body.counterparty     || '',
+      body.notes            || '',
+      normaliseTags(body.tags),
+      body.transfer_id      || '',
+      body.fx_rate !== undefined && body.fx_rate !== '' ? Number(body.fx_rate) : '',
+      body.country          || '',
+      body.payment_method   || ''
+    ]]);
+    return { ok: true };
+  }
+
+  return { ok: false, error: 'not_found' };
 }
 
 function createTransaction(body) {

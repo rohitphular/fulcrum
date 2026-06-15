@@ -6,6 +6,7 @@ export const ExpenseAPI = {
   listAccounts:      ()   => SheetsClient.get({ action: 'list_accounts' }),
   listRates:         ()   => SheetsClient.get({ action: 'list_rates' }),
   createTransaction: f    => SheetsClient.post({ action: 'create_transaction', ...f }),
+  updateTransaction: f    => SheetsClient.post({ action: 'update_transaction', ...f }),
   upsertRate:        f    => SheetsClient.post({ action: 'upsert_rate', ...f }),
   createCategory:    f    => SheetsClient.post({ action: 'create_category', ...f }),
   updateCategory:    f    => SheetsClient.post({ action: 'update_category', ...f }),
