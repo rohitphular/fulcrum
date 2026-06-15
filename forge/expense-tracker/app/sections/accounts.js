@@ -113,8 +113,8 @@ function renderTable() {
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th style="width:70px">ID</th>
-          <th>Name</th>
+          <th style="width:90px">ID</th>
+          <th style="width:150px">Name</th>
           <th style="width:80px">Currency</th>
           <th style="width:90px">Type</th>
           <th style="width:105px">Opening bal.</th>
