@@ -191,6 +191,45 @@ async function loadItems() {
 }
 ```
 
+### Schema migration (backend)
+
+`getSheet()` in `backend/Code.gs` automatically adds any missing header columns to an existing sheet every time it is called. This means you can safely extend `COLUMNS` after the module is already deployed — new columns appear in the sheet header on the next request without any manual migration.
+
+```js
+// In Code.gs — already wired in the template
+COLUMNS.forEach(col => {
+  if (!headers.includes(col)) sheet.getRange(1, lastCol + ++added).setValue(col);
+});
+```
+
+When you add a new column, also update `createRow()` to append the value and `updateRow()` to write it on edit.
+
+---
+
+### Date field helpers
+
+If your module has `<input type="date">` fields, add these two helpers near the other date utilities in `index.html`:
+
+```js
+// Parse YYYY-MM-DD as a local date — avoids UTC midnight timezone shift
+function parseLocalDate(s) {
+  if (!s) return new Date(NaN);
+  const parts = String(s).slice(0, 10).split('-').map(Number);
+  return parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(NaN);
+}
+
+// Safe value attribute for <input type="date"> — handles both ISO strings and YYYY-MM-DD
+function toDateInputVal(v) {
+  if (!v) return '';
+  const s = String(v).trim();
+  return s.length >= 10 ? s.slice(0, 10) : '';
+}
+```
+
+Use `parseLocalDate(p.date)` for comparisons and `toDateInputVal(item.date)` when pre-populating an edit form.
+
+---
+
 ### Button disable during async operations
 
 - The delete confirm button and the form submit button are disabled and relabelled while the request is in flight.
