@@ -368,20 +368,20 @@ function renderDashboard() {
   el('dashboardContent').innerHTML = `
     <div class="summary-grid">
       <div class="summary-card">
-        <div class="s-label">Income</div>
-        <div class="s-value positive">${fmt(totalIncome)}</div>
+        <div class="summary-card-label">Income</div>
+        <div class="summary-card-value positive">${fmt(totalIncome)}</div>
       </div>
       <div class="summary-card">
-        <div class="s-label">Expenses</div>
-        <div class="s-value negative">${fmt(totalExpenses)}</div>
+        <div class="summary-card-label">Expenses</div>
+        <div class="summary-card-value negative">${fmt(totalExpenses)}</div>
       </div>
       <div class="summary-card">
-        <div class="s-label">Net</div>
-        <div class="s-value ${net >= 0 ? 'positive' : 'negative'}">${net < 0 ? '−' : ''}${fmt(net)}</div>
+        <div class="summary-card-label">Net</div>
+        <div class="summary-card-value ${net >= 0 ? 'positive' : 'negative'}">${net < 0 ? '−' : ''}${fmt(net)}</div>
       </div>
       <div class="summary-card">
-        <div class="s-label">Savings rate</div>
-        <div class="s-value ${savingsRate >= 0 ? 'positive' : 'negative'}">${savingsRate.toFixed(1)}%</div>
+        <div class="summary-card-label">Savings rate</div>
+        <div class="summary-card-value ${savingsRate >= 0 ? 'positive' : 'negative'}">${savingsRate.toFixed(1)}%</div>
       </div>
     </div>
     ${transfers.length ? `<div class="transfer-row">
@@ -389,7 +389,7 @@ function renderDashboard() {
       <span>Volume: <strong>${fmt(transfers.reduce((s,tx) => s + toBase(tx.amount, tx.currency, tx.fx_rate), 0))}</strong></span>
     </div>` : ''}
 
-    <div class="chart-wrap" style="margin-top:16px">
+    <div class="chart-wrap">
       <div class="chart-title">Income vs Expenses by month</div>
       <div class="chart-container"><canvas id="monthlyChart"></canvas></div>
     </div>
@@ -681,8 +681,8 @@ function renderTransactions() {
     ${renderFilterBar()}
     ${warnRows.length ? `<div class="warning-count" id="warnToggle">⚠ ${warnRows.length} row${warnRows.length > 1 ? 's' : ''} have warnings — click to expand</div>` : ''}
     <div class="table-controls">
-      <button class="btn btn-ghost btn-sm" id="exportCsv">Export CSV</button>
-      <button class="btn btn-ghost btn-sm" id="exportJson">Export JSON</button>
+      <button class="btn btn-secondary btn-sm" id="exportCsv">Export CSV</button>
+      <button class="btn btn-secondary btn-sm" id="exportJson">Export JSON</button>
     </div>
     ${renderTxTable(validRows, warnRows)}
   `;
@@ -748,9 +748,9 @@ function renderTxTable(validRows, warnRows) {
 
   const pagination = pages > 1 ? `
     <div class="pagination">
-      <button class="btn btn-ghost btn-sm" id="prevPage" ${state.txPage <= 1 ? 'disabled' : ''}>← Prev</button>
+      <button class="btn btn-secondary btn-sm" id="prevPage" ${state.txPage <= 1 ? 'disabled' : ''}>← Prev</button>
       <span>Page ${state.txPage} of ${pages} (${total} rows)</span>
-      <button class="btn btn-ghost btn-sm" id="nextPage" ${state.txPage >= pages ? 'disabled' : ''}>Next →</button>
+      <button class="btn btn-secondary btn-sm" id="nextPage" ${state.txPage >= pages ? 'disabled' : ''}>Next →</button>
     </div>` : `<div class="pagination">${total} rows</div>`;
 
   const html = `
@@ -896,14 +896,14 @@ function renderAddForm() {
           <label for="afTags">Tags</label>
           <input type="text" id="afTags" placeholder="reimbursable, work">
         </div>
-        <div class="field" style="grid-column:1/-1">
+        <div class="field form-grid-full">
           <label for="afNotes">Notes</label>
           <input type="text" id="afNotes" placeholder="free text">
         </div>
       </div>
       <div class="form-actions">
         <button class="btn btn-primary" id="afSubmit">Save</button>
-        <button class="btn btn-ghost" id="afReset">Clear</button>
+        <button class="btn btn-secondary" id="afReset">Clear</button>
       </div>
       <div class="pin-error" id="afError"></div>
     </div>
@@ -1090,7 +1090,7 @@ function renderFilterBar() {
         <input type="text" id="filterSearch" value="${esc(f.search)}" placeholder="counterparty or notes">
       </div>
       <div style="margin-top:4px">
-        <button class="btn btn-ghost btn-sm" id="clearFilters">Clear all filters</button>
+        <button class="btn btn-secondary btn-sm" id="clearFilters">Clear all filters</button>
       </div>
     </div>
     ${activeChips.length ? `<div class="filter-chips">
@@ -1181,7 +1181,7 @@ function renderAccounts() {
     return;
   }
   el2.innerHTML = `
-    <div class="section-head"><h2>Accounts</h2></div>
+    <div class="sec-head"><div class="sec-head-left"><h2>Accounts</h2></div></div>
     <div class="accounts-list">
       ${state.accounts.map(a => `
         <div class="account-item">
@@ -1223,7 +1223,7 @@ function renderCategories() {
     </div>`;
   }).join('');
 
-  el2.innerHTML = `<div class="section-head"><h2>Categories</h2></div>${html}`;
+  el2.innerHTML = `<div class="sec-head"><div class="sec-head-left"><h2>Categories</h2></div></div>${html}`;
 }
 
 // ── Rates tab ─────────────────────────────────────────────────────────────────
@@ -1232,8 +1232,8 @@ function renderRates() {
   const sym = getSymbol(state.quoteCurrency);
 
   el2.innerHTML = `
-    <div class="section-head"><h2>Exchange rates</h2></div>
-    <p style="padding:0 16px 12px;font-size:13px;color:var(--muted)">Units of currency per 1 GBP. GBP is the base (read-only).</p>
+    <div class="sec-head"><div class="sec-head-left"><h2>Exchange rates</h2></div></div>
+    <p class="sec-sub">Units of currency per 1 GBP. GBP is the base (read-only).</p>
     <div class="rates-table-wrap">
       <table>
         <thead><tr>
@@ -1261,7 +1261,7 @@ function rateRowHtml(r) {
     <td>${esc(r.symbol || '')}</td>
     <td class="td-mono">${parseFloat(r.rate).toLocaleString('en-GB', { maximumFractionDigits: 4 })}</td>
     <td class="td-muted td-mono">${r.updated_at ? esc(fmtDate(r.updated_at)) : '—'}</td>
-    <td>${base ? '' : `<button class="btn btn-ghost btn-sm rate-edit-btn" data-currency="${esc(r.currency)}">Edit</button>`}</td>
+    <td>${base ? '' : `<button class="btn btn-secondary btn-sm rate-edit-btn" data-currency="${esc(r.currency)}">Edit</button>`}</td>
   </tr>`;
 }
 
@@ -1273,12 +1273,12 @@ function renderRateEditRow(currency) {
 
   row.innerHTML = `
     <td class="td-mono">${esc(currency)}</td>
-    <td><input class="rate-edit-row" style="width:60px" id="rateSymEdit-${esc(currency)}" value="${esc(rate.symbol||'')}" placeholder="£"></td>
-    <td><input class="rate-edit-row" style="width:90px" id="rateValEdit-${esc(currency)}" type="number" min="0.0001" step="any" value="${parseFloat(rate.rate)}"></td>
+    <td><input class="rate-edit-input" style="width:60px" id="rateSymEdit-${esc(currency)}" value="${esc(rate.symbol||'')}" placeholder="£"></td>
+    <td><input class="rate-edit-input" style="width:90px" id="rateValEdit-${esc(currency)}" type="number" min="0.0001" step="any" value="${parseFloat(rate.rate)}"></td>
     <td class="td-muted td-mono">${rate.updated_at ? esc(fmtDate(rate.updated_at)) : '—'}</td>
     <td style="display:flex;gap:6px">
       <button class="btn btn-primary btn-sm" id="rateSave-${esc(currency)}">Save</button>
-      <button class="btn btn-ghost btn-sm" id="rateCancel-${esc(currency)}">Cancel</button>
+      <button class="btn btn-secondary btn-sm" id="rateCancel-${esc(currency)}">Cancel</button>
     </td>`;
 
   const saveBtn = el(`rateSave-${currency}`);
