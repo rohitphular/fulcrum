@@ -17,7 +17,7 @@ else
   git commit -m "$MSG"
 fi
 echo "→ Pushing to remote…"
-git push
+git push -u origin HEAD
 
 # ── GAS deploy ───────────────────────────────────────────────────────────────
 echo "→ Pushing expense-tracker to GAS draft…"
