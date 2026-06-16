@@ -1,16 +1,61 @@
 import { state } from '../core/state.js';
-import { el, esc } from '../core/utils.js';
+import { el, esc, getSymbol, toBase } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { ExpenseAPI } from '../core/api.js';
 
-const ACCOUNT_TYPES = ['bank', 'savings', 'credit', 'cash', 'investment', 'other'];
+const ACCOUNT_TYPES = [
+  { value: 'current',     label: 'Current Account', group: 'asset' },
+  { value: 'savings',     label: 'Savings Account',  group: 'asset' },
+  { value: 'cash',        label: 'Cash',             group: 'asset' },
+  { value: 'investment',  label: 'Investment',        group: 'asset' },
+  { value: 'credit-card', label: 'Credit Card',       group: 'liability' },
+  { value: 'loan',        label: 'Loan',              group: 'liability' },
+];
+
+const LIABILITY_TYPES = new Set(['credit-card', 'loan']);
 
 function isActive(a) {
   return a.is_active === true || a.is_active === 'TRUE' || a.is_active === 'true';
 }
 
-function fmt(n) {
-  return parseFloat(n || 0).toFixed(2);
+function isLiability(a) { return LIABILITY_TYPES.has(a.type); }
+
+function typeLabel(type) {
+  return ACCOUNT_TYPES.find(t => t.value === type)?.label || type || '—';
+}
+
+function typeOptgroupHtml(selected) {
+  const assetOpts = ACCOUNT_TYPES.filter(t => t.group === 'asset').map(t =>
+    `<option value="${esc(t.value)}" ${selected === t.value ? 'selected' : ''}>${esc(t.label)}</option>`
+  ).join('');
+  const liabOpts = ACCOUNT_TYPES.filter(t => t.group === 'liability').map(t =>
+    `<option value="${esc(t.value)}" ${selected === t.value ? 'selected' : ''}>${esc(t.label)}</option>`
+  ).join('');
+  return `<optgroup label="Assets">${assetOpts}</optgroup><optgroup label="Liabilities">${liabOpts}</optgroup>`;
+}
+
+function fmtBal(n) {
+  return Math.abs(parseFloat(n || 0)).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function balanceCell(a) {
+  const bal = parseFloat(a.current_balance || 0);
+  const sym = getSymbol(a.currency);
+  if (isLiability(a)) {
+    const html = `<span class="summary-card-value negative" style="font-size:13px">${sym}${fmtBal(bal)} owed</span>`;
+    if (a.type === 'credit-card' && Number(a.credit_limit) > 0) {
+      const pct  = a.utilisation_pct ?? 0;
+      const fill = pct > 90 ? 'var(--ember)' : pct > 60 ? '#D97706' : pct > 30 ? '#F59E0B' : 'var(--teal)';
+      return `${html}
+        <div style="margin-top:4px;font-size:10px;color:var(--muted);font-family:var(--mono)">${sym}${fmtBal(Math.abs(bal))} of ${sym}${fmtBal(a.credit_limit)} (${pct.toFixed(1)}%)</div>
+        <div style="height:3px;background:var(--hair);border-radius:2px;margin-top:3px;overflow:hidden">
+          <div style="height:100%;width:${Math.min(pct,100).toFixed(1)}%;background:${fill};border-radius:2px"></div>
+        </div>`;
+    }
+    return html;
+  }
+  const cls = bal < 0 ? 'negative' : '';
+  return `<span class="${cls}" style="font-family:var(--mono)">${bal < 0 ? '−' : ''}${sym}${fmtBal(bal)}</span>`;
 }
 
 export function renderAccounts() {
@@ -20,17 +65,45 @@ export function renderAccounts() {
       <button class="btn btn-primary btn-sm" id="accAddBtn">${state.accAddOpen ? '× Close' : '+ Add account'}</button>
     </div>
     ${state.accAddOpen ? renderAddForm() : ''}
+    ${renderNetWorth()}
     ${renderTable()}
   `;
   attachEvents();
 }
 
+function renderNetWorth() {
+  if (!state.accounts.length) return '';
+  const sym = getSymbol(state.quoteCurrency);
+  const fmt = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+  const totalAssets = state.accounts
+    .filter(a => !isLiability(a))
+    .reduce((s, a) => s + toBase(a.current_balance, a.currency, null), 0);
+  const totalLiab = state.accounts
+    .filter(a => isLiability(a))
+    .reduce((s, a) => s + Math.abs(toBase(a.current_balance, a.currency, null)), 0);
+  const netWorth = totalAssets - totalLiab;
+
+  return `
+    <div class="summary-grid" style="margin-bottom:20px">
+      <div class="summary-card">
+        <div class="summary-card-label">Total Assets</div>
+        <div class="summary-card-value positive">${fmt(totalAssets)}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-label">Total Liabilities</div>
+        <div class="summary-card-value negative">${fmt(totalLiab)}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-label">Net Worth</div>
+        <div class="summary-card-value ${netWorth >= 0 ? 'positive' : 'negative'}">${netWorth < 0 ? '−' : ''}${fmt(netWorth)}</div>
+      </div>
+    </div>`;
+}
+
 function renderAddForm() {
   const currencyOpts = state.rates.map(r =>
     `<option value="${esc(r.currency)}">${esc(r.currency)}</option>`
-  ).join('');
-  const typeOpts = ACCOUNT_TYPES.map(t =>
-    `<option value="${esc(t)}">${esc(t)}</option>`
   ).join('');
 
   return `
@@ -45,16 +118,21 @@ function renderAddForm() {
         <select id="accNewCurrency">${currencyOpts}</select>
       </div>
       <div class="field">
-        <label for="accNewType">Type</label>
-        <select id="accNewType">${typeOpts}</select>
+        <label for="accNewType">Type *</label>
+        <select id="accNewType">${typeOptgroupHtml('current')}</select>
+      </div>
+      <div class="field" id="accNewCreditLimitWrap" style="display:none">
+        <label for="accNewCreditLimit">Credit limit</label>
+        <input type="number" id="accNewCreditLimit" min="0" step="0.01" placeholder="0.00">
       </div>
       <div class="field">
         <label for="accNewOpeningBal">Opening balance</label>
-        <input type="number" id="accNewOpeningBal" min="0" step="0.01" placeholder="0.00">
+        <input type="number" id="accNewOpeningBal" step="0.01" placeholder="0.00">
+        <div class="field-hint" id="accNewOpeningBalHint" style="display:none">Enter amount owed as negative, e.g. −1500</div>
       </div>
       <div class="field">
         <label for="accNewCurrentBal">Current balance</label>
-        <input type="number" id="accNewCurrentBal" min="0" step="0.01" placeholder="0.00">
+        <input type="number" id="accNewCurrentBal" step="0.01" placeholder="0.00">
       </div>
       <div class="field form-grid-full">
         <label for="accNewNotes">Notes</label>
@@ -75,55 +153,77 @@ function activeBadge(a) {
     : `<span class="badge badge-out">archived</span>`;
 }
 
+function renderAccountRow(a) {
+  if (state.accDeleteRow === a._row) {
+    return `<tr>
+      <td colspan="7"><span class="confirm-text">Delete <strong>${esc(a.name)}</strong>? Existing transactions linked to this account are not affected.</span></td>
+      <td><div class="row-actions">
+        <button class="btn-link danger" data-action="acc-confirm-delete" data-row="${a._row}">Yes, delete</button>
+        <button class="btn-link" data-action="acc-cancel-delete">Cancel</button>
+      </div></td>
+    </tr>`;
+  }
+  if (state.accEditRow === a._row) return renderEditRow(a);
+
+  return `<tr>
+    <td class="td-mono" style="color:var(--muted);font-size:11px">${esc(a.id)}</td>
+    <td class="td-name">${esc(a.name)}<br><span style="font-size:10px;color:var(--muted)">${esc(typeLabel(a.type))}</span></td>
+    <td>${esc(a.currency)}</td>
+    <td>${balanceCell(a)}</td>
+    <td>${activeBadge(a)}</td>
+    <td>${a.notes ? esc(a.notes) : '<span style="color:var(--muted)">—</span>'}</td>
+    <td><div class="row-actions">
+      <button class="btn-link" data-action="acc-edit" data-row="${a._row}">Edit</button>
+      <button class="btn-link danger" data-action="acc-delete" data-row="${a._row}">Delete</button>
+    </div></td>
+  </tr>`;
+}
+
+function groupHeader(label, total, sym, isLiab) {
+  const sign = isLiab ? '−' : '';
+  return `<tr class="acc-group-header">
+    <td colspan="7" style="background:var(--canvas);padding:10px 12px 4px;font-size:11px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:none">
+      ${label}
+      <span style="float:right;font-weight:600;color:${isLiab ? 'var(--ember)' : 'var(--teal)'}">${sign}${sym}${Math.abs(total).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+    </td>
+  </tr>`;
+}
+
 function renderTable() {
   if (!state.accounts.length) {
     return `<p class="placeholder">No accounts yet. Use &ldquo;+ Add account&rdquo; to create one.</p>`;
   }
 
-  const rows = state.accounts.map(a => {
-    if (state.accDeleteRow === a._row) {
-      return `<tr>
-        <td colspan="8"><span class="confirm-text">Delete <strong>${esc(a.name)}</strong>? Existing transactions linked to this account are not affected.</span></td>
-        <td colspan="2"><div class="row-actions">
-          <button class="btn-link danger" data-action="acc-confirm-delete" data-row="${a._row}">Yes, delete</button>
-          <button class="btn-link" data-action="acc-cancel-delete">Cancel</button>
-        </div></td>
-      </tr>`;
-    }
+  const sym      = getSymbol(state.quoteCurrency);
+  const assets   = state.accounts.filter(a => !isLiability(a));
+  const liabs    = state.accounts.filter(a => isLiability(a));
+  const assetSum = assets.reduce((s, a) => s + toBase(a.current_balance, a.currency, null), 0);
+  const liabSum  = liabs.reduce((s, a)  => s + Math.abs(toBase(a.current_balance, a.currency, null)), 0);
 
-    if (state.accEditRow === a._row) return renderEditRow(a);
+  const assetRows = assets.map(renderAccountRow).join('');
+  const liabRows  = liabs.map(renderAccountRow).join('');
 
-    return `<tr>
-      <td class="td-mono" style="color:var(--muted);font-size:11px">${esc(a.id)}</td>
-      <td class="td-name">${esc(a.name)}</td>
-      <td>${esc(a.currency)}</td>
-      <td><span class="badge badge-transfer">${esc(a.type || 'other')}</span></td>
-      <td class="td-mono">${fmt(a.opening_balance)}</td>
-      <td class="td-mono">${fmt(a.current_balance)}</td>
-      <td>${activeBadge(a)}</td>
-      <td>${a.notes ? esc(a.notes) : '<span style="color:var(--muted)">—</span>'}</td>
-      <td><div class="row-actions">
-        <button class="btn-link" data-action="acc-edit" data-row="${a._row}">Edit</button>
-        <button class="btn-link danger" data-action="acc-delete" data-row="${a._row}">Delete</button>
-      </div></td>
-    </tr>`;
-  }).join('');
+  const liabSection = liabs.length ? `
+    ${groupHeader('Liabilities', liabSum, sym, true)}
+    ${liabRows}` : '';
 
   return `
     <div class="table-wrap">
       <table>
         <thead><tr>
           <th style="width:90px">ID</th>
-          <th style="width:150px">Name</th>
-          <th style="width:80px">Currency</th>
-          <th style="width:90px">Type</th>
-          <th style="width:105px">Opening bal.</th>
-          <th style="width:105px">Current bal.</th>
+          <th>Name / Type</th>
+          <th style="width:70px">CCY</th>
+          <th style="width:180px">Balance</th>
           <th style="width:80px">Status</th>
           <th>Notes</th>
-          <th style="width:110px">Actions</th>
+          <th style="width:100px">Actions</th>
         </tr></thead>
-        <tbody>${rows}</tbody>
+        <tbody>
+          ${assets.length ? groupHeader('Assets', assetSum, sym, false) : ''}
+          ${assetRows}
+          ${liabSection}
+        </tbody>
       </table>
     </div>`;
 }
@@ -133,29 +233,76 @@ function renderEditRow(a) {
   const currencyOpts = state.rates.map(r2 =>
     `<option value="${esc(r2.currency)}" ${a.currency === r2.currency ? 'selected' : ''}>${esc(r2.currency)}</option>`
   ).join('');
-  const typeOpts = ACCOUNT_TYPES.map(t =>
-    `<option value="${esc(t)}" ${(a.type || 'other') === t ? 'selected' : ''}>${esc(t)}</option>`
-  ).join('');
+  const isCC = a.type === 'credit-card';
+  const isLiab = LIABILITY_TYPES.has(a.type);
 
   return `<tr>
     <td class="td-mono" style="color:var(--muted);font-size:11px">${esc(a.id)}</td>
-    <td><input class="rate-edit-input" id="accEditName-${r}" value="${esc(a.name)}" placeholder="Name"></td>
-    <td><select class="cat-edit-select" id="accEditCurrency-${r}">${currencyOpts}</select></td>
-    <td><select class="cat-edit-select" id="accEditType-${r}">${typeOpts}</select></td>
-    <td><input class="rate-edit-input" type="number" step="0.01" id="accEditOpeningBal-${r}" value="${fmt(a.opening_balance)}"></td>
-    <td><input class="rate-edit-input" type="number" step="0.01" id="accEditCurrentBal-${r}" value="${fmt(a.current_balance)}"></td>
-    <td>
-      <select class="cat-edit-select" id="accEditIsActive-${r}">
-        <option value="true"  ${isActive(a) ? 'selected' : ''}>active</option>
-        <option value="false" ${!isActive(a) ? 'selected' : ''}>archived</option>
-      </select>
+    <td colspan="5">
+      <div class="form-grid" style="padding:4px 0">
+        <div class="field" style="margin:0">
+          <label>Name</label>
+          <input class="rate-edit-input" id="accEditName-${r}" value="${esc(a.name)}" placeholder="Name">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Currency</label>
+          <select class="cat-edit-select" id="accEditCurrency-${r}">${currencyOpts}</select>
+        </div>
+        <div class="field" style="margin:0">
+          <label>Type</label>
+          <select class="cat-edit-select" id="accEditType-${r}">${typeOptgroupHtml(a.type)}</select>
+        </div>
+        <div class="field" id="accEditCreditLimitWrap-${r}" style="margin:0;${isCC ? '' : 'display:none'}">
+          <label>Credit limit</label>
+          <input class="rate-edit-input" type="number" step="0.01" id="accEditCreditLimit-${r}" value="${esc(String(a.credit_limit || ''))}">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Opening bal.</label>
+          <input class="rate-edit-input" type="number" step="0.01" id="accEditOpeningBal-${r}" value="${esc(String(a.opening_balance || 0))}">
+          <div class="field-hint" id="accEditOpeningBalHint-${r}" style="${isLiab ? '' : 'display:none'}">Enter amount owed as negative, e.g. −1500</div>
+        </div>
+        <div class="field" style="margin:0">
+          <label>Current bal.</label>
+          <input class="rate-edit-input" type="number" step="0.01" id="accEditCurrentBal-${r}" value="${esc(String(a.current_balance || 0))}">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Status</label>
+          <select class="cat-edit-select" id="accEditIsActive-${r}">
+            <option value="true"  ${isActive(a) ? 'selected' : ''}>active</option>
+            <option value="false" ${!isActive(a) ? 'selected' : ''}>archived</option>
+          </select>
+        </div>
+        <div class="field form-grid-full" style="margin:0">
+          <label>Notes</label>
+          <input class="rate-edit-input" style="width:100%" id="accEditNotes-${r}" value="${esc(a.notes || '')}" placeholder="Notes">
+        </div>
+      </div>
     </td>
-    <td><input class="rate-edit-input" style="width:100%;min-width:100px" id="accEditNotes-${r}" value="${esc(a.notes || '')}" placeholder="Notes"></td>
-    <td><div class="row-actions">
+    <td><div class="row-actions" style="margin-top:4px">
       <button class="btn-link" data-action="acc-save-edit" data-row="${r}">Save</button>
       <button class="btn-link" data-action="acc-cancel-edit">Cancel</button>
     </div></td>
   </tr>`;
+}
+
+function _refreshAddTypeUI() {
+  const type   = el('accNewType')?.value || '';
+  const isCC   = type === 'credit-card';
+  const isLiab = LIABILITY_TYPES.has(type);
+  const wrap   = el('accNewCreditLimitWrap');
+  const hint   = el('accNewOpeningBalHint');
+  if (wrap) wrap.style.display = isCC   ? '' : 'none';
+  if (hint) hint.style.display = isLiab ? '' : 'none';
+}
+
+function _refreshEditTypeUI(r) {
+  const type   = el(`accEditType-${r}`)?.value || '';
+  const isCC   = type === 'credit-card';
+  const isLiab = LIABILITY_TYPES.has(type);
+  const wrap   = el(`accEditCreditLimitWrap-${r}`);
+  const hint   = el(`accEditOpeningBalHint-${r}`);
+  if (wrap) wrap.style.display = isCC   ? '' : 'none';
+  if (hint) hint.style.display = isLiab ? '' : 'none';
 }
 
 function attachEvents() {
@@ -166,6 +313,7 @@ function attachEvents() {
 
   el('accSaveNew')?.addEventListener('click', saveNew);
   el('accCancelNew')?.addEventListener('click', () => { state.accAddOpen = false; renderAccounts(); });
+  el('accNewType')?.addEventListener('change', _refreshAddTypeUI);
 
   el('accountsContent')?.querySelector('.table-wrap')?.addEventListener('click', e => {
     const btn    = e.target.closest('[data-action]');
@@ -173,23 +321,36 @@ function attachEvents() {
     const action = btn.dataset.action;
     const row    = btn.dataset.row ? Number(btn.dataset.row) : null;
 
-    if (action === 'acc-edit')           { state.accEditRow = row; state.accDeleteRow = null; renderAccounts(); }
+    if (action === 'acc-edit') {
+      state.accEditRow = row; state.accDeleteRow = null; renderAccounts();
+      setTimeout(() => _refreshEditTypeUI(row), 0);
+      return;
+    }
     if (action === 'acc-cancel-edit')    { state.accEditRow = null; renderAccounts(); }
     if (action === 'acc-save-edit')      { saveEdit(row); }
     if (action === 'acc-delete')         { state.accDeleteRow = row; state.accEditRow = null; renderAccounts(); }
     if (action === 'acc-cancel-delete')  { state.accDeleteRow = null; renderAccounts(); }
     if (action === 'acc-confirm-delete') { confirmDelete(row); }
   });
+
+  if (state.accEditRow !== null) {
+    const r = state.accEditRow;
+    setTimeout(() => {
+      el(`accEditType-${r}`)?.addEventListener('change', () => _refreshEditTypeUI(r));
+      _refreshEditTypeUI(r);
+    }, 0);
+  }
 }
 
 async function saveNew() {
-  const name     = el('accNewName')?.value.trim();
-  const currency = el('accNewCurrency')?.value;
-  const type            = el('accNewType')?.value;
-  const opening_balance = parseFloat(el('accNewOpeningBal')?.value || 0) || 0;
-  const current_balance = parseFloat(el('accNewCurrentBal')?.value || 0) || 0;
-  const notes           = el('accNewNotes')?.value.trim();
-  const errEl           = el('accAddError');
+  const name          = el('accNewName')?.value.trim();
+  const currency      = el('accNewCurrency')?.value;
+  const type          = el('accNewType')?.value;
+  const credit_limit  = el('accNewCreditLimit')?.value;
+  const opening_bal   = el('accNewOpeningBal')?.value;
+  const current_bal   = el('accNewCurrentBal')?.value;
+  const notes         = el('accNewNotes')?.value.trim();
+  const errEl         = el('accAddError');
 
   if (!name) { if (errEl) errEl.textContent = 'Name is required.'; return; }
   if (errEl) errEl.textContent = '';
@@ -198,7 +359,13 @@ async function saveNew() {
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   showLoading();
   try {
-    const res = await ExpenseAPI.createAccount({ name, currency, type, opening_balance, current_balance, notes });
+    const res = await ExpenseAPI.createAccount({
+      name, currency, type,
+      credit_limit: credit_limit ? parseFloat(credit_limit) : 0,
+      opening_balance: parseFloat(opening_bal) || 0,
+      current_balance: parseFloat(current_bal) || 0,
+      notes,
+    });
     if (res.ok) {
       showMsg('Account added.');
       state.accAddOpen = false;
@@ -217,19 +384,27 @@ async function saveNew() {
 }
 
 async function saveEdit(rowNum) {
-  const name     = el(`accEditName-${rowNum}`)?.value.trim();
-  const currency = el(`accEditCurrency-${rowNum}`)?.value;
-  const type            = el(`accEditType-${rowNum}`)?.value;
-  const opening_balance = parseFloat(el(`accEditOpeningBal-${rowNum}`)?.value || 0) || 0;
-  const current_balance = parseFloat(el(`accEditCurrentBal-${rowNum}`)?.value || 0) || 0;
-  const is_active       = el(`accEditIsActive-${rowNum}`)?.value === 'true';
-  const notes           = el(`accEditNotes-${rowNum}`)?.value.trim();
+  const r             = rowNum;
+  const name          = el(`accEditName-${r}`)?.value.trim();
+  const currency      = el(`accEditCurrency-${r}`)?.value;
+  const type          = el(`accEditType-${r}`)?.value;
+  const credit_limit  = el(`accEditCreditLimit-${r}`)?.value;
+  const opening_bal   = el(`accEditOpeningBal-${r}`)?.value;
+  const current_bal   = el(`accEditCurrentBal-${r}`)?.value;
+  const is_active     = el(`accEditIsActive-${r}`)?.value === 'true';
+  const notes         = el(`accEditNotes-${r}`)?.value.trim();
 
   if (!name) { showMsg('Name is required.', 'warn'); return; }
 
   showLoading();
   try {
-    const res = await ExpenseAPI.updateAccount({ row_num: rowNum, name, currency, type, opening_balance, current_balance, is_active, notes });
+    const res = await ExpenseAPI.updateAccount({
+      row_num: rowNum, name, currency, type,
+      credit_limit: credit_limit ? parseFloat(credit_limit) : 0,
+      opening_balance: parseFloat(opening_bal) || 0,
+      current_balance: parseFloat(current_bal) || 0,
+      is_active, notes,
+    });
     if (res.ok) {
       showMsg('Account updated.');
       state.accEditRow = null;

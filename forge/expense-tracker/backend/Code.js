@@ -35,7 +35,7 @@ const TRANSACTION_COLUMNS = [
 // 13=fx_rate  14=country  15=payment_method
 
 const CATEGORY_COLUMNS = ['transaction_type', 'major_category', 'minor_category', 'tag_keywords'];
-const ACCOUNT_COLUMNS  = ['id', 'name', 'currency', 'type', 'opening_balance', 'current_balance', 'is_active', 'notes', 'created_at'];
+const ACCOUNT_COLUMNS  = ['id', 'name', 'currency', 'type', 'opening_balance', 'current_balance', 'credit_limit', 'is_active', 'notes', 'created_at'];
 const RATES_COLUMNS    = ['currency', 'rate', 'symbol', 'updated_at'];
 
 const AUDIT_COLUMNS = [
@@ -476,14 +476,23 @@ function normaliseKeywords(keywords) {
 // Accounts
 // -----------------------------------------------------------------------------
 
-const VALID_ACCOUNT_TYPES = ['bank', 'savings', 'credit', 'cash', 'investment', 'other'];
+const VALID_ACCOUNT_TYPES     = ['current', 'savings', 'cash', 'credit-card', 'loan', 'investment'];
+const LIABILITY_ACCOUNT_TYPES = ['credit-card', 'loan'];
 
 // ACCOUNT_COLUMNS indices (col number = index + 1):
 // 0=id  1=name  2=currency  3=type
-// 4=opening_balance  5=current_balance  6=is_active  7=notes  8=created_at
+// 4=opening_balance  5=current_balance  6=credit_limit  7=is_active  8=notes  9=created_at
 
 function listAccounts() {
-  return sheetToObjectsWithRow(getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS));
+  const rows = sheetToObjectsWithRow(getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS));
+  return rows.map(a => {
+    const bal = Number(a.current_balance) || 0;
+    const lim = Number(a.credit_limit)    || 0;
+    const utilisation_pct = (a.type === 'credit-card' && lim > 0)
+      ? Math.round(Math.abs(bal) / lim * 1000) / 10
+      : null;
+    return Object.assign({}, a, { utilisation_pct });
+  });
 }
 
 function generateAccountId(sheet) {
@@ -500,20 +509,23 @@ function generateAccountId(sheet) {
 }
 
 function createAccount(body) {
-  if (!String(body.name || '').trim())     return { ok: false, error: 'missing_name' };
-  if (!String(body.currency || '').trim()) return { ok: false, error: 'missing_currency' };
+  if (!String(body.name || '').trim())          return { ok: false, error: 'missing_name' };
+  if (!String(body.currency || '').trim())       return { ok: false, error: 'missing_currency' };
+  if (!VALID_ACCOUNT_TYPES.includes(body.type)) return { ok: false, error: 'invalid_account_type' };
 
-  const sheet = getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS);
-  const id    = generateAccountId(sheet);
-  const now   = new Date().toISOString();
+  const sheet       = getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS);
+  const id          = generateAccountId(sheet);
+  const now         = new Date().toISOString();
+  const creditLimit = body.type === 'credit-card' ? (Number(body.credit_limit) || 0) : '';
 
   sheet.appendRow([
     id,
     String(body.name).trim(),
     String(body.currency).trim().toUpperCase(),
-    VALID_ACCOUNT_TYPES.includes(body.type) ? body.type : 'other',
+    body.type,
     Number(body.opening_balance) || 0,
     Number(body.current_balance) || 0,
+    creditLimit,
     true,
     String(body.notes || '').trim(),
     now,
@@ -522,22 +534,26 @@ function createAccount(body) {
 }
 
 function updateAccount(body) {
-  if (!body.row_num)                       return { ok: false, error: 'missing_row_num' };
-  if (!String(body.name || '').trim())     return { ok: false, error: 'missing_name' };
-  if (!String(body.currency || '').trim()) return { ok: false, error: 'missing_currency' };
+  if (!body.row_num)                            return { ok: false, error: 'missing_row_num' };
+  if (!String(body.name || '').trim())          return { ok: false, error: 'missing_name' };
+  if (!String(body.currency || '').trim())      return { ok: false, error: 'missing_currency' };
+  if (!VALID_ACCOUNT_TYPES.includes(body.type)) return { ok: false, error: 'invalid_account_type' };
 
-  const sheet   = getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS);
-  const rowNum  = Number(body.row_num);
-  const lastRow = sheet.getLastRow();
+  const sheet       = getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS);
+  const rowNum      = Number(body.row_num);
+  const lastRow     = sheet.getLastRow();
   if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
 
-  // Update cols 2–8 (name through notes); col 1 (id) and col 9 (created_at) are immutable
-  sheet.getRange(rowNum, 2, 1, 7).setValues([[
+  const creditLimit = body.type === 'credit-card' ? (Number(body.credit_limit) || 0) : '';
+
+  // Update cols 2–9 (name through notes); col 1 (id) and col 10 (created_at) are immutable
+  sheet.getRange(rowNum, 2, 1, 8).setValues([[
     String(body.name).trim(),
     String(body.currency).trim().toUpperCase(),
-    VALID_ACCOUNT_TYPES.includes(body.type) ? body.type : 'other',
+    body.type,
     Number(body.opening_balance) || 0,
     Number(body.current_balance) || 0,
+    creditLimit,
     body.is_active === true || body.is_active === 'true',
     String(body.notes || '').trim(),
   ]]);
