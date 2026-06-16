@@ -44,9 +44,13 @@ export function nowLocalISO() {
 
 export function fmtDateTime(v) {
   if (!v) return '—';
-  const s = String(v);
-  const timePart = s.length > 10 && s[10] === 'T' ? s.slice(11, 16) : null;
-  return timePart ? `${fmtDate(s)} · ${timePart}` : fmtDate(s);
+  try {
+    const d = new Date(String(v));
+    if (isNaN(d)) return String(v).slice(0, 16) || '—';
+    const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return `${date} · ${time}`;
+  } catch (_) { return '—'; }
 }
 
 // ── Currency — caller supplies required data ──────────────────────────────────
