@@ -1,5 +1,5 @@
 import { state, VALID_TX_TYPES } from '../core/state.js';
-import { el, esc, fmtDate, fmtNative, fmtBase, todayISO, exportData } from '../core/utils.js';
+import { el, esc, fmtDateTime, fmtNative, fmtBase, nowLocalISO, exportData } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { filteredTx } from '../core/daterange.js';
 import { ExpenseAPI } from '../core/api.js';
@@ -56,7 +56,7 @@ function renderTxTable(validRows, warnRows) {
     const rowRate     = tx.fx_rate && parseFloat(tx.fx_rate) > 0;
 
     return `<tr>
-      <td class="td-mono">${esc(fmtDate(tx.date))}</td>
+      <td class="td-mono">${esc(fmtDateTime(tx.date))}</td>
       <td><span class="badge ${badgeCls}">${typeLabel}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}</td>
       <td>${esc(state.accountMap[tx.account]?.name || '—')}</td>
       <td class="td-mono">${esc(fmtNative(tx.amount, tx.currency))}${missingRate ? ' <span class="badge badge-warn" title="Currency not in rates tab">?</span>' : ''}</td>
@@ -64,16 +64,13 @@ function renderTxTable(validRows, warnRows) {
       <td>${esc(tx.major_category || '—')} ${tx.minor_category ? '→ ' + esc(tx.minor_category) : ''}</td>
       <td>${esc(tx.counterparty || '—')}</td>
       <td class="td-muted">${esc(tx.country || '—')}</td>
-      <td class="td-muted">${esc(tx.payment_method || '—')}</td>
-      <td class="td-muted">${tx.tags ? tx.tags.split(';').map(t => `<span class="badge" style="background:var(--canvas)">${esc(t.trim())}</span>`).join(' ') : '—'}</td>
-      <td class="td-muted">${esc(tx.notes || '—')}</td>
     </tr>`;
   }).join('');
 
   const warnRowsHtml = warnRows.length ? `
     <tbody id="warnTable" class="hidden">
       ${warnRows.map(tx => `<tr>
-        <td colspan="11"><span class="badge badge-warn">⚠ malformed</span> id=${esc(String(tx.id||'?'))} type=${esc(tx.transaction_type||'?')} date=${esc(String(tx.date||'?'))}</td>
+        <td colspan="8"><span class="badge badge-warn">⚠ malformed</span> id=${esc(String(tx.id||'?'))} type=${esc(tx.transaction_type||'?')} date=${esc(String(tx.date||'?'))}</td>
       </tr>`).join('')}
     </tbody>` : '';
 
@@ -96,9 +93,6 @@ function renderTxTable(validRows, warnRows) {
           ${thSort('major_category','Category')}
           ${thSort('counterparty','Counterparty')}
           <th>Country</th>
-          <th>Method</th>
-          <th>Tags</th>
-          <th>Notes</th>
         </tr></thead>
         <tbody>${rows}</tbody>
         ${warnRowsHtml}
@@ -130,7 +124,17 @@ function sortTx(rows) {
   return rows.sort((a, b) => {
     let va = a[col] ?? '', vb = b[col] ?? '';
     if (col === 'date') {
-      const ts = s => { const p = String(s).slice(0,10).split('-').map(Number); return p.length===3 ? new Date(p[0],p[1]-1,p[2]).getTime() : 0; };
+      const ts = s => {
+        const str = String(s);
+        if (str.includes('T')) {
+          const [dp, tp = '00:00'] = str.split('T');
+          const [y, mo, d] = dp.split('-').map(Number);
+          const [h, mi]    = tp.slice(0, 5).split(':').map(Number);
+          return new Date(y, mo - 1, d, h || 0, mi || 0).getTime();
+        }
+        const p = str.slice(0, 10).split('-').map(Number);
+        return p.length === 3 ? new Date(p[0], p[1] - 1, p[2]).getTime() : 0;
+      };
       va = ts(va); vb = ts(vb);
     } else if (col === 'amount') {
       va = parseFloat(va) || 0; vb = parseFloat(vb) || 0;
@@ -144,6 +148,9 @@ function sortTx(rows) {
 // ── Add-transaction form ──────────────────────────────────────────────────────
 
 function renderAddForm() {
+  const activeAccounts = state.accounts.filter(
+    a => a.is_active === true || a.is_active === 'TRUE' || a.is_active === 'true'
+  );
   return `
   <div class="add-form-wrap">
     <button class="add-form-toggle" id="addFormToggle">
@@ -151,72 +158,50 @@ function renderAddForm() {
       <span class="plus-icon">${addFormOpen ? '×' : '+'}</span>
     </button>
     <div class="add-form-body ${addFormOpen ? '' : 'hidden'}" id="addFormBody">
-      <div class="form-grid">
-        <div class="field">
-          <label for="afDate">Date *</label>
-          <input type="date" id="afDate" value="${todayISO()}">
-        </div>
+      <div class="form-grid form-grid-4">
         <div class="field">
           <label for="afType">Type *</label>
           <select id="afType">
+            <option value="">— select —</option>
             ${['money-in','money-out','money-transfer'].map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('')}
           </select>
         </div>
         <div class="field">
-          <label for="afAccount">Account *</label>
-          <select id="afAccount">
-            <option value="">— select —</option>
-            ${state.accounts
-              .filter(a => a.is_active === true || a.is_active === 'TRUE' || a.is_active === 'true')
-              .map(a => `<option value="${esc(a.id)}">${esc(a.name)} (${esc(a.currency)})</option>`).join('')}
-          </select>
-        </div>
-        <div class="field">
-          <label for="afAmount">Amount *</label>
-          <input type="number" id="afAmount" min="0.01" step="0.01" placeholder="0.00">
-        </div>
-        <div class="field">
-          <label for="afCurrency">Currency *</label>
-          <select id="afCurrency">
-            ${state.rates.map(r => `<option value="${esc(r.currency)}">${esc(r.symbol||'')} ${esc(r.currency)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="field">
           <label for="afMajor">Major category *</label>
-          <select id="afMajor"><option value="">— select type first —</option></select>
+          <select id="afMajor" disabled><option value="">— select type first —</option></select>
         </div>
         <div class="field">
           <label for="afMinor">Minor category *</label>
-          <select id="afMinor"><option value="">— select major first —</option></select>
+          <select id="afMinor" disabled><option value="">— select major first —</option></select>
+        </div>
+        <div class="field">
+          <label for="afAccount">Account *</label>
+          <select id="afAccount" disabled>
+            <option value="">— select type first —</option>
+            ${activeAccounts.map(a => `<option value="${esc(a.id)}">${esc(a.name)} (${esc(a.currency)})</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label for="afDate">Date &amp; time *</label>
+          <input type="datetime-local" id="afDate" value="${nowLocalISO()}">
         </div>
         <div class="field">
           <label for="afCounterparty">Counterparty</label>
           <input type="text" id="afCounterparty" placeholder="Tesco, employer, …">
         </div>
         <div class="field">
+          <label for="afAmount">Amount *</label>
+          <input type="number" id="afAmount" min="0.01" step="0.01" placeholder="0.00">
+        </div>
+        <div class="field">
           <label for="afCountry">Country</label>
           <input type="text" id="afCountry" placeholder="UK">
         </div>
-        <div class="field">
-          <label for="afMethod">Payment method</label>
-          <select id="afMethod">
-            <option value="">— optional —</option>
-            ${['card','cash','bank','UPI','other'].map(m => `<option value="${m}">${m}</option>`).join('')}
-          </select>
-        </div>
-        <div class="field" id="afTransferIdWrap" style="display:none">
-          <label for="afTransferId">Transfer ID</label>
-          <input type="text" id="afTransferId" placeholder="T-YYYY-MM-DD-1">
-        </div>
-        <div class="field" id="afFxRateWrap" style="display:none">
-          <label for="afFxRate">FX rate (units per 1 GBP)</label>
-          <input type="number" id="afFxRate" min="0" step="any" placeholder="optional override">
-        </div>
-        <div class="field">
+        <div class="field form-grid-span-2">
           <label for="afTags">Tags</label>
           <input type="text" id="afTags" placeholder="reimbursable, work">
         </div>
-        <div class="field form-grid-full">
+        <div class="field form-grid-span-2">
           <label for="afNotes">Notes</label>
           <input type="text" id="afNotes" placeholder="free text">
         </div>
@@ -234,11 +219,27 @@ function attachAddFormEvents() {
   el('addFormToggle')?.addEventListener('click', () => { addFormOpen = !addFormOpen; renderTransactions(); });
 
   el('afType')?.addEventListener('change', () => {
-    const type   = el('afType').value;
+    const type    = el('afType').value;
+    const majorEl = el('afMajor');
+    const minorEl = el('afMinor');
+    const accEl   = el('afAccount');
+
+    majorEl.innerHTML = '<option value="">— select type first —</option>';
+    minorEl.innerHTML = '<option value="">— select major first —</option>';
+    accEl.value       = '';
+
+    if (!type) {
+      majorEl.disabled = true;
+      minorEl.disabled = true;
+      accEl.disabled   = true;
+      return;
+    }
+
     const majors = [...new Set(state.categories.filter(c => c.transaction_type === type).map(c => c.major_category))];
-    el('afMajor').innerHTML = `<option value="">— select —</option>${majors.map(m => `<option>${esc(m)}</option>`).join('')}`;
-    el('afMinor').innerHTML = `<option value="">— select major first —</option>`;
-    el('afTransferIdWrap').style.display = type === 'money-transfer' ? '' : 'none';
+    majorEl.innerHTML = `<option value="">— select —</option>${majors.map(m => `<option>${esc(m)}</option>`).join('')}`;
+    majorEl.disabled  = false;
+    minorEl.disabled  = false;
+    accEl.disabled    = false;
   });
 
   el('afMajor')?.addEventListener('change', () => {
@@ -248,23 +249,17 @@ function attachAddFormEvents() {
     el('afMinor').innerHTML = `<option value="">— select —</option>${minors.map(m => `<option>${esc(m)}</option>`).join('')}`;
   });
 
-  el('afCurrency')?.addEventListener('change', () => {
-    el('afFxRateWrap').style.display = el('afCurrency').value !== 'GBP' ? '' : 'none';
-  });
-
-  el('afAccount')?.addEventListener('change', () => {
-    const acc = state.accounts.find(a => a.id === el('afAccount').value);
-    if (acc) el('afCurrency').value = acc.currency;
-    el('afFxRateWrap').style.display = el('afCurrency').value !== 'GBP' ? '' : 'none';
-  });
-
   el('afSubmit')?.addEventListener('click', saveTransaction);
   el('afReset')?.addEventListener('click', () => {
-    ['afDate','afAmount','afCounterparty','afCountry','afTags','afNotes','afFxRate','afTransferId']
-      .forEach(id => { if (el(id)) el(id).value = id === 'afDate' ? todayISO() : ''; });
-    el('afType').value    = 'money-in';
-    el('afMajor').innerHTML = '<option value="">— select type first —</option>';
-    el('afMinor').innerHTML = '<option value="">— select major first —</option>';
+    ['afDate','afAmount','afCounterparty','afCountry','afTags','afNotes']
+      .forEach(id => { if (el(id)) el(id).value = id === 'afDate' ? nowLocalISO() : ''; });
+    el('afType').value       = '';
+    el('afMajor').innerHTML  = '<option value="">— select type first —</option>';
+    el('afMajor').disabled   = true;
+    el('afMinor').innerHTML  = '<option value="">— select major first —</option>';
+    el('afMinor').disabled   = true;
+    el('afAccount').value    = '';
+    el('afAccount').disabled = true;
     el('afError').textContent = '';
   });
 }
@@ -278,18 +273,16 @@ async function saveTransaction() {
   const transaction_type = el('afType').value;
   const account          = el('afAccount').value;
   const amount           = el('afAmount').value;
-  const currency         = el('afCurrency').value;
+  const currency         = state.accounts.find(a => a.id === account)?.currency || '';
   const major_category   = el('afMajor').value;
   const minor_category   = el('afMinor').value;
   const counterparty     = el('afCounterparty').value.trim();
   const country          = el('afCountry').value.trim();
-  const payment_method   = el('afMethod').value;
-  const transfer_id      = el('afTransferId').value.trim();
-  const fx_rate          = el('afFxRate').value;
   const tags             = el('afTags').value.trim();
   const notes            = el('afNotes').value.trim();
 
   if (!date)                                { errEl.textContent = 'Date is required.';             return; }
+  if (!transaction_type)                    { errEl.textContent = 'Type is required.';             return; }
   if (!account)                             { errEl.textContent = 'Account is required.';          return; }
   if (!amount || parseFloat(amount) <= 0)   { errEl.textContent = 'Enter a positive amount.';      return; }
   if (!major_category)                      { errEl.textContent = 'Major category is required.';   return; }
@@ -300,8 +293,8 @@ async function saveTransaction() {
   try {
     const res = await ExpenseAPI.createTransaction({
       date, transaction_type, account, amount: parseFloat(amount), currency,
-      major_category, minor_category, counterparty, country, payment_method,
-      transfer_id, fx_rate: fx_rate ? parseFloat(fx_rate) : '',
+      major_category, minor_category, counterparty, country, payment_method: '',
+      transfer_id: '', fx_rate: '',
       tags, notes,
     });
     if (res.ok) {

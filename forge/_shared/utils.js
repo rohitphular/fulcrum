@@ -36,6 +36,19 @@ export function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+export function nowLocalISO() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export function fmtDateTime(v) {
+  if (!v) return '—';
+  const s = String(v);
+  const timePart = s.length > 10 && s[10] === 'T' ? s.slice(11, 16) : null;
+  return timePart ? `${fmtDate(s)} · ${timePart}` : fmtDate(s);
+}
+
 // ── Currency — caller supplies required data ──────────────────────────────────
 
 export function getSymbol(currency, rates) {

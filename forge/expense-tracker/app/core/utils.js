@@ -1,5 +1,5 @@
 import {
-  el, esc, fmtDate, parseLocalDate, toDateInputVal, todayISO,
+  el, esc, fmtDate, fmtDateTime, parseLocalDate, toDateInputVal, todayISO, nowLocalISO,
   getSymbol as _getSymbol,
   toBase    as _toBase,
   fmtBase   as _fmtBase,
@@ -8,7 +8,7 @@ import {
 } from '../../../_shared/utils.js';
 import { state } from './state.js';
 
-export { el, esc, fmtDate, parseLocalDate, toDateInputVal, todayISO };
+export { el, esc, fmtDate, fmtDateTime, parseLocalDate, toDateInputVal, todayISO, nowLocalISO };
 
 export const getSymbol  = currency                  => _getSymbol(currency, state.rates);
 export const toBase     = (amount, from, rowFxRate) => _toBase(amount, from, rowFxRate, state.rateMap, state.quoteCurrency);

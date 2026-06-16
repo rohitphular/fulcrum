@@ -261,7 +261,24 @@ function createTransaction(body) {
     body.payment_method   || ''
   ]);
 
+  const type = body.transaction_type;
+  if (type === 'money-in')  adjustAccountBalance(body.account,  Number(body.amount));
+  if (type === 'money-out') adjustAccountBalance(body.account, -Number(body.amount));
+  // money-transfer: skipped until destination account is captured in the form
+
   return { ok: true, id };
+}
+
+function adjustAccountBalance(accountId, delta) {
+  const sheet  = getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS);
+  const values = sheet.getDataRange().getValues();
+  // col 1 = id (index 0), col 6 = current_balance (index 5)
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) !== accountId) continue;
+    const current = Number(values[i][5]) || 0;
+    sheet.getRange(i + 1, 6).setValue(current + delta);
+    return;
+  }
 }
 
 function generateTransactionId(sheet, date) {
