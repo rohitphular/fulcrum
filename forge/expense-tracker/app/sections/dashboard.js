@@ -11,9 +11,9 @@ export function destroyAllCharts() {
 export function renderDashboard() {
   destroyAllCharts();
   const filtered  = filteredTx();
-  const income    = filtered.filter(tx => tx.transaction_type === 'money-in'  && !tx.transfer_id);
-  const expenses  = filtered.filter(tx => tx.transaction_type === 'money-out' && !tx.transfer_id);
-  const transfers = filtered.filter(tx => tx.transfer_id);
+  const income    = filtered.filter(tx => tx.transaction_type === 'money-in');
+  const expenses  = filtered.filter(tx => tx.transaction_type === 'money-out');
+  const transfers = filtered.filter(tx => tx.transaction_type === 'money-transfer');
 
   const totalIncome   = income.reduce((s, tx)   => s + toBase(tx.amount, tx.currency, tx.fx_rate), 0);
   const totalExpenses = expenses.reduce((s, tx) => s + toBase(tx.amount, tx.currency, tx.fx_rate), 0);
@@ -243,8 +243,8 @@ function renderAccountChart(filtered) {
   if (!ctx) return;
 
   const byAccount = {};
-  filtered.filter(tx => tx.transaction_type === 'money-out' && !tx.transfer_id).forEach(tx => {
-    const key = state.accountMap[tx.account]?.name || '—';
+  filtered.filter(tx => tx.transaction_type === 'money-out').forEach(tx => {
+    const key = state.accountMap[tx.from_account]?.name || '—';
     byAccount[key] = (byAccount[key] || 0) + toBase(tx.amount, tx.currency, tx.fx_rate);
   });
   const sorted = Object.entries(byAccount).sort((a, b) => b[1] - a[1]);

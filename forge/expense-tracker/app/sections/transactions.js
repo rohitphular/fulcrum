@@ -1,5 +1,5 @@
 import { state, VALID_TX_TYPES } from '../core/state.js';
-import { el, esc, fmtDateTime, fmtNative, fmtBase, nowLocalISO, exportData } from '../core/utils.js';
+import { el, esc, fmtDateTime, fmtNative, fmtBase, nowLocalISO, toDateInputVal, exportData } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { filteredTx } from '../core/daterange.js';
 import { ExpenseAPI } from '../core/api.js';
@@ -50,6 +50,9 @@ function renderTxTable(validRows, warnRows) {
   };
 
   const rows = paged.map(tx => {
+    if (state.txDeleteRow === tx._row) return renderTxDeleteRow(tx);
+    if (state.txEditRow   === tx._row) return renderTxEditRow(tx);
+
     const badgeCls  = tx.transaction_type === 'money-in' ? 'badge-in' : tx.transaction_type === 'money-out' ? 'badge-out' : 'badge-transfer';
     const typeLabel = tx.transaction_type === 'money-in' ? 'in'       : tx.transaction_type === 'money-out' ? 'out'       : 'xfer';
     const missingRate = !state.rateMap[tx.currency];
@@ -58,19 +61,26 @@ function renderTxTable(validRows, warnRows) {
     return `<tr>
       <td class="td-mono">${esc(fmtDateTime(tx.date))}</td>
       <td><span class="badge ${badgeCls}">${typeLabel}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}</td>
-      <td>${esc(state.accountMap[tx.account]?.name || '—')}</td>
+      <td>${tx.transaction_type === 'money-transfer' && tx.to_account
+        ? `${esc(state.accountMap[tx.from_account]?.name || '—')} → ${esc(state.accountMap[tx.to_account]?.name || '—')}`
+        : esc(state.accountMap[tx.from_account]?.name || '—')
+      }</td>
       <td class="td-mono">${esc(fmtNative(tx.amount, tx.currency))}${missingRate ? ' <span class="badge badge-warn" title="Currency not in rates tab">?</span>' : ''}</td>
       <td class="td-mono">${esc(fmtBase(tx.amount, tx.currency, tx.fx_rate))}${rowRate ? ' <span title="Row-level FX rate used" style="color:var(--muted);font-size:10px">†</span>' : ''}</td>
       <td>${esc(tx.major_category || '—')} ${tx.minor_category ? '→ ' + esc(tx.minor_category) : ''}</td>
       <td>${esc(tx.counterparty || '—')}</td>
       <td class="td-muted">${esc(tx.country || '—')}</td>
+      <td><div class="row-actions">
+        <button class="btn-link" data-action="tx-edit" data-row="${tx._row}">Edit</button>
+        <button class="btn-link danger" data-action="tx-delete" data-row="${tx._row}">Delete</button>
+      </div></td>
     </tr>`;
   }).join('');
 
   const warnRowsHtml = warnRows.length ? `
     <tbody id="warnTable" class="hidden">
       ${warnRows.map(tx => `<tr>
-        <td colspan="8"><span class="badge badge-warn">⚠ malformed</span> id=${esc(String(tx.id||'?'))} type=${esc(tx.transaction_type||'?')} date=${esc(String(tx.date||'?'))}</td>
+        <td colspan="9"><span class="badge badge-warn">⚠ malformed</span> id=${esc(String(tx.id||'?'))} type=${esc(tx.transaction_type||'?')} date=${esc(String(tx.date||'?'))}</td>
       </tr>`).join('')}
     </tbody>` : '';
 
@@ -87,12 +97,13 @@ function renderTxTable(validRows, warnRows) {
         <thead><tr>
           ${thSort('date','Date')}
           ${thSort('transaction_type','Type')}
-          ${thSort('account','Account')}
+          ${thSort('from_account','Account')}
           <th>Amount</th>
           <th>≈ ${esc(state.quoteCurrency)}</th>
           ${thSort('major_category','Category')}
           ${thSort('counterparty','Counterparty')}
           <th>Country</th>
+          <th style="width:100px">Actions</th>
         </tr></thead>
         <tbody>${rows}</tbody>
         ${warnRowsHtml}
@@ -113,6 +124,21 @@ function renderTxTable(validRows, warnRows) {
     });
     el('prevPage')?.addEventListener('click', () => { state.txPage--; renderTransactions(); });
     el('nextPage')?.addEventListener('click', () => { state.txPage++; renderTransactions(); });
+
+    el('transactionsContent')?.querySelector('.table-wrap')?.addEventListener('click', e => {
+      const btn    = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const row    = btn.dataset.row ? Number(btn.dataset.row) : null;
+      if (action === 'tx-edit')           { state.txEditRow = row; state.txDeleteRow = null; renderTransactions(); }
+      if (action === 'tx-cancel-edit')    { state.txEditRow = null; renderTransactions(); }
+      if (action === 'tx-save-edit')      { saveEdit(row); }
+      if (action === 'tx-delete')         { state.txDeleteRow = row; state.txEditRow = null; renderTransactions(); }
+      if (action === 'tx-cancel-delete')  { state.txDeleteRow = null; renderTransactions(); }
+      if (action === 'tx-confirm-delete') { confirmDelete(row); }
+    });
+
+    if (state.txEditRow !== null) attachTxEditCascadeEvents(state.txEditRow);
   }, 0);
 
   return html;
@@ -175,11 +201,26 @@ function renderAddForm() {
           <select id="afMinor" disabled><option value="">— select major first —</option></select>
         </div>
         <div class="field">
-          <label for="afAccount">Account *</label>
-          <select id="afAccount" disabled>
+          <label for="afFromAccount">From account *</label>
+          <select id="afFromAccount" disabled>
             <option value="">— select type first —</option>
             ${activeAccounts.map(a => `<option value="${esc(a.id)}">${esc(a.name)} (${esc(a.currency)})</option>`).join('')}
           </select>
+        </div>
+        <div class="form-grid-full" id="afTransferSection" style="display:none">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px 16px;align-items:end">
+            <div class="field" style="margin:0">
+              <label for="afToAccount">To account *</label>
+              <select id="afToAccount">
+                <option value="">— select from account first —</option>
+                ${activeAccounts.map(a => `<option value="${esc(a.id)}">${esc(a.name)} (${esc(a.currency)})</option>`).join('')}
+              </select>
+            </div>
+            <div class="field" id="afFxRateWrap" style="display:none;margin:0">
+              <label for="afFxRate">FX rate</label>
+              <input type="number" id="afFxRate" min="0.0001" step="any" placeholder="e.g. 105">
+            </div>
+          </div>
         </div>
         <div class="field">
           <label for="afDate">Date &amp; time *</label>
@@ -219,27 +260,37 @@ function attachAddFormEvents() {
   el('addFormToggle')?.addEventListener('click', () => { addFormOpen = !addFormOpen; renderTransactions(); });
 
   el('afType')?.addEventListener('change', () => {
-    const type    = el('afType').value;
-    const majorEl = el('afMajor');
-    const minorEl = el('afMinor');
-    const accEl   = el('afAccount');
+    const type        = el('afType').value;
+    const majorEl     = el('afMajor');
+    const minorEl     = el('afMinor');
+    const fromAccEl   = el('afFromAccount');
 
     majorEl.innerHTML = '<option value="">— select type first —</option>';
     minorEl.innerHTML = '<option value="">— select major first —</option>';
-    accEl.value       = '';
+    fromAccEl.value   = '';
+    if (el('afToAccount'))  el('afToAccount').value  = '';
+    if (el('afFxRate'))     el('afFxRate').value      = '';
 
     if (!type) {
-      majorEl.disabled = true;
-      minorEl.disabled = true;
-      accEl.disabled   = true;
+      majorEl.disabled  = true;
+      minorEl.disabled  = true;
+      fromAccEl.disabled = true;
+      el('afTransferSection').style.display = 'none';
       return;
     }
 
     const majors = [...new Set(state.categories.filter(c => c.transaction_type === type).map(c => c.major_category))];
-    majorEl.innerHTML = `<option value="">— select —</option>${majors.map(m => `<option>${esc(m)}</option>`).join('')}`;
-    majorEl.disabled  = false;
-    minorEl.disabled  = false;
-    accEl.disabled    = false;
+    majorEl.innerHTML  = `<option value="">— select —</option>${majors.map(m => `<option>${esc(m)}</option>`).join('')}`;
+    majorEl.disabled   = false;
+    minorEl.disabled   = false;
+    fromAccEl.disabled = false;
+
+    if (type === 'money-transfer') {
+      el('afTransferSection').style.display = '';
+      _afRefreshToAccountOpts();
+    } else {
+      el('afTransferSection').style.display = 'none';
+    }
   });
 
   el('afMajor')?.addEventListener('change', () => {
@@ -249,19 +300,51 @@ function attachAddFormEvents() {
     el('afMinor').innerHTML = `<option value="">— select —</option>${minors.map(m => `<option>${esc(m)}</option>`).join('')}`;
   });
 
+  el('afFromAccount')?.addEventListener('change', () => {
+    if (el('afType').value === 'money-transfer') _afRefreshToAccountOpts();
+    _afRefreshFxRateVis();
+  });
+
+  el('afToAccount')?.addEventListener('change', _afRefreshFxRateVis);
+
   el('afSubmit')?.addEventListener('click', saveTransaction);
   el('afReset')?.addEventListener('click', () => {
-    ['afDate','afAmount','afCounterparty','afCountry','afTags','afNotes']
+    ['afDate','afAmount','afCounterparty','afCountry','afTags','afNotes','afFxRate']
       .forEach(id => { if (el(id)) el(id).value = id === 'afDate' ? nowLocalISO() : ''; });
-    el('afType').value       = '';
-    el('afMajor').innerHTML  = '<option value="">— select type first —</option>';
-    el('afMajor').disabled   = true;
-    el('afMinor').innerHTML  = '<option value="">— select major first —</option>';
-    el('afMinor').disabled   = true;
-    el('afAccount').value    = '';
-    el('afAccount').disabled = true;
-    el('afError').textContent = '';
+    el('afType').value              = '';
+    el('afFromAccount').value       = '';
+    el('afFromAccount').disabled    = true;
+    if (el('afToAccount')) el('afToAccount').value = '';
+    el('afMajor').innerHTML         = '<option value="">— select type first —</option>';
+    el('afMajor').disabled          = true;
+    el('afMinor').innerHTML         = '<option value="">— select major first —</option>';
+    el('afMinor').disabled          = true;
+    el('afTransferSection').style.display = 'none';
+    if (el('afFxRateWrap')) el('afFxRateWrap').style.display = 'none';
+    el('afError').textContent       = '';
   });
+}
+
+function _afRefreshToAccountOpts() {
+  const fromId    = el('afFromAccount')?.value || '';
+  const toAccEl   = el('afToAccount');
+  if (!toAccEl) return;
+  const activeAccs = state.accounts.filter(a => a.is_active === true || a.is_active === 'TRUE' || a.is_active === 'true');
+  const prevVal    = toAccEl.value;
+  const opts = activeAccs.filter(a => a.id !== fromId)
+    .map(a => `<option value="${esc(a.id)}">${esc(a.name)} (${esc(a.currency)})</option>`)
+    .join('');
+  toAccEl.innerHTML = `<option value="">— select —</option>${opts}`;
+  if (prevVal && prevVal !== fromId) toAccEl.value = prevVal;
+}
+
+function _afRefreshFxRateVis() {
+  const fromAcc = state.accounts.find(a => a.id === el('afFromAccount')?.value);
+  const toAcc   = state.accounts.find(a => a.id === el('afToAccount')?.value);
+  const show    = fromAcc && toAcc && fromAcc.currency !== toAcc.currency;
+  const wrap    = el('afFxRateWrap');
+  if (wrap) wrap.style.display = show ? '' : 'none';
+  if (!show && el('afFxRate')) el('afFxRate').value = '';
 }
 
 async function saveTransaction() {
@@ -271,9 +354,11 @@ async function saveTransaction() {
 
   const date             = el('afDate').value;
   const transaction_type = el('afType').value;
-  const account          = el('afAccount').value;
+  const from_account     = el('afFromAccount').value;
+  const to_account       = el('afToAccount')?.value || '';
+  const fx_rate          = el('afFxRate')?.value     || '';
   const amount           = el('afAmount').value;
-  const currency         = state.accounts.find(a => a.id === account)?.currency || '';
+  const currency         = state.accounts.find(a => a.id === from_account)?.currency || '';
   const major_category   = el('afMajor').value;
   const minor_category   = el('afMinor').value;
   const counterparty     = el('afCounterparty').value.trim();
@@ -281,20 +366,22 @@ async function saveTransaction() {
   const tags             = el('afTags').value.trim();
   const notes            = el('afNotes').value.trim();
 
-  if (!date)                                { errEl.textContent = 'Date is required.';             return; }
-  if (!transaction_type)                    { errEl.textContent = 'Type is required.';             return; }
-  if (!account)                             { errEl.textContent = 'Account is required.';          return; }
-  if (!amount || parseFloat(amount) <= 0)   { errEl.textContent = 'Enter a positive amount.';      return; }
-  if (!major_category)                      { errEl.textContent = 'Major category is required.';   return; }
-  if (!minor_category)                      { errEl.textContent = 'Minor category is required.';   return; }
+  if (!date)                                            { errEl.textContent = 'Date is required.';                          return; }
+  if (!transaction_type)                                { errEl.textContent = 'Type is required.';                          return; }
+  if (!from_account)                                    { errEl.textContent = 'From account is required.';                  return; }
+  if (transaction_type === 'money-transfer' && !to_account) { errEl.textContent = 'To account is required for transfers.'; return; }
+  if (!amount || parseFloat(amount) <= 0)               { errEl.textContent = 'Enter a positive amount.';                   return; }
+  if (!major_category)                                  { errEl.textContent = 'Major category is required.';                return; }
+  if (!minor_category)                                  { errEl.textContent = 'Minor category is required.';                return; }
 
   btn.disabled = true; btn.textContent = 'Saving…';
   showLoading();
   try {
     const res = await ExpenseAPI.createTransaction({
-      date, transaction_type, account, amount: parseFloat(amount), currency,
-      major_category, minor_category, counterparty, country, payment_method: '',
-      transfer_id: '', fx_rate: '',
+      date, transaction_type, from_account, to_account,
+      amount: parseFloat(amount), currency,
+      fx_rate: fx_rate ? parseFloat(fx_rate) : '',
+      major_category, minor_category, counterparty, country,
       tags, notes,
     });
     if (res.ok) {
@@ -308,6 +395,214 @@ async function saveTransaction() {
   } catch (_) {
     errEl.textContent = 'Connection error.';
     btn.disabled = false; btn.textContent = 'Save';
+  } finally {
+    hideLoading();
+  }
+}
+
+// ── Transaction edit / delete ─────────────────────────────────────────────────
+
+function renderTxEditRow(tx) {
+  const r = tx._row;
+  const activeAccounts = state.accounts.filter(
+    a => a.is_active === true || a.is_active === 'TRUE' || a.is_active === 'true'
+  );
+  const fromAccountOpts = activeAccounts.map(a =>
+    `<option value="${esc(a.id)}" ${tx.from_account === a.id ? 'selected' : ''}>${esc(a.name)} (${esc(a.currency)})</option>`
+  ).join('');
+  const toAccountOpts = activeAccounts.map(a =>
+    `<option value="${esc(a.id)}" ${tx.to_account === a.id ? 'selected' : ''}>${esc(a.name)} (${esc(a.currency)})</option>`
+  ).join('');
+  const typeOpts = ['money-in', 'money-out', 'money-transfer'].map(t =>
+    `<option value="${t}" ${tx.transaction_type === t ? 'selected' : ''}>${t}</option>`
+  ).join('');
+  const majors = [...new Set(state.categories.filter(c => c.transaction_type === tx.transaction_type).map(c => c.major_category))];
+  const majorOpts = majors.map(m =>
+    `<option value="${esc(m)}" ${tx.major_category === m ? 'selected' : ''}>${esc(m)}</option>`
+  ).join('');
+  const minors = state.categories.filter(c => c.transaction_type === tx.transaction_type && c.major_category === tx.major_category).map(c => c.minor_category);
+  const minorOpts = minors.map(m =>
+    `<option value="${esc(m)}" ${tx.minor_category === m ? 'selected' : ''}>${esc(m)}</option>`
+  ).join('');
+
+  const dateVal = (() => {
+    const s = String(tx.date || '').trim();
+    const match = s.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+    if (match) return `${match[1]}T${match[2]}`;
+    return s.slice(0, 10);
+  })();
+
+  return `<tr class="tx-edit-row">
+    <td colspan="9">
+      <div class="form-grid form-grid-4" style="padding:6px 0 4px">
+        <div class="field">
+          <label>Date &amp; time</label>
+          <input type="datetime-local" id="txEditDate-${r}" value="${esc(dateVal)}">
+        </div>
+        <div class="field">
+          <label>Type</label>
+          <select id="txEditType-${r}">${typeOpts}</select>
+        </div>
+        <div class="field">
+          <label>From account</label>
+          <select id="txEditFromAccount-${r}">
+            <option value="">— select —</option>
+            ${fromAccountOpts}
+          </select>
+        </div>
+        <div class="field">
+          <label>Amount</label>
+          <input type="number" id="txEditAmount-${r}" min="0.01" step="0.01" value="${esc(String(tx.amount || ''))}">
+        </div>
+        <div class="field">
+          <label>Major category</label>
+          <select id="txEditMajor-${r}">
+            <option value="">— select —</option>
+            ${majorOpts}
+          </select>
+        </div>
+        <div class="field">
+          <label>Minor category</label>
+          <select id="txEditMinor-${r}">
+            <option value="">— select —</option>
+            ${minorOpts}
+          </select>
+        </div>
+        <div class="field">
+          <label>Counterparty</label>
+          <input type="text" id="txEditCounterparty-${r}" value="${esc(tx.counterparty || '')}">
+        </div>
+        <div class="field">
+          <label>Country</label>
+          <input type="text" id="txEditCountry-${r}" value="${esc(tx.country || '')}">
+        </div>
+        <div class="field">
+          <label>To account</label>
+          <select id="txEditToAccount-${r}">
+            <option value="">— none —</option>
+            ${toAccountOpts}
+          </select>
+        </div>
+        <div class="field">
+          <label>FX rate</label>
+          <input type="number" id="txEditFxRate-${r}" min="0.0001" step="any" value="${esc(String(tx.fx_rate || ''))}">
+        </div>
+        <div class="field">
+          <label>Tags</label>
+          <input type="text" id="txEditTags-${r}" value="${esc(String(tx.tags || '').replace(/;/g, ', '))}">
+        </div>
+        <div class="field">
+          <label>Notes</label>
+          <input type="text" id="txEditNotes-${r}" value="${esc(tx.notes || '')}">
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:6px">
+        <button class="btn btn-primary btn-sm" data-action="tx-save-edit" data-row="${r}">Save</button>
+        <button class="btn btn-secondary btn-sm" data-action="tx-cancel-edit">Cancel</button>
+      </div>
+      <div class="pin-error" id="txEditError-${r}"></div>
+    </td>
+  </tr>`;
+}
+
+function renderTxDeleteRow(tx) {
+  const fromName = state.accountMap[tx.from_account]?.name || '—';
+  const toName   = tx.to_account ? state.accountMap[tx.to_account]?.name : null;
+  const accLabel = toName ? `${fromName} → ${toName}` : fromName;
+  return `<tr>
+    <td colspan="9">
+      <span class="confirm-text">Delete <strong>${esc(fmtDateTime(tx.date))}</strong> — ${esc(accLabel)} — ${esc(fmtNative(tx.amount, tx.currency))}? Account balance will be adjusted.</span>
+      <span style="display:inline-flex;gap:8px;margin-left:16px">
+        <button class="btn-link danger" data-action="tx-confirm-delete" data-row="${tx._row}">Yes, delete</button>
+        <button class="btn-link" data-action="tx-cancel-delete">Cancel</button>
+      </span>
+    </td>
+  </tr>`;
+}
+
+function attachTxEditCascadeEvents(r) {
+  el(`txEditType-${r}`)?.addEventListener('change', () => {
+    const type   = el(`txEditType-${r}`).value;
+    const majors = [...new Set(state.categories.filter(c => c.transaction_type === type).map(c => c.major_category))];
+    el(`txEditMajor-${r}`).innerHTML  = `<option value="">— select —</option>${majors.map(m => `<option>${esc(m)}</option>`).join('')}`;
+    el(`txEditMinor-${r}`).innerHTML  = `<option value="">— select major first —</option>`;
+    el(`txEditToAccount-${r}`).value  = '';
+    el(`txEditFxRate-${r}`).value     = '';
+  });
+  el(`txEditMajor-${r}`)?.addEventListener('change', () => {
+    const type   = el(`txEditType-${r}`).value;
+    const major  = el(`txEditMajor-${r}`).value;
+    const minors = state.categories.filter(c => c.transaction_type === type && c.major_category === major).map(c => c.minor_category);
+    el(`txEditMinor-${r}`).innerHTML = `<option value="">— select —</option>${minors.map(m => `<option>${esc(m)}</option>`).join('')}`;
+  });
+}
+
+async function saveEdit(rowNum) {
+  const r     = rowNum;
+  const errEl = el(`txEditError-${r}`);
+  errEl.textContent = '';
+
+  const date             = el(`txEditDate-${r}`)?.value;
+  const transaction_type = el(`txEditType-${r}`)?.value;
+  const from_account     = el(`txEditFromAccount-${r}`)?.value;
+  const to_account       = el(`txEditToAccount-${r}`)?.value  || '';
+  const fx_rate          = el(`txEditFxRate-${r}`)?.value     || '';
+  const amount           = el(`txEditAmount-${r}`)?.value;
+  const currency         = state.accounts.find(a => a.id === from_account)?.currency || '';
+  const major_category   = el(`txEditMajor-${r}`)?.value;
+  const minor_category   = el(`txEditMinor-${r}`)?.value;
+  const counterparty     = el(`txEditCounterparty-${r}`)?.value.trim();
+  const country          = el(`txEditCountry-${r}`)?.value.trim();
+  const tags             = el(`txEditTags-${r}`)?.value.trim();
+  const notes            = el(`txEditNotes-${r}`)?.value.trim();
+
+  if (!date)              { errEl.textContent = 'Date is required.';                             return; }
+  if (!transaction_type)  { errEl.textContent = 'Type is required.';                             return; }
+  if (!from_account)      { errEl.textContent = 'From account is required.';                     return; }
+  if (transaction_type === 'money-transfer' && !to_account) { errEl.textContent = 'To account is required for transfers.'; return; }
+  if (!amount || parseFloat(amount) <= 0) { errEl.textContent = 'Enter a positive amount.';      return; }
+  if (!major_category)    { errEl.textContent = 'Major category is required.';                   return; }
+  if (!minor_category)    { errEl.textContent = 'Minor category is required.';                   return; }
+
+  showLoading();
+  try {
+    const res = await ExpenseAPI.updateTransaction({
+      row_num: rowNum, date, transaction_type,
+      from_account, to_account, amount: parseFloat(amount), currency,
+      fx_rate: fx_rate ? parseFloat(fx_rate) : '',
+      major_category, minor_category, counterparty, country, tags, notes,
+    });
+    if (res.ok) {
+      showMsg('Transaction updated.');
+      state.txEditRow = null;
+      document.dispatchEvent(new CustomEvent('et:reload'));
+    } else {
+      errEl.textContent = 'Error: ' + (res.error || 'unknown');
+    }
+  } catch (_) {
+    errEl.textContent = 'Connection error.';
+  } finally {
+    hideLoading();
+  }
+}
+
+async function confirmDelete(rowNum) {
+  showLoading();
+  try {
+    const res = await ExpenseAPI.deleteTransaction({ row_num: rowNum });
+    if (res.ok) {
+      showMsg('Transaction deleted.');
+      state.txDeleteRow = null;
+      document.dispatchEvent(new CustomEvent('et:reload'));
+    } else {
+      showMsg('Delete failed: ' + (res.error || 'unknown'), 'warn');
+      state.txDeleteRow = null;
+      renderTransactions();
+    }
+  } catch (_) {
+    showMsg('Connection error.', 'warn');
+    state.txDeleteRow = null;
+    renderTransactions();
   } finally {
     hideLoading();
   }
