@@ -23,13 +23,13 @@ const AUDIT_SHEET        = 'audit_access';
 const MAX_FAILURES       = 3;
 
 const TRANSACTION_COLUMNS = [
-  'id', 'date', 'transaction_type', 'amount', 'currency',
+  'id', 'transaction_date_utc', 'transaction_type', 'amount', 'currency',
   'from_account', 'to_account', 'major_category', 'minor_category',
   'counterparty', 'notes', 'tags', 'transfer_id',
   'fx_rate', 'country', 'payment_method'
 ];
 // TRANSACTION_COLUMNS indices (col number = index + 1):
-// 0=id  1=date  2=transaction_type  3=amount  4=currency
+// 0=id  1=transaction_date_utc  2=transaction_type  3=amount  4=currency
 // 5=from_account  6=to_account  7=major_category  8=minor_category
 // 9=counterparty  10=notes  11=tags  12=transfer_id
 // 13=fx_rate  14=country  15=payment_method
@@ -233,7 +233,7 @@ function listTransactions() {
 }
 
 function createTransaction(body) {
-  if (!body.date)             return { ok: false, error: 'missing_date' };
+  if (!body.transaction_date_utc) return { ok: false, error: 'missing_date' };
   if (!body.transaction_type || !VALID_TYPES.includes(body.transaction_type))
     return { ok: false, error: 'invalid_transaction_type' };
   if (!body.amount || Number(body.amount) <= 0)
@@ -241,13 +241,13 @@ function createTransaction(body) {
   if (!body.from_account) return { ok: false, error: 'missing_from_account' };
 
   const sheet  = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
-  const id     = generateTransactionId(sheet, body.date);
+  const id     = generateTransactionId(sheet, body.transaction_date_utc);
   const amount = Number(body.amount);
   const fxRate = body.fx_rate !== undefined && body.fx_rate !== '' ? Number(body.fx_rate) : 0;
 
   sheet.appendRow([
     id,
-    body.date,
+    body.transaction_date_utc,
     body.transaction_type,
     amount,
     body.currency          || '',
@@ -291,8 +291,8 @@ function adjustAccountBalance(accountId, delta) {
 }
 
 function updateTransaction(body) {
-  if (!body.row_num)      return { ok: false, error: 'missing_row_num' };
-  if (!body.date)         return { ok: false, error: 'missing_date' };
+  if (!body.row_num)                return { ok: false, error: 'missing_row_num' };
+  if (!body.transaction_date_utc)   return { ok: false, error: 'missing_date' };
   if (!body.transaction_type || !VALID_TYPES.includes(body.transaction_type))
     return { ok: false, error: 'invalid_transaction_type' };
   if (!body.amount || Number(body.amount) <= 0)
@@ -329,9 +329,9 @@ function updateTransaction(body) {
     if (body.to_account) adjustAccountBalance(body.to_account, newFxRate > 0 ? newAmount * newFxRate : newAmount);
   }
 
-  // Update cols 2–16 (date through payment_method); col 1 (id) is immutable
+  // Update cols 2–16 (transaction_date_utc through payment_method); col 1 (id) is immutable
   sheet.getRange(rowNum, 2, 1, 15).setValues([[
-    body.date,
+    body.transaction_date_utc,
     body.transaction_type,
     newAmount,
     body.currency         || '',

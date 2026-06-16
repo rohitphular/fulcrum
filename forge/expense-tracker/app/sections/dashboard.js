@@ -129,13 +129,17 @@ function renderMonthlyChart(income, expenses) {
 
   const incomeByMonth = {};
   const expByMonth    = {};
+  const txMonthKey = tx => {
+    const d = new Date(tx.transaction_date_utc);
+    return isNaN(d) ? '' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  };
   income.forEach(tx => {
-    const key = String(tx.date).slice(0, 7);
-    incomeByMonth[key] = (incomeByMonth[key] || 0) + toBase(tx.amount, tx.currency, tx.fx_rate);
+    const key = txMonthKey(tx);
+    if (key) incomeByMonth[key] = (incomeByMonth[key] || 0) + toBase(tx.amount, tx.currency, tx.fx_rate);
   });
   expenses.forEach(tx => {
-    const key = String(tx.date).slice(0, 7);
-    expByMonth[key] = (expByMonth[key] || 0) + toBase(tx.amount, tx.currency, tx.fx_rate);
+    const key = txMonthKey(tx);
+    if (key) expByMonth[key] = (expByMonth[key] || 0) + toBase(tx.amount, tx.currency, tx.fx_rate);
   });
 
   const labels     = display.map(d => d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }));

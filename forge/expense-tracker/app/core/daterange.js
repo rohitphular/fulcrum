@@ -26,9 +26,12 @@ export function getRangeBounds() {
 
 export function txInRange(tx) {
   const { from, to } = getRangeBounds();
-  const d = parseLocalDate(String(tx.date).slice(0, 10));
+  const raw = tx.transaction_date_utc;
+  if (!raw) return true;
+  const d = new Date(raw);
   if (isNaN(d)) return true;
-  return d >= from && d <= to;
+  const localDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return localDate >= from && localDate <= to;
 }
 
 export function filteredTx() {

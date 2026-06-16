@@ -24,7 +24,7 @@ export const state = {
     search:   '',
   },
 
-  txSort:    { col: 'date', dir: 'desc' },
+  txSort:    { col: 'transaction_date_utc', dir: 'desc' },
   txPage:    1,
   txPerPage: 50,
 

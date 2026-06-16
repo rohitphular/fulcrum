@@ -11,8 +11,8 @@ export function renderTransactions() {
   const txEl = el('transactionsContent');
   const rows = filteredTx();
 
-  const validRows = rows.filter(tx =>  tx.id && tx.date && VALID_TX_TYPES.includes(tx.transaction_type));
-  const warnRows  = rows.filter(tx => !tx.id || !tx.date || !VALID_TX_TYPES.includes(tx.transaction_type));
+  const validRows = rows.filter(tx =>  tx.id && tx.transaction_date_utc && VALID_TX_TYPES.includes(tx.transaction_type));
+  const warnRows  = rows.filter(tx => !tx.id || !tx.transaction_date_utc || !VALID_TX_TYPES.includes(tx.transaction_type));
 
   txEl.innerHTML = `
     ${renderAddForm()}
@@ -59,7 +59,7 @@ function renderTxTable(validRows, warnRows) {
     const rowRate     = tx.fx_rate && parseFloat(tx.fx_rate) > 0;
 
     return `<tr>
-      <td class="td-mono">${esc(fmtDateTime(tx.date))}</td>
+      <td class="td-mono">${esc(fmtDateTime(tx.transaction_date_utc))}</td>
       <td><span class="badge ${badgeCls}">${typeLabel}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}</td>
       <td>${tx.transaction_type === 'money-transfer' && tx.to_account
         ? `${esc(state.accountMap[tx.from_account]?.name || '—')} → ${esc(state.accountMap[tx.to_account]?.name || '—')}`
@@ -80,7 +80,7 @@ function renderTxTable(validRows, warnRows) {
   const warnRowsHtml = warnRows.length ? `
     <tbody id="warnTable" class="hidden">
       ${warnRows.map(tx => `<tr>
-        <td colspan="9"><span class="badge badge-warn">⚠ malformed</span> id=${esc(String(tx.id||'?'))} type=${esc(tx.transaction_type||'?')} date=${esc(String(tx.date||'?'))}</td>
+        <td colspan="9"><span class="badge badge-warn">⚠ malformed</span> id=${esc(String(tx.id||'?'))} type=${esc(tx.transaction_type||'?')} date=${esc(String(tx.transaction_date_utc||'?'))}</td>
       </tr>`).join('')}
     </tbody>` : '';
 
@@ -95,7 +95,7 @@ function renderTxTable(validRows, warnRows) {
     <div class="table-wrap">
       <table>
         <thead><tr>
-          ${thSort('date','Date')}
+          ${thSort('transaction_date_utc','Date')}
           ${thSort('transaction_type','Type')}
           ${thSort('from_account','Account')}
           <th>Amount</th>
@@ -149,18 +149,8 @@ function sortTx(rows) {
   const dir = state.txSort.dir === 'asc' ? 1 : -1;
   return rows.sort((a, b) => {
     let va = a[col] ?? '', vb = b[col] ?? '';
-    if (col === 'date') {
-      const ts = s => {
-        const str = String(s);
-        if (str.includes('T')) {
-          const [dp, tp = '00:00'] = str.split('T');
-          const [y, mo, d] = dp.split('-').map(Number);
-          const [h, mi]    = tp.slice(0, 5).split(':').map(Number);
-          return new Date(y, mo - 1, d, h || 0, mi || 0).getTime();
-        }
-        const p = str.slice(0, 10).split('-').map(Number);
-        return p.length === 3 ? new Date(p[0], p[1] - 1, p[2]).getTime() : 0;
-      };
+    if (col === 'transaction_date_utc') {
+      const ts = s => { const d = new Date(String(s)); return isNaN(d) ? 0 : d.getTime(); };
       va = ts(va); vb = ts(vb);
     } else if (col === 'amount') {
       va = parseFloat(va) || 0; vb = parseFloat(vb) || 0;
@@ -352,7 +342,7 @@ async function saveTransaction() {
   const errEl = el('afError');
   errEl.textContent = '';
 
-  const date             = el('afDate').value;
+  const dateRaw          = el('afDate').value;
   const transaction_type = el('afType').value;
   const from_account     = el('afFromAccount').value;
   const to_account       = el('afToAccount')?.value || '';
@@ -366,7 +356,7 @@ async function saveTransaction() {
   const tags             = el('afTags').value.trim();
   const notes            = el('afNotes').value.trim();
 
-  if (!date)                                            { errEl.textContent = 'Date is required.';                          return; }
+  if (!dateRaw)                                         { errEl.textContent = 'Date is required.';                          return; }
   if (!transaction_type)                                { errEl.textContent = 'Type is required.';                          return; }
   if (!from_account)                                    { errEl.textContent = 'From account is required.';                  return; }
   if (transaction_type === 'money-transfer' && !to_account) { errEl.textContent = 'To account is required for transfers.'; return; }
@@ -378,7 +368,8 @@ async function saveTransaction() {
   showLoading();
   try {
     const res = await ExpenseAPI.createTransaction({
-      date, transaction_type, from_account, to_account,
+      transaction_date_utc: new Date(dateRaw).toISOString(),
+      transaction_type, from_account, to_account,
       amount: parseFloat(amount), currency,
       fx_rate: fx_rate ? parseFloat(fx_rate) : '',
       major_category, minor_category, counterparty, country,
@@ -426,10 +417,12 @@ function renderTxEditRow(tx) {
   ).join('');
 
   const dateVal = (() => {
-    const s = String(tx.date || '').trim();
-    const match = s.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
-    if (match) return `${match[1]}T${match[2]}`;
-    return s.slice(0, 10);
+    const s = String(tx.transaction_date_utc || '').trim();
+    if (!s) return '';
+    const d = new Date(s);
+    if (isNaN(d)) return s.slice(0, 10);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   })();
 
   return `<tr class="tx-edit-row">
@@ -511,7 +504,7 @@ function renderTxDeleteRow(tx) {
   const accLabel = toName ? `${fromName} → ${toName}` : fromName;
   return `<tr>
     <td colspan="9">
-      <span class="confirm-text">Delete <strong>${esc(fmtDateTime(tx.date))}</strong> — ${esc(accLabel)} — ${esc(fmtNative(tx.amount, tx.currency))}? Account balance will be adjusted.</span>
+      <span class="confirm-text">Delete <strong>${esc(fmtDateTime(tx.transaction_date_utc))}</strong> — ${esc(accLabel)} — ${esc(fmtNative(tx.amount, tx.currency))}? Account balance will be adjusted.</span>
       <span style="display:inline-flex;gap:8px;margin-left:16px">
         <button class="btn-link danger" data-action="tx-confirm-delete" data-row="${tx._row}">Yes, delete</button>
         <button class="btn-link" data-action="tx-cancel-delete">Cancel</button>
@@ -542,7 +535,7 @@ async function saveEdit(rowNum) {
   const errEl = el(`txEditError-${r}`);
   errEl.textContent = '';
 
-  const date             = el(`txEditDate-${r}`)?.value;
+  const dateRaw          = el(`txEditDate-${r}`)?.value;
   const transaction_type = el(`txEditType-${r}`)?.value;
   const from_account     = el(`txEditFromAccount-${r}`)?.value;
   const to_account       = el(`txEditToAccount-${r}`)?.value  || '';
@@ -556,7 +549,7 @@ async function saveEdit(rowNum) {
   const tags             = el(`txEditTags-${r}`)?.value.trim();
   const notes            = el(`txEditNotes-${r}`)?.value.trim();
 
-  if (!date)              { errEl.textContent = 'Date is required.';                             return; }
+  if (!dateRaw)           { errEl.textContent = 'Date is required.';                             return; }
   if (!transaction_type)  { errEl.textContent = 'Type is required.';                             return; }
   if (!from_account)      { errEl.textContent = 'From account is required.';                     return; }
   if (transaction_type === 'money-transfer' && !to_account) { errEl.textContent = 'To account is required for transfers.'; return; }
@@ -567,7 +560,7 @@ async function saveEdit(rowNum) {
   showLoading();
   try {
     const res = await ExpenseAPI.updateTransaction({
-      row_num: rowNum, date, transaction_type,
+      row_num: rowNum, transaction_date_utc: new Date(dateRaw).toISOString(), transaction_type,
       from_account, to_account, amount: parseFloat(amount), currency,
       fx_rate: fx_rate ? parseFloat(fx_rate) : '',
       major_category, minor_category, counterparty, country, tags, notes,

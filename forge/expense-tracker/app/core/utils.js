@@ -15,7 +15,7 @@ export const toBase     = (amount, from, rowFxRate) => _toBase(amount, from, row
 export const fmtBase    = (amount, from, rowFxRate) => _fmtBase(amount, from, rowFxRate, state.rateMap, state.quoteCurrency, state.rates);
 export const fmtNative  = (amount, currency)        => _fmtNative(amount, currency, state.rates);
 
-const ET_COLS = ['id', 'date', 'transaction_type', 'amount', 'currency',
+const ET_COLS = ['id', 'transaction_date_utc', 'transaction_type', 'amount', 'currency',
   'from_account', 'to_account', 'major_category', 'minor_category',
   'counterparty', 'notes', 'tags', 'transfer_id', 'fx_rate', 'country', 'payment_method'];
 export const exportData = (format, rows)            => _exportData(format, rows, 'expenses', ET_COLS);
