@@ -406,6 +406,7 @@ tbody tr:hover { background: var(--row-hover); }
 td.td-mono  { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 td.td-muted { color: var(--muted); }
 .empty-row td { text-align: center; color: var(--muted); padding: 40px 14px; }
+.acc-table tbody td { white-space: nowrap; }
 
 /* ── badges ── */
 .badge {

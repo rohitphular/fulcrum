@@ -132,7 +132,7 @@ function renderAddForm() {
         <input type="number" id="accNewOpeningBal" step="0.01" placeholder="0.00">
         <div class="field-hint" id="accNewOpeningBalHint" style="display:none">Enter amount owed as negative, e.g. −1500</div>
       </div>
-      <div class="field form-grid-full">
+      <div class="field">
         <label for="accNewNotes">Notes</label>
         <input type="text" id="accNewNotes" placeholder="Optional notes">
       </div>
@@ -165,7 +165,7 @@ function renderAccountRow(a) {
 
   return `<tr>
     <td class="td-mono" style="color:var(--muted);font-size:11px">${esc(a.id)}</td>
-    <td class="td-name">${esc(a.name)}${a.notes ? ` <span title="${esc(a.notes)}" style="cursor:help;color:var(--muted);font-size:11px" aria-label="Notes: ${esc(a.notes)}">ⓘ</span>` : ''}<br><span style="font-size:10px;color:var(--muted)">${esc(typeLabel(a.type))}</span></td>
+    <td class="td-name">${esc(a.name)}${a.notes ? ` <span title="${esc(a.notes)}" style="cursor:help;color:var(--teal);font-size:13px;margin-left:3px;vertical-align:middle" aria-label="Notes: ${esc(a.notes)}">ⓘ</span>` : ''}<br><span style="font-size:10px;color:var(--muted)">${esc(typeLabel(a.type))}</span></td>
     <td>${esc(a.currency)}</td>
     <td>${balanceCell(a)}</td>
     <td>${activeBadge(a)}</td>
@@ -206,10 +206,10 @@ function renderTable() {
 
   return `
     <div class="table-wrap">
-      <table>
+      <table class="acc-table">
         <thead><tr>
           <th style="width:90px">ID</th>
-          <th>Name / Type</th>
+          <th style="width:180px">Name / Type</th>
           <th style="width:70px">CCY</th>
           <th style="width:180px">Balance</th>
           <th style="width:80px">Status</th>
@@ -235,32 +235,32 @@ function renderEditRow(a) {
   return `<tr>
     <td class="td-mono" style="color:var(--muted);font-size:11px">${esc(a.id)}</td>
     <td colspan="4">
-      <div class="form-grid" style="padding:4px 0">
+      <div class="form-grid form-grid-4" style="padding:4px 0;gap:10px 12px">
         <div class="field" style="margin:0">
           <label>Name</label>
-          <input class="rate-edit-input" id="accEditName-${r}" value="${esc(a.name)}" placeholder="Name">
+          <input class="rate-edit-input" style="width:100%" id="accEditName-${r}" value="${esc(a.name)}" placeholder="Name">
         </div>
         <div class="field" style="margin:0">
           <label>Currency</label>
-          <select class="cat-edit-select" id="accEditCurrency-${r}">${currencyOpts}</select>
+          <select class="cat-edit-select" style="width:100%" id="accEditCurrency-${r}">${currencyOpts}</select>
         </div>
         <div class="field" style="margin:0">
           <label>Type</label>
-          <select class="cat-edit-select" id="accEditType-${r}">${typeOptgroupHtml(a.type)}</select>
+          <select class="cat-edit-select" style="width:100%" id="accEditType-${r}">${typeOptgroupHtml(a.type)}</select>
         </div>
         <div class="field" id="accEditCreditLimitWrap-${r}" style="margin:0;${isCC ? '' : 'display:none'}">
           <label>Credit limit</label>
-          <input class="rate-edit-input" type="number" step="0.01" id="accEditCreditLimit-${r}" value="${esc(String(a.credit_limit || ''))}">
+          <input class="rate-edit-input" style="width:100%" type="number" step="0.01" id="accEditCreditLimit-${r}" value="${esc(String(a.credit_limit || ''))}">
         </div>
         <div class="field" style="margin:0">
           <label>Opening bal.</label>
           <div style="padding:6px 0;font-size:13px">${esc(String(a.opening_balance || 0))}</div>
-          <div class="field-hint" style="display:block;color:var(--muted)">Set at creation. To correct a balance discrepancy, record an <em>Adjustments / Balance correction</em> transaction.</div>
+          <div class="field-hint" style="display:block;color:var(--muted)">Set at creation — read-only.</div>
         </div>
         <div class="field" style="margin:0">
           <label>Current bal.</label>
           <div style="padding:6px 0;font-size:13px">${balanceCell(a)}</div>
-          <div class="field-hint" style="display:block;color:var(--muted)">Read-only — adjusted by transactions. Use <em>Adjustments / Balance correction</em> to correct.</div>
+          <div class="field-hint" style="display:block;color:var(--muted)">Read-only — adjusted by transactions.</div>
         </div>
         <div class="field" style="margin:0">
           <label>Status</label>
