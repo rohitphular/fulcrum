@@ -1,5 +1,5 @@
 import { state } from '../core/state.js';
-import { el, esc, fmtDate } from '../core/utils.js';
+import { el, esc, fmtDateTime } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { ExpenseAPI } from '../core/api.js';
 
@@ -32,7 +32,7 @@ function rateRowHtml(r) {
     <td class="td-mono">${esc(r.currency)}</td>
     <td>${esc(r.symbol || '')}</td>
     <td class="td-mono">${parseFloat(r.rate).toLocaleString('en-GB', { maximumFractionDigits: 4 })}</td>
-    <td class="td-muted td-mono">${r.updated_at ? esc(fmtDate(r.updated_at)) : '—'}</td>
+    <td class="td-muted td-mono">${r.updated_at ? esc(fmtDateTime(r.updated_at)) : '—'}</td>
     <td>${base ? '' : `<button class="btn-link" data-action="rate-edit" data-currency="${esc(r.currency)}">Edit</button>`}</td>
   </tr>`;
 }
@@ -45,7 +45,7 @@ function renderRateEditRow(currency) {
 
   row.innerHTML = `
     <td class="td-mono">${esc(currency)}</td>
-    <td><input class="rate-edit-input" style="width:60px" id="rateSymEdit-${esc(currency)}" value="${esc(rate.symbol||'')}" placeholder="£"></td>
+    <td>${esc(rate.symbol || '')}</td>
     <td><input class="rate-edit-input" style="width:90px" id="rateValEdit-${esc(currency)}" type="number" min="0.0001" step="any" value="${parseFloat(rate.rate)}"></td>
     <td class="td-muted td-mono">${rate.updated_at ? esc(fmtDate(rate.updated_at)) : '—'}</td>
     <td><div class="row-actions">
@@ -58,16 +58,15 @@ function renderRateEditRow(currency) {
 
   saveBtn.addEventListener('click', async () => {
     const newRate = parseFloat(el(`rateValEdit-${currency}`).value);
-    const newSym  = el(`rateSymEdit-${currency}`).value.trim();
     if (!newRate || newRate <= 0) { showMsg('Enter a valid rate.', 'warn'); return; }
 
     saveBtn.style.opacity = '.4'; saveBtn.style.pointerEvents = 'none'; saveBtn.textContent = 'Saving…';
     showLoading();
     try {
-      const res = await ExpenseAPI.upsertRate({ currency, rate: newRate, symbol: newSym });
+      const res = await ExpenseAPI.upsertRate({ currency, rate: newRate });
       if (res.ok) {
         const r = state.rates.find(r => r.currency === currency);
-        if (r) { r.rate = newRate; r.symbol = newSym; r.updated_at = new Date().toISOString(); }
+        if (r) { r.rate = newRate; r.updated_at = new Date().toISOString(); }
         state.rateMap[currency] = newRate;
         showMsg('Rate updated.');
         renderRates();

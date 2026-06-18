@@ -2,6 +2,7 @@ import { state } from '../core/state.js';
 import { el, esc, getSymbol, toBase } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { ExpenseAPI } from '../core/api.js';
+import { renderDashboard } from './dashboard.js';
 
 const ACCOUNT_TYPES = [
   { value: 'current',     label: 'Current Account', group: 'asset' },
@@ -13,6 +14,7 @@ const ACCOUNT_TYPES = [
 ];
 
 const LIABILITY_TYPES = new Set(['credit-card', 'loan']);
+const VALID_ACCOUNT_TYPES = new Set(ACCOUNT_TYPES.map(t => t.value));
 
 function isActive(a) {
   return a.is_active === true || a.is_active === 'TRUE' || a.is_active === 'true';
@@ -129,10 +131,6 @@ function renderAddForm() {
         <label for="accNewOpeningBal">Opening balance</label>
         <input type="number" id="accNewOpeningBal" step="0.01" placeholder="0.00">
         <div class="field-hint" id="accNewOpeningBalHint" style="display:none">Enter amount owed as negative, e.g. −1500</div>
-      </div>
-      <div class="field">
-        <label for="accNewCurrentBal">Current balance</label>
-        <input type="number" id="accNewCurrentBal" step="0.01" placeholder="0.00">
       </div>
       <div class="field form-grid-full">
         <label for="accNewNotes">Notes</label>
@@ -263,7 +261,8 @@ function renderEditRow(a) {
         </div>
         <div class="field" style="margin:0">
           <label>Current bal.</label>
-          <input class="rate-edit-input" type="number" step="0.01" id="accEditCurrentBal-${r}" value="${esc(String(a.current_balance || 0))}">
+          <div style="padding:6px 0;font-size:13px">${balanceCell(a)}</div>
+          <div class="field-hint" style="display:block;color:var(--muted)">Read-only — adjusted by transactions. Use <em>Adjustments / Balance correction</em> to correct.</div>
         </div>
         <div class="field" style="margin:0">
           <label>Status</label>
@@ -348,11 +347,12 @@ async function saveNew() {
   const type          = el('accNewType')?.value;
   const credit_limit  = el('accNewCreditLimit')?.value;
   const opening_bal   = el('accNewOpeningBal')?.value;
-  const current_bal   = el('accNewCurrentBal')?.value;
   const notes         = el('accNewNotes')?.value.trim();
   const errEl         = el('accAddError');
 
-  if (!name) { if (errEl) errEl.textContent = 'Name is required.'; return; }
+  if (!name)                                          { if (errEl) errEl.textContent = 'Name is required.';     return; }
+  if (!type || !VALID_ACCOUNT_TYPES.has(type))        { if (errEl) errEl.textContent = 'Type is required.';     return; }
+  if (!currency || !(currency in (state.rateMap || {}))) { if (errEl) errEl.textContent = 'Currency is required.'; return; }
   if (errEl) errEl.textContent = '';
 
   const btn = el('accSaveNew');
@@ -363,7 +363,6 @@ async function saveNew() {
       name, currency, type,
       credit_limit: credit_limit ? parseFloat(credit_limit) : 0,
       opening_balance: parseFloat(opening_bal) || 0,
-      current_balance: parseFloat(current_bal) || 0,
       notes,
     });
     if (res.ok) {
@@ -371,6 +370,7 @@ async function saveNew() {
       state.accAddOpen = false;
       await refreshAccounts();
       renderAccounts();
+      renderDashboard();
     } else {
       if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
       if (btn) { btn.disabled = false; btn.textContent = 'Save account'; }
@@ -390,11 +390,12 @@ async function saveEdit(rowNum) {
   const type          = el(`accEditType-${r}`)?.value;
   const credit_limit  = el(`accEditCreditLimit-${r}`)?.value;
   const opening_bal   = el(`accEditOpeningBal-${r}`)?.value;
-  const current_bal   = el(`accEditCurrentBal-${r}`)?.value;
   const is_active     = el(`accEditIsActive-${r}`)?.value === 'true';
   const notes         = el(`accEditNotes-${r}`)?.value.trim();
 
-  if (!name) { showMsg('Name is required.', 'warn'); return; }
+  if (!name)                                               { showMsg('Name is required.',     'warn'); return; }
+  if (!type || !VALID_ACCOUNT_TYPES.has(type))             { showMsg('Type is required.',     'warn'); return; }
+  if (!currency || !(currency in (state.rateMap || {})))   { showMsg('Currency is required.', 'warn'); return; }
 
   showLoading();
   try {
@@ -402,7 +403,6 @@ async function saveEdit(rowNum) {
       row_num: rowNum, name, currency, type,
       credit_limit: credit_limit ? parseFloat(credit_limit) : 0,
       opening_balance: parseFloat(opening_bal) || 0,
-      current_balance: parseFloat(current_bal) || 0,
       is_active, notes,
     });
     if (res.ok) {
@@ -410,6 +410,7 @@ async function saveEdit(rowNum) {
       state.accEditRow = null;
       await refreshAccounts();
       renderAccounts();
+      renderDashboard();
     } else {
       showMsg('Update failed: ' + (res.error || 'unknown'), 'warn');
     }
@@ -429,6 +430,7 @@ async function confirmDelete(rowNum) {
       state.accDeleteRow = null;
       await refreshAccounts();
       renderAccounts();
+      renderDashboard();
     } else {
       showMsg('Delete failed: ' + (res.error || 'unknown'), 'warn');
       state.accDeleteRow = null;

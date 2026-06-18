@@ -6,6 +6,7 @@ import { showLoading, hideLoading, showMsg } from './core/ui.js';
 import { showSection } from './core/nav.js';
 import { renderDashboard } from './sections/dashboard.js';
 import { renderTransactions } from './sections/transactions.js';
+import { renderAccounts } from './sections/accounts.js';
 import { showPinGate, hidePinGate, fetchGeo, submitPin, readSession, clearSession } from './core/auth.js';
 
 // ── Quote currency ────────────────────────────────────────────────────────────
@@ -63,7 +64,12 @@ async function loadAll() {
     }
 
     populateQuoteCurrencySelect();
-    showSection(sessionStorage.getItem('et_section') || 'dashboard');
+    const activeSection = sessionStorage.getItem('et_section') || 'dashboard';
+    showSection(activeSection);
+    // Refresh background sections so balances and Net Worth are never stale
+    // regardless of which tab the user is on. Sections are hidden so no jank.
+    if (activeSection !== 'accounts')   renderAccounts();
+    if (activeSection !== 'dashboard')  renderDashboard();
 
   } catch (_) {
     showMsg('Connection error — check your internet and reload.', 'warn');

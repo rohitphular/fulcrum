@@ -47,6 +47,10 @@ function renderCatAddForm() {
         <input type="text" id="catNewMinor" placeholder="e.g. Groceries">
       </div>
       <div class="field form-grid-full">
+        <label for="catNewDesc">Description</label>
+        <input type="text" id="catNewDesc" placeholder="Short description of this category">
+      </div>
+      <div class="field form-grid-full">
         <label for="catNewKeywords">Keywords</label>
         <input type="text" id="catNewKeywords" placeholder="tesco, sainsbury, waitrose, lidl">
         <div class="field-hint">Comma-separated. Used to find the right category when adding transactions.</div>
@@ -69,7 +73,7 @@ function renderCatTable(cats) {
     if (state.catDeleteRow === cat._row) {
       return `<tr>
         <td>${catTypeBadge(cat.transaction_type)}</td>
-        <td colspan="3"><span class="confirm-text">Delete <strong>${esc(cat.major_category)} → ${esc(cat.minor_category)}</strong>?</span></td>
+        <td colspan="4"><span class="confirm-text">Delete <strong>${esc(cat.major_category)} → ${esc(cat.minor_category)}</strong>?</span></td>
         <td><div class="row-actions">
           <button class="btn-link danger" data-action="cat-confirm-delete" data-row="${cat._row}">Yes, delete</button>
           <button class="btn-link" data-action="cat-cancel-delete">Cancel</button>
@@ -87,6 +91,7 @@ function renderCatTable(cats) {
       <td>${catTypeBadge(cat.transaction_type)}</td>
       <td class="td-name">${esc(cat.major_category)}</td>
       <td>${esc(cat.minor_category)}</td>
+      <td class="td-muted">${esc(cat.description || '')}</td>
       <td class="td-keywords">${kwHtml}</td>
       <td><div class="row-actions">
         <button class="btn-link" data-action="cat-edit" data-row="${cat._row}">Edit</button>
@@ -102,6 +107,7 @@ function renderCatTable(cats) {
           <th style="width:80px">Type</th>
           <th>Major</th>
           <th>Minor</th>
+          <th>Description</th>
           <th>Keywords</th>
           <th style="width:110px">Actions</th>
         </tr></thead>
@@ -122,6 +128,7 @@ function renderCatEditRow(cat) {
     </td>
     <td><input class="rate-edit-input" id="catEditMajor-${r}" value="${esc(cat.major_category)}" placeholder="Major"></td>
     <td><input class="rate-edit-input" id="catEditMinor-${r}" value="${esc(cat.minor_category)}" placeholder="Minor"></td>
+    <td><input class="rate-edit-input" style="width:100%;min-width:160px" id="catEditDesc-${r}" value="${esc(String(cat.description || ''))}" placeholder="Short description"></td>
     <td><input class="rate-edit-input" style="width:100%;min-width:160px" id="catEditKeywords-${r}" value="${esc(String(cat.tag_keywords || ''))}" placeholder="tesco, sainsbury, …"></td>
     <td><div class="row-actions">
       <button class="btn-link" data-action="cat-save-edit" data-row="${r}">Save</button>
@@ -170,6 +177,7 @@ async function saveNewCategory() {
   const transaction_type = el('catNewType')?.value;
   const major_category   = el('catNewMajor')?.value.trim();
   const minor_category   = el('catNewMinor')?.value.trim();
+  const description      = el('catNewDesc')?.value.trim();
   const tag_keywords     = el('catNewKeywords')?.value.trim();
   const errEl            = el('catAddError');
 
@@ -181,7 +189,7 @@ async function saveNewCategory() {
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   showLoading();
   try {
-    const res = await ExpenseAPI.createCategory({ transaction_type, major_category, minor_category, tag_keywords });
+    const res = await ExpenseAPI.createCategory({ transaction_type, major_category, minor_category, description, tag_keywords });
     if (res.ok) {
       showMsg('Category added.');
       state.catAddOpen = false;
@@ -204,6 +212,7 @@ async function saveCatEdit(rowNum) {
   const transaction_type = el(`catEditType-${rowNum}`)?.value;
   const major_category   = el(`catEditMajor-${rowNum}`)?.value.trim();
   const minor_category   = el(`catEditMinor-${rowNum}`)?.value.trim();
+  const description      = el(`catEditDesc-${rowNum}`)?.value.trim();
   const tag_keywords     = el(`catEditKeywords-${rowNum}`)?.value.trim();
 
   if (!major_category || !minor_category) {
@@ -212,7 +221,7 @@ async function saveCatEdit(rowNum) {
 
   showLoading();
   try {
-    const res = await ExpenseAPI.updateCategory({ row_num: rowNum, transaction_type, major_category, minor_category, tag_keywords });
+    const res = await ExpenseAPI.updateCategory({ row_num: rowNum, transaction_type, major_category, minor_category, description, tag_keywords });
     if (res.ok) {
       showMsg('Category updated.');
       state.catEditRow = null;
