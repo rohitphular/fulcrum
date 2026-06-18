@@ -74,6 +74,20 @@ This keeps every balance change traceable through transaction history.
 
 ---
 
+## opening_balance — Read-Only After Creation
+
+`opening_balance` is set once at account creation and **cannot be changed via the Edit form**. It is shown as a read-only display field in the edit UI.
+
+The backend `updateAccount` handler does not overwrite `opening_balance` — it is excluded from the column writes (only cols 2–4 are written: `name`, `currency`, `type`).
+
+**To correct a balance discrepancy** (e.g. the opening balance was entered incorrectly):
+1. Record an `Adjustments / Balance correction` transaction to bring the balance to the correct level.
+2. The Standard Reload updates `current_balance` accordingly.
+
+This keeps every balance change traceable through transaction history.
+
+---
+
 ## Not Validated (intentional omissions)
 
 | Scenario | Reason not blocked |

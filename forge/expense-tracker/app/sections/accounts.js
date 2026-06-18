@@ -154,7 +154,7 @@ function activeBadge(a) {
 function renderAccountRow(a) {
   if (state.accDeleteRow === a._row) {
     return `<tr>
-      <td colspan="7"><span class="confirm-text">Delete <strong>${esc(a.name)}</strong>? Existing transactions linked to this account are not affected.</span></td>
+      <td colspan="5"><span class="confirm-text">Delete <strong>${esc(a.name)}</strong>? Existing transactions linked to this account are not affected.</span></td>
       <td><div class="row-actions">
         <button class="btn-link danger" data-action="acc-confirm-delete" data-row="${a._row}">Yes, delete</button>
         <button class="btn-link" data-action="acc-cancel-delete">Cancel</button>
@@ -165,11 +165,10 @@ function renderAccountRow(a) {
 
   return `<tr>
     <td class="td-mono" style="color:var(--muted);font-size:11px">${esc(a.id)}</td>
-    <td class="td-name">${esc(a.name)}<br><span style="font-size:10px;color:var(--muted)">${esc(typeLabel(a.type))}</span></td>
+    <td class="td-name">${esc(a.name)}${a.notes ? ` <span title="${esc(a.notes)}" style="cursor:help;color:var(--muted);font-size:11px" aria-label="Notes: ${esc(a.notes)}">ⓘ</span>` : ''}<br><span style="font-size:10px;color:var(--muted)">${esc(typeLabel(a.type))}</span></td>
     <td>${esc(a.currency)}</td>
     <td>${balanceCell(a)}</td>
     <td>${activeBadge(a)}</td>
-    <td>${a.notes ? esc(a.notes) : '<span style="color:var(--muted)">—</span>'}</td>
     <td><div class="row-actions">
       <button class="btn-link" data-action="acc-edit" data-row="${a._row}">Edit</button>
       <button class="btn-link danger" data-action="acc-delete" data-row="${a._row}">Delete</button>
@@ -180,7 +179,7 @@ function renderAccountRow(a) {
 function groupHeader(label, total, sym, isLiab) {
   const sign = isLiab ? '−' : '';
   return `<tr class="acc-group-header">
-    <td colspan="7" style="background:var(--canvas);padding:10px 12px 4px;font-size:11px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:none">
+    <td colspan="6" style="background:var(--canvas);padding:10px 12px 4px;font-size:11px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:none">
       ${label}
       <span style="float:right;font-weight:600;color:${isLiab ? 'var(--ember)' : 'var(--teal)'}">${sign}${sym}${Math.abs(total).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
     </td>
@@ -214,7 +213,6 @@ function renderTable() {
           <th style="width:70px">CCY</th>
           <th style="width:180px">Balance</th>
           <th style="width:80px">Status</th>
-          <th>Notes</th>
           <th style="width:100px">Actions</th>
         </tr></thead>
         <tbody>
@@ -236,7 +234,7 @@ function renderEditRow(a) {
 
   return `<tr>
     <td class="td-mono" style="color:var(--muted);font-size:11px">${esc(a.id)}</td>
-    <td colspan="5">
+    <td colspan="4">
       <div class="form-grid" style="padding:4px 0">
         <div class="field" style="margin:0">
           <label>Name</label>
@@ -256,8 +254,8 @@ function renderEditRow(a) {
         </div>
         <div class="field" style="margin:0">
           <label>Opening bal.</label>
-          <input class="rate-edit-input" type="number" step="0.01" id="accEditOpeningBal-${r}" value="${esc(String(a.opening_balance || 0))}">
-          <div class="field-hint" id="accEditOpeningBalHint-${r}" style="${isLiab ? '' : 'display:none'}">Enter amount owed as negative, e.g. −1500</div>
+          <div style="padding:6px 0;font-size:13px">${esc(String(a.opening_balance || 0))}</div>
+          <div class="field-hint" style="display:block;color:var(--muted)">Set at creation. To correct a balance discrepancy, record an <em>Adjustments / Balance correction</em> transaction.</div>
         </div>
         <div class="field" style="margin:0">
           <label>Current bal.</label>
@@ -297,11 +295,8 @@ function _refreshAddTypeUI() {
 function _refreshEditTypeUI(r) {
   const type   = el(`accEditType-${r}`)?.value || '';
   const isCC   = type === 'credit-card';
-  const isLiab = LIABILITY_TYPES.has(type);
   const wrap   = el(`accEditCreditLimitWrap-${r}`);
-  const hint   = el(`accEditOpeningBalHint-${r}`);
-  if (wrap) wrap.style.display = isCC   ? '' : 'none';
-  if (hint) hint.style.display = isLiab ? '' : 'none';
+  if (wrap) wrap.style.display = isCC ? '' : 'none';
 }
 
 function attachEvents() {
@@ -389,7 +384,6 @@ async function saveEdit(rowNum) {
   const currency      = el(`accEditCurrency-${r}`)?.value;
   const type          = el(`accEditType-${r}`)?.value;
   const credit_limit  = el(`accEditCreditLimit-${r}`)?.value;
-  const opening_bal   = el(`accEditOpeningBal-${r}`)?.value;
   const is_active     = el(`accEditIsActive-${r}`)?.value === 'true';
   const notes         = el(`accEditNotes-${r}`)?.value.trim();
 
@@ -402,7 +396,6 @@ async function saveEdit(rowNum) {
     const res = await ExpenseAPI.updateAccount({
       row_num: rowNum, name, currency, type,
       credit_limit: credit_limit ? parseFloat(credit_limit) : 0,
-      opening_balance: parseFloat(opening_bal) || 0,
       is_active, notes,
     });
     if (res.ok) {

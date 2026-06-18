@@ -98,13 +98,12 @@ function updateAccount(body) {
 
   const creditLimit = body.type === 'credit-card' ? (Number(body.credit_limit) || 0) : '';
 
-  // Update cols 2–5 and 7–9; col 1 (id), col 6 (current_balance), and col 10 (created_at) are never written here.
-  // current_balance is maintained exclusively by adjustAccountBalance inside transaction handlers.
-  sheet.getRange(rowNum, 2, 1, 4).setValues([[
+  // Update cols 2–4 and 7–9; col 1 (id), col 5 (opening_balance), col 6 (current_balance), and col 10 (created_at) are never written here.
+  // opening_balance is immutable after creation; current_balance is maintained exclusively by adjustAccountBalance inside transaction handlers.
+  sheet.getRange(rowNum, 2, 1, 3).setValues([[
     String(body.name).trim(),
     normCurrency,
     body.type,
-    Number(body.opening_balance) || 0,
   ]]);
   sheet.getRange(rowNum, 7, 1, 3).setValues([[
     creditLimit,
