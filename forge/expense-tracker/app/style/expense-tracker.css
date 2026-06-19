@@ -408,6 +408,19 @@ td.td-muted { color: var(--muted); }
 .empty-row td { text-align: center; color: var(--muted); padding: 40px 14px; }
 .acc-table tbody td { white-space: nowrap; }
 
+/* ── info tooltip (accounts ⓘ icon) ── */
+.info-icon-wrap { position: relative; display: inline-block; vertical-align: middle; margin-left: 6px; }
+.info-icon-wrap .info-tooltip {
+  visibility: hidden; opacity: 0;
+  position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: var(--panel);
+  font-size: 12px; font-family: var(--sans, sans-serif); font-weight: 400;
+  padding: 5px 9px; border-radius: 6px; white-space: nowrap;
+  z-index: 200; pointer-events: none;
+  transition: opacity .15s ease;
+}
+.info-icon-wrap:hover .info-tooltip { visibility: visible; opacity: 1; }
+
 /* ── badges ── */
 .badge {
   font-family: var(--mono); font-size: 10px; letter-spacing: .05em; text-transform: uppercase;

@@ -110,7 +110,7 @@ function renderAddForm() {
 
   return `
   <div class="card" style="margin-bottom:20px">
-    <div class="form-grid">
+    <div class="form-grid" style="margin-bottom:16px">
       <div class="field">
         <label for="accNewName">Name *</label>
         <input type="text" id="accNewName" placeholder="e.g. Barclays Current">
@@ -123,22 +123,24 @@ function renderAddForm() {
         <label for="accNewType">Type *</label>
         <select id="accNewType">${typeOptgroupHtml('current')}</select>
       </div>
-      <div class="field" id="accNewCreditLimitWrap" style="display:none">
-        <label for="accNewCreditLimit">Credit limit</label>
-        <input type="number" id="accNewCreditLimit" min="0" step="0.01" placeholder="0.00">
-      </div>
+    </div>
+    <div class="form-grid" style="align-items:start">
       <div class="field">
         <label for="accNewOpeningBal">Opening balance</label>
         <input type="number" id="accNewOpeningBal" step="0.01" placeholder="0.00">
         <div class="field-hint" id="accNewOpeningBalHint" style="display:none">Enter amount owed as negative, e.g. −1500</div>
+      </div>
+      <div class="field" id="accNewCreditLimitWrap" style="display:none">
+        <label for="accNewCreditLimit">Credit limit</label>
+        <input type="number" id="accNewCreditLimit" min="0" step="0.01" placeholder="0.00">
       </div>
       <div class="field">
         <label for="accNewNotes">Notes</label>
         <input type="text" id="accNewNotes" placeholder="Optional notes">
       </div>
     </div>
-    <div class="form-actions">
-      <button class="btn btn-primary" id="accSaveNew">Save account</button>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn btn-primary" id="accSaveNew">Save</button>
       <button class="btn btn-secondary" id="accCancelNew">Cancel</button>
     </div>
     <div class="pin-error" id="accAddError"></div>
@@ -154,7 +156,7 @@ function activeBadge(a) {
 function renderAccountRow(a) {
   if (state.accDeleteRow === a._row) {
     return `<tr>
-      <td colspan="5"><span class="confirm-text">Delete <strong>${esc(a.name)}</strong>? Existing transactions linked to this account are not affected.</span></td>
+      <td colspan="6"><span class="confirm-text">Delete <strong>${esc(a.name)}</strong>? Existing transactions linked to this account are not affected.</span></td>
       <td><div class="row-actions">
         <button class="btn-link danger" data-action="acc-confirm-delete" data-row="${a._row}">Yes, delete</button>
         <button class="btn-link" data-action="acc-cancel-delete">Cancel</button>
@@ -165,7 +167,8 @@ function renderAccountRow(a) {
 
   return `<tr>
     <td class="td-mono" style="color:var(--muted);font-size:11px">${esc(a.id)}</td>
-    <td class="td-name">${esc(a.name)}${a.notes ? ` <span title="${esc(a.notes)}" style="cursor:help;color:var(--teal);font-size:13px;margin-left:3px;vertical-align:middle" aria-label="Notes: ${esc(a.notes)}">ⓘ</span>` : ''}<br><span style="font-size:10px;color:var(--muted)">${esc(typeLabel(a.type))}</span></td>
+    <td>${esc(a.name)}${a.notes ? `<span class="info-icon-wrap"><span style="cursor:help;color:var(--teal);font-size:13px">ⓘ</span><span class="info-tooltip">${esc(a.notes)}</span></span>` : ''}</td>
+    <td style="color:var(--muted);font-size:12px">${esc(typeLabel(a.type))}</td>
     <td>${esc(a.currency)}</td>
     <td>${balanceCell(a)}</td>
     <td>${activeBadge(a)}</td>
@@ -179,7 +182,7 @@ function renderAccountRow(a) {
 function groupHeader(label, total, sym, isLiab) {
   const sign = isLiab ? '−' : '';
   return `<tr class="acc-group-header">
-    <td colspan="6" style="background:var(--canvas);padding:10px 12px 4px;font-size:11px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:none">
+    <td colspan="7" style="background:var(--canvas);padding:10px 12px 4px;font-size:11px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:none">
       ${label}
       <span style="float:right;font-weight:600;color:${isLiab ? 'var(--ember)' : 'var(--teal)'}">${sign}${sym}${Math.abs(total).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
     </td>
@@ -209,7 +212,8 @@ function renderTable() {
       <table class="acc-table">
         <thead><tr>
           <th style="width:90px">ID</th>
-          <th style="width:180px">Name / Type</th>
+          <th style="width:160px">Name</th>
+          <th style="width:140px">Type</th>
           <th style="width:70px">CCY</th>
           <th style="width:180px">Balance</th>
           <th style="width:80px">Status</th>
@@ -230,8 +234,8 @@ function renderEditRow(a) {
 
   return `<tr>
     <td class="td-mono" style="color:var(--muted);font-size:11px">${esc(a.id)}</td>
-    <td colspan="4">
-      <div style="padding:4px 0;display:flex;flex-direction:column;gap:12px">
+    <td colspan="5">
+      <div style="padding:4px 0;display:flex;flex-direction:column;gap:20px">
         <div class="form-grid" style="gap:10px 12px">
           <div class="field" style="margin:0">
             <label>Name</label>
@@ -264,7 +268,7 @@ function renderEditRow(a) {
           </div>
           <div class="field" style="margin:0">
             <label>Opening bal.</label>
-            <div style="padding:6px 0;font-size:13px;color:var(--muted)">${esc(String(a.opening_balance || 0))}</div>
+            <div style="padding:6px 0;font-size:13px;color:var(--muted)">${getSymbol(a.currency)}${fmtBal(a.opening_balance || 0)}</div>
           </div>
           <div class="field" style="margin:0">
             <label>Current bal.</label>
@@ -352,11 +356,11 @@ async function saveNew() {
       renderDashboard();
     } else {
       if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
-      if (btn) { btn.disabled = false; btn.textContent = 'Save account'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
     }
   } catch (_) {
     if (errEl) errEl.textContent = 'Connection error.';
-    if (btn) { btn.disabled = false; btn.textContent = 'Save account'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
   } finally {
     hideLoading();
   }

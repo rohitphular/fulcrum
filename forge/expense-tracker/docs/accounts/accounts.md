@@ -60,7 +60,7 @@ Debt is modelled implicitly through liability account types. No separate debt tr
 
 | Action | How |
 |---|---|
-| Add an account | Click **+ Add account** → fill name, currency, type, balances → **Save account** |
+| Add an account | Click **+ Add account** → fill name, currency, type, balances → **Save** |
 | Edit an account | Click **Edit** on a row → inline form → **Save** |
 | Archive an account | Click **Edit** → change Status to **archived** → **Save** |
 | Delete an account | Click **Delete** → inline confirmation → **Yes, delete** |

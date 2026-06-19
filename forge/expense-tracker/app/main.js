@@ -127,6 +127,7 @@ async function init() {
     const active = sessionStorage.getItem('et_section') || 'dashboard';
     if (active === 'dashboard')    renderDashboard();
     if (active === 'transactions') renderTransactions();
+    if (active === 'accounts')     renderAccounts();
   });
 
   // Reload event — fired by saveTransaction and submitPin instead of calling loadAll directly
