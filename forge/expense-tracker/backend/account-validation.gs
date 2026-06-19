@@ -14,12 +14,12 @@ function validateAccountCreate(body) {
   // Required type-specific fields from schema
   var fields = getFieldsForAccountType(type);
   for (var i = 0; i < fields.length; i++) {
-    var f = fields[i];
-    if (!Array.isArray(f.required_for) || f.required_for.length === 0) continue;
-    if (f.required_for.indexOf(type) === -1) continue;
-    var val = body[f.key];
+    var field = fields[i];
+    if (!Array.isArray(field.required_for) || field.required_for.length === 0) continue;
+    if (field.required_for.indexOf(type) === -1) continue;
+    var val = body[field.key];
     if (val === undefined || val === null || val === '') {
-      return { ok: false, error: 'missing_' + f.key };
+      return { ok: false, error: 'missing_' + field.key };
     }
   }
 
@@ -39,12 +39,12 @@ function validateAccountCreate(body) {
 
   // Day-of-month checks (1–31)
   if (body.credit_card_billing_date !== undefined) {
-    var bd = Number(body.credit_card_billing_date);
-    if (bd < 1 || bd > 31) return { ok: false, error: 'invalid_credit_card_billing_date' };
+    var billingDay = Number(body.credit_card_billing_date);
+    if (billingDay < 1 || billingDay > 31) return { ok: false, error: 'invalid_credit_card_billing_date' };
   }
   if (body.credit_card_due_date !== undefined) {
-    var dd = Number(body.credit_card_due_date);
-    if (dd < 1 || dd > 31) return { ok: false, error: 'invalid_credit_card_due_date' };
+    var dueDay = Number(body.credit_card_due_date);
+    if (dueDay < 1 || dueDay > 31) return { ok: false, error: 'invalid_credit_card_due_date' };
   }
 
   // Date ordering
@@ -64,20 +64,20 @@ function validateAccountUpdate(body, currentType) {
   // Reject attempts to send immutable fields
   var fields = getFieldsForAccountType(currentType);
   for (var i = 0; i < fields.length; i++) {
-    var f = fields[i];
-    if (!f.editable && f.key !== 'row_num' && body[f.key] !== undefined) {
-      return { ok: false, error: 'field_not_editable:' + f.key };
+    var field = fields[i];
+    if (!field.editable && field.key !== 'row_num' && body[field.key] !== undefined) {
+      return { ok: false, error: 'field_not_editable:' + field.key };
     }
   }
 
   // Day-of-month checks
   if (body.credit_card_billing_date !== undefined) {
-    var bd = Number(body.credit_card_billing_date);
-    if (bd < 1 || bd > 31) return { ok: false, error: 'invalid_credit_card_billing_date' };
+    var billingDay = Number(body.credit_card_billing_date);
+    if (billingDay < 1 || billingDay > 31) return { ok: false, error: 'invalid_credit_card_billing_date' };
   }
   if (body.credit_card_due_date !== undefined) {
-    var dd = Number(body.credit_card_due_date);
-    if (dd < 1 || dd > 31) return { ok: false, error: 'invalid_credit_card_due_date' };
+    var dueDay = Number(body.credit_card_due_date);
+    if (dueDay < 1 || dueDay > 31) return { ok: false, error: 'invalid_credit_card_due_date' };
   }
 
   return { ok: true };

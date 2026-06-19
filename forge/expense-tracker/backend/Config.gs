@@ -10,17 +10,7 @@ const RATES_SHEET        = 'rates';
 const AUDIT_SHEET        = 'audit_access';
 const MAX_FAILURES       = 3;
 
-const TRANSACTION_COLUMNS = [
-  'id', 'transaction_date_utc', 'transaction_type', 'amount', 'currency',
-  'from_account', 'to_account', 'major_category', 'minor_category',
-  'counterparty', 'notes', 'tags', 'transfer_id',
-  'fx_rate', 'country', 'payment_method'
-];
-// TRANSACTION_COLUMNS indices (col number = index + 1):
-// 0=id  1=transaction_date_utc  2=transaction_type  3=amount  4=currency
-// 5=from_account  6=to_account  7=major_category  8=minor_category
-// 9=counterparty  10=notes  11=tags  12=transfer_id
-// 13=fx_rate  14=country  15=payment_method
+// TRANSACTION_COLUMNS, VALID_TRANSACTION_TYPES, txColIndex() removed — all in transaction-schema.gs
 
 const CATEGORY_COLUMNS = ['transaction_type', 'major_category', 'minor_category', 'description', 'tag_keywords'];
 const RATES_COLUMNS    = ['currency', 'rate', 'symbol', 'updated_at'];
@@ -33,7 +23,7 @@ const AUDIT_COLUMNS = [
   'is_locked', 'locked_at'
 ];
 
-const VALID_TYPES = ['money-in', 'money-out', 'money-transfer'];
+// VALID_TYPES removed — use VALID_TRANSACTION_TYPES from transaction-schema.gs
 
 const DEFAULT_RATES = [
   { currency: 'GBP', rate: 1,    symbol: '£'    },

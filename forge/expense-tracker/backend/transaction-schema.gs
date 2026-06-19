@@ -1,0 +1,283 @@
+// =============================================================================
+// FULCRUM FORGE — Transaction Schema: field registry
+// Single source of truth for column positions, UI labels, types, groups,
+// and applicability rules. No magic column numbers anywhere else in the codebase.
+// =============================================================================
+
+const VALID_TRANSACTION_TYPES = ['money-in', 'money-out', 'money-transfer'];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Schema — 16 fields in column-position order
+// ─────────────────────────────────────────────────────────────────────────────
+const TRANSACTION_SCHEMA = {
+
+  // ── Core (columns 1–6, all transaction types) ─────────────────────────────
+  id: {
+    sheet_column_name: 'id',
+    sheet_column_position: 1,
+    ui_label: 'ID',
+    type: 'string',
+    enum_values: null,
+    group: 'core',
+    applies_to: null,
+    required_for: null,
+    editable: false,
+    default_value: null,
+  },
+  transaction_date_utc: {
+    sheet_column_name: 'transaction_date_utc',
+    sheet_column_position: 2,
+    ui_label: 'Date',
+    type: 'date',
+    enum_values: null,
+    group: 'core',
+    applies_to: null,
+    required_for: null,
+    editable: true,
+    default_value: null,
+  },
+  transaction_type: {
+    sheet_column_name: 'transaction_type',
+    sheet_column_position: 3,
+    ui_label: 'Type',
+    type: 'enum',
+    enum_values: VALID_TRANSACTION_TYPES,
+    group: 'core',
+    applies_to: null,
+    required_for: null,
+    editable: false,
+    default_value: null,
+  },
+  amount: {
+    sheet_column_name: 'amount',
+    sheet_column_position: 4,
+    ui_label: 'Amount',
+    type: 'number',
+    enum_values: null,
+    group: 'core',
+    applies_to: null,
+    required_for: null,
+    editable: true,
+    default_value: null,
+  },
+  currency: {
+    sheet_column_name: 'currency',
+    sheet_column_position: 5,
+    ui_label: 'Currency',
+    type: 'string',
+    enum_values: null,
+    group: 'core',
+    applies_to: null,
+    required_for: [],
+    editable: true,
+    default_value: '',
+  },
+  from_account: {
+    sheet_column_name: 'from_account',
+    sheet_column_position: 6,
+    ui_label: 'From Account',
+    type: 'string',
+    enum_values: null,
+    group: 'core',
+    applies_to: null,
+    required_for: null,
+    editable: true,
+    default_value: null,
+  },
+
+  // ── Transfer (columns 7, 13–14) ───────────────────────────────────────────
+  to_account: {
+    sheet_column_name: 'to_account',
+    sheet_column_position: 7,
+    ui_label: 'To Account',
+    type: 'string',
+    enum_values: null,
+    group: 'transfer',
+    applies_to: ['money-transfer'],
+    required_for: ['money-transfer'],
+    editable: true,
+    default_value: '',
+  },
+
+  // ── Categorisation (columns 8–10, 15–16) ─────────────────────────────────
+  major_category: {
+    sheet_column_name: 'major_category',
+    sheet_column_position: 8,
+    ui_label: 'Category',
+    type: 'string',
+    enum_values: null,
+    group: 'categorisation',
+    applies_to: ['money-in', 'money-out'],
+    required_for: [],
+    editable: true,
+    default_value: '',
+  },
+  minor_category: {
+    sheet_column_name: 'minor_category',
+    sheet_column_position: 9,
+    ui_label: 'Sub-category',
+    type: 'string',
+    enum_values: null,
+    group: 'categorisation',
+    applies_to: ['money-in', 'money-out'],
+    required_for: [],
+    editable: true,
+    default_value: '',
+  },
+  counterparty: {
+    sheet_column_name: 'counterparty',
+    sheet_column_position: 10,
+    ui_label: 'Counterparty',
+    type: 'string',
+    enum_values: null,
+    group: 'categorisation',
+    applies_to: ['money-in', 'money-out'],
+    required_for: [],
+    editable: true,
+    default_value: '',
+  },
+
+  // ── Core continued (columns 11–12) ───────────────────────────────────────
+  notes: {
+    sheet_column_name: 'notes',
+    sheet_column_position: 11,
+    ui_label: 'Notes',
+    type: 'string',
+    enum_values: null,
+    group: 'core',
+    applies_to: null,
+    required_for: [],
+    editable: true,
+    default_value: '',
+  },
+  tags: {
+    sheet_column_name: 'tags',
+    sheet_column_position: 12,
+    ui_label: 'Tags',
+    type: 'string',
+    enum_values: null,
+    group: 'core',
+    applies_to: null,
+    required_for: [],
+    editable: true,
+    default_value: '',
+  },
+
+  // ── Transfer continued (columns 13–14) ────────────────────────────────────
+  transfer_id: {
+    sheet_column_name: 'transfer_id',
+    sheet_column_position: 13,
+    ui_label: 'Transfer ID',
+    type: 'string',
+    enum_values: null,
+    group: 'transfer',
+    applies_to: ['money-transfer'],
+    required_for: [],
+    editable: false,
+    default_value: '',
+  },
+  fx_rate: {
+    sheet_column_name: 'fx_rate',
+    sheet_column_position: 14,
+    ui_label: 'FX Rate',
+    type: 'number',
+    enum_values: null,
+    group: 'transfer',
+    applies_to: ['money-transfer'],
+    required_for: [],
+    editable: true,
+    default_value: '',
+  },
+
+  // ── Categorisation continued (columns 15–16) ──────────────────────────────
+  country: {
+    sheet_column_name: 'country',
+    sheet_column_position: 15,
+    ui_label: 'Country',
+    type: 'string',
+    enum_values: null,
+    group: 'categorisation',
+    applies_to: ['money-in', 'money-out'],
+    required_for: [],
+    editable: true,
+    default_value: '',
+  },
+  payment_method: {
+    sheet_column_name: 'payment_method',
+    sheet_column_position: 16,
+    ui_label: 'Payment Method',
+    type: 'string',
+    enum_values: null,
+    group: 'categorisation',
+    applies_to: ['money-in', 'money-out'],
+    required_for: [],
+    editable: true,
+    default_value: '',
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRANSACTION_COLUMNS — derived, not hardcoded; kept for backward compat with
+// any code that still references it by name.
+// ─────────────────────────────────────────────────────────────────────────────
+const TRANSACTION_COLUMNS = (function() {
+  return Object.values(TRANSACTION_SCHEMA)
+    .sort(function(a, b) { return a.sheet_column_position - b.sheet_column_position; })
+    .map(function(f) { return f.sheet_column_name; });
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Client payload — serialised subset returned by get_transaction_schema
+// ─────────────────────────────────────────────────────────────────────────────
+function getTransactionSchemaForClient() {
+  var TYPE_LABELS = {
+    'money-in':       'Money In',
+    'money-out':      'Money Out',
+    'money-transfer': 'Transfer',
+  };
+  return {
+    types: VALID_TRANSACTION_TYPES.map(function(v) {
+      return { value: v, label: TYPE_LABELS[v] || v };
+    }),
+    categorisation_fields: Object.keys(TRANSACTION_SCHEMA).filter(function(key) {
+      return TRANSACTION_SCHEMA[key].group === 'categorisation';
+    }),
+    transfer_fields: Object.keys(TRANSACTION_SCHEMA).filter(function(key) {
+      var f = TRANSACTION_SCHEMA[key];
+      return f.group === 'transfer' && f.editable;
+    }),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Ordered column headers array — drives getOrCreateSheet() initialisation
+function getTransactionSheetColumns() {
+  return Object.values(TRANSACTION_SCHEMA)
+    .sort(function(a, b) { return a.sheet_column_position - b.sheet_column_position; })
+    .map(function(f) { return f.sheet_column_name; });
+}
+
+// All schema fields applicable to a given transaction type
+function getFieldsForTransactionType(type) {
+  return Object.keys(TRANSACTION_SCHEMA)
+    .filter(function(key) {
+      var f = TRANSACTION_SCHEMA[key];
+      return f.applies_to === null || f.applies_to.indexOf(type) !== -1;
+    })
+    .map(function(key) { return Object.assign({ key: key }, TRANSACTION_SCHEMA[key]); });
+}
+
+// Single field entry by key
+function getTransactionSchemaField(key) {
+  return TRANSACTION_SCHEMA[key] || null;
+}
+
+// 0-based column index for sheet row array access — backed by schema, not indexOf
+function txColIndex(name) {
+  var f = TRANSACTION_SCHEMA[name];
+  if (!f) throw new Error('Unknown transaction column: ' + name);
+  return f.sheet_column_position - 1;
+}

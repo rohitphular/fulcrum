@@ -35,8 +35,8 @@ function createAccount(body) {
   var ratesVals       = ratesSheet.getDataRange().getValues();
   var knownCurrencies = {};
   for (var i = 1; i < ratesVals.length; i++) {
-    var c = String(ratesVals[i][0]).trim().toUpperCase();
-    if (c) knownCurrencies[c] = true;
+    var currencyCode = String(ratesVals[i][0]).trim().toUpperCase();
+    if (currencyCode) knownCurrencies[currencyCode] = true;
   }
   var normCurrency = String(body.currency).trim().toUpperCase();
   if (!knownCurrencies[normCurrency]) {
@@ -48,10 +48,10 @@ function createAccount(body) {
   var id     = generateAccountId(sheet);
   var now    = new Date().toISOString();
   var type   = String(body.type).trim();
-  var isLiab = isLiabilityType(type);
+  var isLiabilityAccount = isLiabilityType(type);
 
   // Liabilities stored as negative; user always inputs positive
-  var openingBalance = isLiab
+  var openingBalance = isLiabilityAccount
     ? -(Math.abs(Number(body.opening_balance) || 0))
     : (Number(body.opening_balance) || 0);
 

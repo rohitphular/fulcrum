@@ -7,6 +7,19 @@ import { ExpenseAPI } from '../core/api.js';
 let addFormOpen = false;
 let filterOpen  = false;
 
+// ── Transaction schema helpers ────────────────────────────────────────────────
+
+function _txTypes() {
+  return state.transactionSchema?.types || [
+    { value: 'money-in',       label: 'Money In'  },
+    { value: 'money-out',      label: 'Money Out' },
+    { value: 'money-transfer', label: 'Transfer'  },
+  ];
+}
+function _txTypeMap() {
+  return Object.fromEntries(_txTypes().map(t => [t.value, t.label]));
+}
+
 export function renderTransactions() {
   const txEl = el('transactionsContent');
   const rows = filteredTx();
@@ -54,7 +67,7 @@ function renderTxTable(validRows, warnRows) {
     if (state.txEditRow   === tx._row) return renderTxEditRow(tx);
 
     const badgeCls  = tx.transaction_type === 'money-in' ? 'badge-in' : tx.transaction_type === 'money-out' ? 'badge-out' : 'badge-transfer';
-    const typeLabel = tx.transaction_type === 'money-in' ? 'in'       : tx.transaction_type === 'money-out' ? 'out'       : 'xfer';
+    const typeLabel = _txTypeMap()[tx.transaction_type] || tx.transaction_type;
     const missingRate = !state.rateMap[tx.currency];
     const rowRate     = tx.fx_rate && parseFloat(tx.fx_rate) > 0;
 
@@ -179,14 +192,14 @@ function renderAddForm() {
           <label for="afType">Type *</label>
           <select id="afType">
             <option value="">— select —</option>
-            ${['money-in','money-out','money-transfer'].map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('')}
+            ${_txTypes().map(t => `<option value="${esc(t.value)}">${esc(t.label)}</option>`).join('')}
           </select>
         </div>
-        <div class="field">
+        <div class="field" id="afMajorField">
           <label for="afMajor">Major category *</label>
           <select id="afMajor" disabled><option value="">— select type first —</option></select>
         </div>
-        <div class="field">
+        <div class="field" id="afMinorField">
           <label for="afMinor">Minor category *</label>
           <select id="afMinor" disabled><option value="">— select major first —</option></select>
         </div>
@@ -218,7 +231,7 @@ function renderAddForm() {
           <label for="afDate">Date &amp; time *</label>
           <input type="datetime-local" id="afDate" value="${nowLocalISO()}">
         </div>
-        <div class="field">
+        <div class="field" id="afCounterpartyField">
           <label for="afCounterparty">Counterparty</label>
           <input type="text" id="afCounterparty" placeholder="Tesco, employer, …">
         </div>
@@ -226,7 +239,7 @@ function renderAddForm() {
           <label for="afAmount">Amount *</label>
           <input type="number" id="afAmount" min="0.01" step="0.01" placeholder="0.00">
         </div>
-        <div class="field">
+        <div class="field" id="afCountryField">
           <label for="afCountry">Country</label>
           <input type="text" id="afCountry" placeholder="UK">
         </div>
@@ -264,10 +277,13 @@ function attachAddFormEvents() {
     if (el('afFxRate'))     el('afFxRate').value      = '';
 
     if (!type) {
-      majorEl.disabled  = true;
-      minorEl.disabled  = true;
+      majorEl.disabled   = true;
+      minorEl.disabled   = true;
       fromAccEl.disabled = true;
       el('afTransferSection').style.display = 'none';
+      ['afMajorField', 'afMinorField', 'afCounterpartyField', 'afCountryField'].forEach(id => {
+        const f = el(id); if (f) f.style.display = '';
+      });
       return;
     }
 
@@ -277,12 +293,15 @@ function attachAddFormEvents() {
     minorEl.disabled   = false;
     fromAccEl.disabled = false;
 
-    if (type === 'money-transfer') {
-      el('afTransferSection').style.display = '';
-      _afRefreshToAccountOpts();
-    } else {
-      el('afTransferSection').style.display = 'none';
-    }
+    const isTransfer = type === 'money-transfer';
+    el('afTransferSection').style.display = isTransfer ? '' : 'none';
+    if (isTransfer) _afRefreshToAccountOpts();
+
+    // Categorisation fields only apply to money-in and money-out
+    ['afMajorField', 'afMinorField', 'afCounterpartyField', 'afCountryField'].forEach(id => {
+      const f = el(id);
+      if (f) f.style.display = isTransfer ? 'none' : '';
+    });
   });
 
   el('afMajor')?.addEventListener('change', () => {
@@ -316,6 +335,9 @@ function attachAddFormEvents() {
     el('afMinor').disabled          = true;
     el('afTransferSection').style.display = 'none';
     if (el('afFxRateWrap')) el('afFxRateWrap').style.display = 'none';
+    ['afMajorField', 'afMinorField', 'afCounterpartyField', 'afCountryField'].forEach(id => {
+      const f = el(id); if (f) f.style.display = '';
+    });
     el('afError').textContent       = '';
   });
 }
@@ -405,9 +427,9 @@ function checkBalanceRules(transaction_type, fromAccount, amount) {
     return null;
   }
 
-  // Rules 2 & 4 — credit-card accounts
-  if (fromAccount.type === 'credit-card') {
-    const creditLimit = Number(fromAccount.credit_limit) || 0;
+  // Rules 2 & 4 — credit card accounts
+  if (fromAccount.type === 'credit_card') {
+    const creditLimit = Number(fromAccount.credit_card_limit) || 0;
     if (creditLimit <= 0) return null; // no limit set — skip check
 
     const balance        = Number(fromAccount.current_balance); // negative: amount owed stored as negative
@@ -444,7 +466,9 @@ function checkBalanceRules(transaction_type, fromAccount, amount) {
 // Returns null on pass, or the error string on block.
 function checkRule5(transaction_type, fromAccount, major_category, minor_category) {
   if (transaction_type !== 'money-out') return null;
-  if (!fromAccount || fromAccount.type !== 'loan') return null;
+  if (!fromAccount) return null;
+  const loanTypes = state.accountSchema?.loan_types || [];
+  if (!loanTypes.includes(fromAccount.type)) return null;
   if (major_category === 'Debt & finance' && minor_category === 'Interest & charges') return null;
   return (
     `Cannot record money-out from a loan account.\n` +
@@ -487,13 +511,14 @@ async function saveTransaction() {
   const tags             = el('afTags').value.trim();
   const notes            = el('afNotes').value.trim();
 
-  if (!dateRaw)                                         { errEl.textContent = 'Date is required.';                          return; }
-  if (!transaction_type)                                { errEl.textContent = 'Type is required.';                          return; }
-  if (!from_account)                                    { errEl.textContent = 'From account is required.';                  return; }
-  if (transaction_type === 'money-transfer' && !to_account) { errEl.textContent = 'To account is required for transfers.'; return; }
-  if (!amount || parseFloat(amount) <= 0)               { errEl.textContent = 'Enter a positive amount.';                   return; }
-  if (!major_category)                                  { errEl.textContent = 'Major category is required.';                return; }
-  if (!minor_category)                                  { errEl.textContent = 'Minor category is required.';                return; }
+  const isTransfer = transaction_type === 'money-transfer';
+  if (!dateRaw)                                  { errEl.textContent = 'Date is required.';                          return; }
+  if (!transaction_type)                         { errEl.textContent = 'Type is required.';                          return; }
+  if (!from_account)                             { errEl.textContent = 'From account is required.';                  return; }
+  if (isTransfer && !to_account)                 { errEl.textContent = 'To account is required for transfers.';      return; }
+  if (!amount || parseFloat(amount) <= 0)        { errEl.textContent = 'Enter a positive amount.';                   return; }
+  if (!isTransfer && !major_category)            { errEl.textContent = 'Major category is required.';                return; }
+  if (!isTransfer && !minor_category)            { errEl.textContent = 'Minor category is required.';                return; }
 
   const fromAcc       = state.accountMap[from_account];
   const toAcc         = state.accountMap[to_account];
@@ -546,8 +571,8 @@ function renderTxEditRow(tx) {
   const toAccountOpts = activeAccounts.map(a =>
     `<option value="${esc(a.id)}" ${tx.to_account === a.id ? 'selected' : ''}>${esc(a.name)} (${esc(a.currency)})</option>`
   ).join('');
-  const typeOpts = ['money-in', 'money-out', 'money-transfer'].map(t =>
-    `<option value="${t}" ${tx.transaction_type === t ? 'selected' : ''}>${t}</option>`
+  const typeOpts = _txTypes().map(t =>
+    `<option value="${esc(t.value)}" ${tx.transaction_type === t.value ? 'selected' : ''}>${esc(t.label)}</option>`
   ).join('');
   const majors = [...new Set(state.categories.filter(c => c.transaction_type === tx.transaction_type).map(c => c.major_category))];
   const majorOpts = majors.map(m =>
@@ -570,6 +595,7 @@ function renderTxEditRow(tx) {
   const fromCcy    = state.accountMap[tx.from_account]?.currency;
   const toCcy      = state.accountMap[tx.to_account]?.currency;
   const isXfer     = tx.transaction_type === 'money-transfer';
+  const categStyle = isXfer ? 'display:none' : '';
   const isCrossCcy = isXfer && fromCcy && toCcy && fromCcy !== toCcy;
   const toWrapStyle  = isXfer    ? '' : 'display:none';
   const fxWrapStyle  = isCrossCcy ? '' : 'display:none';
@@ -597,25 +623,25 @@ function renderTxEditRow(tx) {
           <label>Amount</label>
           <input type="number" id="txEditAmount-${r}" min="0.01" step="0.01" value="${esc(String(tx.amount || ''))}">
         </div>
-        <div class="field">
+        <div class="field" id="txEditMajorField-${r}" style="${categStyle}">
           <label>Major category</label>
           <select id="txEditMajor-${r}">
             <option value="">— select —</option>
             ${majorOpts}
           </select>
         </div>
-        <div class="field">
+        <div class="field" id="txEditMinorField-${r}" style="${categStyle}">
           <label>Minor category</label>
           <select id="txEditMinor-${r}">
             <option value="">— select —</option>
             ${minorOpts}
           </select>
         </div>
-        <div class="field">
+        <div class="field" id="txEditCounterpartyField-${r}" style="${categStyle}">
           <label>Counterparty</label>
           <input type="text" id="txEditCounterparty-${r}" value="${esc(tx.counterparty || '')}">
         </div>
-        <div class="field">
+        <div class="field" id="txEditCountryField-${r}" style="${categStyle}">
           <label>Country</label>
           <input type="text" id="txEditCountry-${r}" value="${esc(tx.country || '')}">
         </div>
@@ -707,6 +733,12 @@ function attachTxEditCascadeEvents(r) {
     // Clear fx_rate value when hidden
     if (!isCrossCcy && el(`txEditFxRate-${row}`)) el(`txEditFxRate-${row}`).value = '';
 
+    // Categorisation fields only apply to money-in and money-out
+    ['txEditMajorField', 'txEditMinorField', 'txEditCounterpartyField', 'txEditCountryField'].forEach(prefix => {
+      const f = el(`${prefix}-${row}`);
+      if (f) f.style.display = isXfer ? 'none' : '';
+    });
+
     _txEditUpdateFxPreview(row);
   };
 
@@ -752,13 +784,14 @@ async function saveEdit(rowNum) {
   const tags             = el(`txEditTags-${r}`)?.value.trim();
   const notes            = el(`txEditNotes-${r}`)?.value.trim();
 
-  if (!dateRaw)           { errEl.textContent = 'Date is required.';                             return; }
-  if (!transaction_type)  { errEl.textContent = 'Type is required.';                             return; }
-  if (!from_account)      { errEl.textContent = 'From account is required.';                     return; }
-  if (transaction_type === 'money-transfer' && !to_account) { errEl.textContent = 'To account is required for transfers.'; return; }
-  if (!amount || parseFloat(amount) <= 0) { errEl.textContent = 'Enter a positive amount.';      return; }
-  if (!major_category)    { errEl.textContent = 'Major category is required.';                   return; }
-  if (!minor_category)    { errEl.textContent = 'Minor category is required.';                   return; }
+  const isEditTransfer = transaction_type === 'money-transfer';
+  if (!dateRaw)                                 { errEl.textContent = 'Date is required.';                          return; }
+  if (!transaction_type)                        { errEl.textContent = 'Type is required.';                          return; }
+  if (!from_account)                            { errEl.textContent = 'From account is required.';                  return; }
+  if (isEditTransfer && !to_account)            { errEl.textContent = 'To account is required for transfers.';      return; }
+  if (!amount || parseFloat(amount) <= 0)       { errEl.textContent = 'Enter a positive amount.';                   return; }
+  if (!isEditTransfer && !major_category)       { errEl.textContent = 'Major category is required.';                return; }
+  if (!isEditTransfer && !minor_category)       { errEl.textContent = 'Minor category is required.';                return; }
 
   const fromAccEdit = state.accountMap[from_account];
   const toAccEdit   = state.accountMap[to_account];
@@ -791,8 +824,8 @@ async function saveEdit(rowNum) {
   // to_account credit-card check (transfer edits only)
   if (
     transaction_type === 'money-transfer' &&
-    toAccEdit && toAccEdit.type === 'credit-card' &&
-    Number(toAccEdit.credit_limit) > 0
+    toAccEdit && toAccEdit.type === 'credit_card' &&
+    Number(toAccEdit.credit_card_limit) > 0
   ) {
     // How much will be credited to to_account in Phase 2?
     const newFxRate   = fx_rate ? parseFloat(fx_rate) : 0;
@@ -806,7 +839,7 @@ async function saveEdit(rowNum) {
       toPostRevBal     -= oldCredited; // reversal removes the old credit
     }
 
-    const toAvailable = Number(toAccEdit.credit_limit) + toPostRevBal;
+    const toAvailable = Number(toAccEdit.credit_card_limit) + toPostRevBal;
     if (newCredited > toAvailable) {
       const sym  = getSymbol(toAccEdit.currency);
       const fmt  = n => Number(n).toFixed(2);
@@ -814,12 +847,12 @@ async function saveEdit(rowNum) {
       if (toAvailable < 0) {
         errEl.textContent =
           `Credit limit exceeded.\n` +
-          `${toAccEdit.name} — limit ${sym}${fmt(toAccEdit.credit_limit)}, currently ${sym}${fmt(owed)} owed, already ${sym}${fmt(Math.abs(toAvailable))} over the limit.\n` +
+          `${toAccEdit.name} — limit ${sym}${fmt(toAccEdit.credit_card_limit)}, currently ${sym}${fmt(owed)} owed, already ${sym}${fmt(Math.abs(toAvailable))} over the limit.\n` +
           `This credit of ${sym}${fmt(newCredited)} cannot be applied.`;
       } else {
         errEl.textContent =
           `Credit limit exceeded.\n` +
-          `${toAccEdit.name} — limit ${sym}${fmt(toAccEdit.credit_limit)}, currently ${sym}${fmt(owed)} owed, available ${sym}${fmt(toAvailable)}.\n` +
+          `${toAccEdit.name} — limit ${sym}${fmt(toAccEdit.credit_card_limit)}, currently ${sym}${fmt(owed)} owed, available ${sym}${fmt(toAvailable)}.\n` +
           `This credit of ${sym}${fmt(newCredited)} would exceed the limit by ${sym}${fmt(newCredited - toAvailable)}.`;
       }
       return;
@@ -874,14 +907,14 @@ async function confirmDelete(rowNum) {
 
 function renderFilterBar() {
   const f        = state.filters;
-  const allTypes = ['money-in', 'money-out', 'money-transfer'];
+  const allTypes = _txTypes();
   const allAccs  = state.accounts;
   const allMajor = [...new Set(state.categories.map(c => c.major_category))];
   const allMinor = [...new Set(state.categories.map(c => c.minor_category))];
   const methods  = ['card','cash','bank','UPI','other'];
 
   const activeChips = [
-    ...f.types.map(t    => ({ label: t,                   key: 'types',    val: t })),
+    ...f.types.map(t    => ({ label: _txTypeMap()[t] || t, key: 'types',    val: t })),
     ...f.accounts.map(id => ({ label: state.accountMap[id]?.name || id, key: 'accounts', val: id })),
     ...f.major.map(m    => ({ label: m,                   key: 'major',    val: m })),
     ...f.minor.map(m    => ({ label: m,                   key: 'minor',    val: m })),
@@ -902,7 +935,7 @@ function renderFilterBar() {
         <label>Type</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${allTypes.map(t => `<label style="display:flex;align-items:center;gap:4px;font-size:12px">
-            <input type="checkbox" data-filter-type="${esc(t)}" ${f.types.includes(t) ? 'checked' : ''}> ${esc(t)}
+            <input type="checkbox" data-filter-type="${esc(t.value)}" ${f.types.includes(t.value) ? 'checked' : ''}> ${esc(t.label)}
           </label>`).join('')}
         </div>
       </div>

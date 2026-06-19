@@ -35,7 +35,8 @@ function doGet(e) {
   if (action === 'list_categories')    return json({ ok: true, data: listCategories() });
   if (action === 'list_accounts')      return json({ ok: true, data: listAccounts() });
   if (action === 'list_rates')         return json({ ok: true, data: listRates() });
-  if (action === 'get_account_schema') return json({ ok: true, data: getAccountSchemaForClient() });
+  if (action === 'get_account_schema')      return json({ ok: true, data: getAccountSchemaForClient() });
+  if (action === 'get_transaction_schema') return json({ ok: true, data: getTransactionSchemaForClient() });
 
   return json({ ok: false, error: 'unknown_action' });
 }

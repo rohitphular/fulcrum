@@ -5,10 +5,10 @@
 
 function generateAccountId(sheet) {
   var now     = new Date();
-  var y       = now.getUTCFullYear();
-  var m       = String(now.getUTCMonth() + 1).padStart(2, '0');
-  var d       = String(now.getUTCDate()).padStart(2, '0');
-  var dateStr = y + '' + m + '' + d;
+  var year    = now.getUTCFullYear();
+  var month   = String(now.getUTCMonth() + 1).padStart(2, '0');
+  var day     = String(now.getUTCDate()).padStart(2, '0');
+  var dateStr = year + '' + month + '' + day;
   var prefix  = 'ACC-' + dateStr + '-';
   var values  = sheet.getDataRange().getValues();
   var max     = 0;
