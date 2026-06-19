@@ -23,8 +23,8 @@ const TRANSACTION_COLUMNS = [
 // 13=fx_rate  14=country  15=payment_method
 
 const CATEGORY_COLUMNS = ['transaction_type', 'major_category', 'minor_category', 'description', 'tag_keywords'];
-const ACCOUNT_COLUMNS  = ['id', 'name', 'currency', 'type', 'opening_balance', 'current_balance', 'credit_limit', 'is_active', 'notes', 'created_at'];
 const RATES_COLUMNS    = ['currency', 'rate', 'symbol', 'updated_at'];
+// ACCOUNT_COLUMNS removed — use getAccountSheetColumns() from account-schema.gs
 
 const AUDIT_COLUMNS = [
   'ip', 'city', 'country', 'user_agent',
@@ -43,9 +43,5 @@ const DEFAULT_RATES = [
   { currency: 'AED', rate: 4.66, symbol: 'AED ' }
 ];
 
-const VALID_ACCOUNT_TYPES     = ['current', 'savings', 'cash', 'credit-card', 'loan', 'investment'];
-const LIABILITY_ACCOUNT_TYPES = ['credit-card', 'loan'];
-
-// ACCOUNT_COLUMNS indices (col number = index + 1):
-// 0=id  1=name  2=currency  3=type
-// 4=opening_balance  5=current_balance  6=credit_limit  7=is_active  8=notes  9=created_at
+// VALID_ACCOUNT_TYPES, ACCOUNT_LIABILITY_TYPES, ACCOUNT_LOAN_TYPES removed
+// — all defined in account-schema.gs

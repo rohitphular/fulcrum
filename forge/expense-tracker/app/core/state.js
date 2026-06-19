@@ -36,6 +36,8 @@ export const state = {
   catEditRow:   null,
   catDeleteRow: null,
 
+  accountSchema: null,  // { types, liability_types, loan_types, investment_sub_types, mortgage_sub_types }
+
   accAddOpen:   false,
   accEditRow:   null,
   accDeleteRow: null,

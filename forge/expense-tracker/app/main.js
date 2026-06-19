@@ -8,6 +8,7 @@ import { renderDashboard } from './sections/dashboard.js';
 import { renderTransactions } from './sections/transactions.js';
 import { renderAccounts } from './sections/accounts.js';
 import { showPinGate, hidePinGate, fetchGeo, submitPin, readSession, clearSession } from './core/auth.js';
+import { loadAccountSchema } from './core/schema.js';
 
 // ── Quote currency ────────────────────────────────────────────────────────────
 
@@ -35,11 +36,12 @@ function setTheme(theme) {
 async function loadAll() {
   showLoading();
   try {
-    const [txRes, catRes, accRes, ratesRes] = await Promise.all([
+    const [txRes, catRes, accRes, ratesRes, schemaRes] = await Promise.all([
       ExpenseAPI.listTransactions(),
       ExpenseAPI.listCategories(),
       ExpenseAPI.listAccounts(),
       ExpenseAPI.listRates(),
+      loadAccountSchema(),
     ]);
 
     if (!txRes.ok) {
@@ -62,6 +64,7 @@ async function loadAll() {
       state.rateMap = {};
       state.rates.forEach(r => { state.rateMap[r.currency] = Number(r.rate) || 1; });
     }
+    if (schemaRes) state.accountSchema = schemaRes;
 
     populateQuoteCurrencySelect();
     const activeSection = sessionStorage.getItem('et_section') || 'dashboard';
