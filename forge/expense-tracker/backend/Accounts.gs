@@ -73,38 +73,22 @@ function createAccount(body) {
 }
 
 function updateAccount(body) {
-  if (!body.row_num)                            return { ok: false, error: 'missing_row_num' };
-  if (!String(body.name || '').trim())          return { ok: false, error: 'missing_name' };
-  if (!String(body.currency || '').trim())      return { ok: false, error: 'missing_currency' };
-  if (!VALID_ACCOUNT_TYPES.includes(body.type)) return { ok: false, error: 'invalid_account_type' };
+  if (!body.row_num)                   return { ok: false, error: 'missing_row_num' };
+  if (!String(body.name || '').trim()) return { ok: false, error: 'missing_name' };
 
-  // Currency must exist in the rates sheet
-  const ratesSheet      = getOrCreateSheet(RATES_SHEET, RATES_COLUMNS);
-  const ratesVals       = ratesSheet.getDataRange().getValues();
-  const knownCurrencies = new Set();
-  for (let i = 1; i < ratesVals.length; i++) {
-    const c = String(ratesVals[i][0]).trim().toUpperCase();
-    if (c) knownCurrencies.add(c);
-  }
-  const normCurrency = String(body.currency).trim().toUpperCase();
-  if (!knownCurrencies.has(normCurrency)) {
-    return { ok: false, error: `Unknown currency: ${normCurrency}. Add it to the rates sheet first.` };
-  }
-
-  const sheet       = getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS);
-  const rowNum      = Number(body.row_num);
-  const lastRow     = sheet.getLastRow();
+  const sheet   = getOrCreateSheet(ACCOUNTS_SHEET, ACCOUNT_COLUMNS);
+  const rowNum  = Number(body.row_num);
+  const lastRow = sheet.getLastRow();
   if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
 
-  const creditLimit = body.type === 'credit-card' ? (Number(body.credit_limit) || 0) : '';
+  // type and currency are immutable after creation — read from sheet for credit_limit logic
+  const currentType = sheet.getRange(rowNum, 3).getValue();
+  const creditLimit = currentType === 'credit-card' ? (Number(body.credit_limit) || 0) : '';
 
-  // Update cols 2–4 and 7–9; col 1 (id), col 5 (opening_balance), col 6 (current_balance), and col 10 (created_at) are never written here.
-  // opening_balance is immutable after creation; current_balance is maintained exclusively by adjustAccountBalance inside transaction handlers.
-  sheet.getRange(rowNum, 2, 1, 3).setValues([[
-    String(body.name).trim(),
-    normCurrency,
-    body.type,
-  ]]);
+  // Mutable fields: name (col 2), credit_limit/is_active/notes (cols 7–9).
+  // Immutable: id (col 1), currency (col 3), type (col 4), opening_balance (col 5),
+  //            current_balance (col 6), created_at (col 10).
+  sheet.getRange(rowNum, 2).setValue(String(body.name).trim());
   sheet.getRange(rowNum, 7, 1, 3).setValues([[
     creditLimit,
     body.is_active === true || body.is_active === 'true',

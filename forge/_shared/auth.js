@@ -63,15 +63,9 @@ export function createAuthModule({ sessionKey, legacyKeys = [], verifyFn, reload
     const pin  = document.getElementById('pinInput').value.trim();
     const totp = document.getElementById('totpInput').value.trim();
 
-    const devMode = window.CONFIG?.DEV === true;
-    if (!pin) { pinError('Enter your PIN.'); document.getElementById('pinInput').focus(); return; }
-    if (devMode && !totp) {
-      // Dev bypass: auto-fill dummy token; backend DEV_MODE must also be set.
-    } else {
-      if (!totp)                   { pinError('Enter your authenticator code.'); document.getElementById('totpInput').focus(); return; }
-      if (!/^\d{6}$/.test(totp))  { pinError('Code must be 6 digits.');         document.getElementById('totpInput').focus(); return; }
-    }
-    const totpToSend = (devMode && !totp) ? '000000' : totp;
+    if (!pin)                   { pinError('Enter your PIN.');                document.getElementById('pinInput').focus();  return; }
+    if (!totp)                  { pinError('Enter your authenticator code.'); document.getElementById('totpInput').focus(); return; }
+    if (!/^\d{6}$/.test(totp)) { pinError('Code must be 6 digits.');         document.getElementById('totpInput').focus(); return; }
 
     document.getElementById('pinSubmit').disabled = true;
     document.getElementById('pinError').textContent = 'Connecting…';
@@ -80,7 +74,7 @@ export function createAuthModule({ sessionKey, legacyKeys = [], verifyFn, reload
     SheetsClient.init({ scriptUrl: window.CONFIG.SCRIPT_URL, pin, meta });
 
     try {
-      const res = await verifyFn(totpToSend);
+      const res = await verifyFn(totp);
       if (res.ok) {
         writeSession(pin);
         hidePinGate();

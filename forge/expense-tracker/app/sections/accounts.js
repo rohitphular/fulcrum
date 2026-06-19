@@ -225,53 +225,51 @@ function renderTable() {
 }
 
 function renderEditRow(a) {
-  const r = a._row;
-  const currencyOpts = state.rates.map(r2 =>
-    `<option value="${esc(r2.currency)}" ${a.currency === r2.currency ? 'selected' : ''}>${esc(r2.currency)}</option>`
-  ).join('');
+  const r    = a._row;
   const isCC = a.type === 'credit-card';
-  const isLiab = LIABILITY_TYPES.has(a.type);
 
   return `<tr>
     <td class="td-mono" style="color:var(--muted);font-size:11px">${esc(a.id)}</td>
     <td colspan="4">
-      <div class="form-grid form-grid-4" style="padding:4px 0;gap:10px 12px">
-        <div class="field" style="margin:0">
-          <label>Name</label>
-          <input class="rate-edit-input" style="width:100%" id="accEditName-${r}" value="${esc(a.name)}" placeholder="Name">
+      <div style="padding:4px 0;display:flex;flex-direction:column;gap:12px">
+        <div class="form-grid" style="gap:10px 12px">
+          <div class="field" style="margin:0">
+            <label>Name</label>
+            <input class="rate-edit-input" style="width:100%" id="accEditName-${r}" value="${esc(a.name)}" placeholder="Name">
+          </div>
+          <div class="field" style="margin:0">
+            <label>Status</label>
+            <select class="cat-edit-select" style="width:100%" id="accEditIsActive-${r}">
+              <option value="true"  ${isActive(a) ? 'selected' : ''}>active</option>
+              <option value="false" ${!isActive(a) ? 'selected' : ''}>archived</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0">
+            <label>Notes</label>
+            <input class="rate-edit-input" style="width:100%" id="accEditNotes-${r}" value="${esc(a.notes || '')}" placeholder="Notes">
+          </div>
+          ${isCC ? `<div class="field" style="margin:0">
+            <label>Credit limit</label>
+            <input class="rate-edit-input" style="width:100%" type="number" step="0.01" id="accEditCreditLimit-${r}" value="${esc(String(a.credit_limit || ''))}">
+          </div>` : ''}
         </div>
-        <div class="field" style="margin:0">
-          <label>Currency</label>
-          <select class="cat-edit-select" style="width:100%" id="accEditCurrency-${r}">${currencyOpts}</select>
-        </div>
-        <div class="field" style="margin:0">
-          <label>Type</label>
-          <select class="cat-edit-select" style="width:100%" id="accEditType-${r}">${typeOptgroupHtml(a.type)}</select>
-        </div>
-        <div class="field" id="accEditCreditLimitWrap-${r}" style="margin:0;${isCC ? '' : 'display:none'}">
-          <label>Credit limit</label>
-          <input class="rate-edit-input" style="width:100%" type="number" step="0.01" id="accEditCreditLimit-${r}" value="${esc(String(a.credit_limit || ''))}">
-        </div>
-        <div class="field" style="margin:0">
-          <label>Opening bal.</label>
-          <div style="padding:6px 0;font-size:13px">${esc(String(a.opening_balance || 0))}</div>
-          <div class="field-hint" style="display:block;color:var(--muted)">Set at creation — read-only.</div>
-        </div>
-        <div class="field" style="margin:0">
-          <label>Current bal.</label>
-          <div style="padding:6px 0;font-size:13px">${balanceCell(a)}</div>
-          <div class="field-hint" style="display:block;color:var(--muted)">Read-only — adjusted by transactions.</div>
-        </div>
-        <div class="field" style="margin:0">
-          <label>Status</label>
-          <select class="cat-edit-select" id="accEditIsActive-${r}">
-            <option value="true"  ${isActive(a) ? 'selected' : ''}>active</option>
-            <option value="false" ${!isActive(a) ? 'selected' : ''}>archived</option>
-          </select>
-        </div>
-        <div class="field form-grid-full" style="margin:0">
-          <label>Notes</label>
-          <input class="rate-edit-input" style="width:100%" id="accEditNotes-${r}" value="${esc(a.notes || '')}" placeholder="Notes">
+        <div class="form-grid form-grid-4" style="gap:10px 12px">
+          <div class="field" style="margin:0">
+            <label>Type</label>
+            <div style="padding:6px 0;font-size:13px;color:var(--muted)">${esc(typeLabel(a.type))}</div>
+          </div>
+          <div class="field" style="margin:0">
+            <label>Currency</label>
+            <div style="padding:6px 0;font-size:13px;color:var(--muted)">${esc(a.currency)}</div>
+          </div>
+          <div class="field" style="margin:0">
+            <label>Opening bal.</label>
+            <div style="padding:6px 0;font-size:13px;color:var(--muted)">${esc(String(a.opening_balance || 0))}</div>
+          </div>
+          <div class="field" style="margin:0">
+            <label>Current bal.</label>
+            <div style="padding:6px 0;font-size:13px">${balanceCell(a)}</div>
+          </div>
         </div>
       </div>
     </td>
@@ -292,12 +290,6 @@ function _refreshAddTypeUI() {
   if (hint) hint.style.display = isLiab ? '' : 'none';
 }
 
-function _refreshEditTypeUI(r) {
-  const type   = el(`accEditType-${r}`)?.value || '';
-  const isCC   = type === 'credit-card';
-  const wrap   = el(`accEditCreditLimitWrap-${r}`);
-  if (wrap) wrap.style.display = isCC ? '' : 'none';
-}
 
 function attachEvents() {
   el('accAddBtn')?.addEventListener('click', () => {
@@ -317,7 +309,6 @@ function attachEvents() {
 
     if (action === 'acc-edit') {
       state.accEditRow = row; state.accDeleteRow = null; renderAccounts();
-      setTimeout(() => _refreshEditTypeUI(row), 0);
       return;
     }
     if (action === 'acc-cancel-edit')    { state.accEditRow = null; renderAccounts(); }
@@ -327,13 +318,6 @@ function attachEvents() {
     if (action === 'acc-confirm-delete') { confirmDelete(row); }
   });
 
-  if (state.accEditRow !== null) {
-    const r = state.accEditRow;
-    setTimeout(() => {
-      el(`accEditType-${r}`)?.addEventListener('change', () => _refreshEditTypeUI(r));
-      _refreshEditTypeUI(r);
-    }, 0);
-  }
 }
 
 async function saveNew() {
@@ -379,22 +363,18 @@ async function saveNew() {
 }
 
 async function saveEdit(rowNum) {
-  const r             = rowNum;
-  const name          = el(`accEditName-${r}`)?.value.trim();
-  const currency      = el(`accEditCurrency-${r}`)?.value;
-  const type          = el(`accEditType-${r}`)?.value;
-  const credit_limit  = el(`accEditCreditLimit-${r}`)?.value;
-  const is_active     = el(`accEditIsActive-${r}`)?.value === 'true';
-  const notes         = el(`accEditNotes-${r}`)?.value.trim();
+  const r            = rowNum;
+  const name         = el(`accEditName-${r}`)?.value.trim();
+  const credit_limit = el(`accEditCreditLimit-${r}`)?.value;
+  const is_active    = el(`accEditIsActive-${r}`)?.value === 'true';
+  const notes        = el(`accEditNotes-${r}`)?.value.trim();
 
-  if (!name)                                               { showMsg('Name is required.',     'warn'); return; }
-  if (!type || !VALID_ACCOUNT_TYPES.has(type))             { showMsg('Type is required.',     'warn'); return; }
-  if (!currency || !(currency in (state.rateMap || {})))   { showMsg('Currency is required.', 'warn'); return; }
+  if (!name) { showMsg('Name is required.', 'warn'); return; }
 
   showLoading();
   try {
     const res = await ExpenseAPI.updateAccount({
-      row_num: rowNum, name, currency, type,
+      row_num: rowNum, name,
       credit_limit: credit_limit ? parseFloat(credit_limit) : 0,
       is_active, notes,
     });

@@ -60,29 +60,24 @@ Net Worth = Total Assets − Total Liabilities
 
 ---
 
-## current_balance — Read-Only After Creation
+## Fields — Read-Only After Creation
 
-`current_balance` is a derived value: `opening_balance + Σ(all transaction effects on this account)`. It is set once at account creation (equal to `opening_balance`) and thereafter updated exclusively by `adjustAccountBalance` inside the transaction handlers.
+The following fields are set at account creation and **cannot be changed via the Edit form**. They are shown as read-only display fields in the edit UI.
 
-**The account edit form does not include `current_balance` as an input.** It is shown as a read-only display field. The backend `update_account` handler preserves the existing `current_balance` — it is excluded from the column writes (cols 2–5 and 7–9 are overwritten; col 6 is untouched).
+| Field | Reason |
+|---|---|
+| `type` | Changing type would invalidate transaction history and balance-rule assumptions |
+| `currency` | Changing currency would silently misrepresent all historical balances |
+| `opening_balance` | Part of the balance derivation — changes must go through transactions |
+| `current_balance` | Derived value; updated exclusively by `adjustAccountBalance` in transaction handlers |
 
-**To correct a balance discrepancy** (e.g. the app shows £800 but the real balance is £1,050):
-1. Record an `Adjustments / Balance correction` money-in transaction for £250 from the account.
-2. The Standard Reload updates `current_balance` to £1,050 via the transaction handler.
+**Mutable fields on Edit:** `name`, `is_active`, `notes`, and `credit_limit` (credit-card accounts only).
 
-This keeps every balance change traceable through transaction history.
+The backend `updateAccount` handler enforces this: it writes only `name` (col 2) and `credit_limit / is_active / notes` (cols 7–9). Cols 3–6 (`currency`, `type`, `opening_balance`, `current_balance`) are never touched.
 
----
-
-## opening_balance — Read-Only After Creation
-
-`opening_balance` is set once at account creation and **cannot be changed via the Edit form**. It is shown as a read-only display field in the edit UI.
-
-The backend `updateAccount` handler does not overwrite `opening_balance` — it is excluded from the column writes (only cols 2–4 are written: `name`, `currency`, `type`).
-
-**To correct a balance discrepancy** (e.g. the opening balance was entered incorrectly):
-1. Record an `Adjustments / Balance correction` transaction to bring the balance to the correct level.
-2. The Standard Reload updates `current_balance` accordingly.
+**To correct a balance discrepancy:**
+1. Record an `Adjustments / Balance correction` transaction for the difference.
+2. The Standard Reload updates `current_balance` via the transaction handler.
 
 This keeps every balance change traceable through transaction history.
 
