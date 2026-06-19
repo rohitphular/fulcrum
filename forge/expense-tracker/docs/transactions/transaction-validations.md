@@ -91,7 +91,7 @@ This transaction of £A cannot be applied.
 
 ### Rule 5 — money-out from loan account
 
-**Applies to:** `from_account.type` is `loan`
+**Applies to:** `from_account.type` is any loan type — `mortgage`, `auto_loan`, `heloc`, `personal_loan`, `student_loan`, `medical_loan`, or `debt_consolidation`
 
 **Condition that blocks:** always — except the capitalised-interest exemption below.
 

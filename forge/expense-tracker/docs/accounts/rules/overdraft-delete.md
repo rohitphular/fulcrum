@@ -1,6 +1,6 @@
-# Credit Card Account — DELETE
+# Overdraft — DELETE
 
-> **Account type:** `credit_card`
+> **Account type:** `overdraft`
 > **Group:** Liability
 > **Operation:** `delete`
 
@@ -17,5 +17,5 @@
 **Important:**
 
 - **Transactions are not deleted.** Existing transactions referencing this account retain their stored account ID.
-- **Card data is lost.** All credit card fields (limit, APR, billing dates) are permanently removed.
-- **Archiving is strongly preferred** for credit card accounts with outstanding balances or transaction history — the balance data cannot be recovered after deletion, and the liability disappears from Net Worth immediately.
+- **Outstanding balance is lost.** Deleting the account removes the overdraft liability from Net Worth immediately, making net worth appear artificially higher.
+- **Archiving is strongly preferred** for overdraft accounts with an outstanding drawn balance — the liability data cannot be recovered after deletion.

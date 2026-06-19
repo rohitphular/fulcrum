@@ -7,7 +7,7 @@ set -euo pipefail
 
 # ── Configuration — set SCRIPT_URL once here ─────────────────────────────────
 
-SCRIPT_URL="https://script.google.com/macros/s/REPLACE_WITH_YOUR_DEPLOYMENT_ID/exec"
+SCRIPT_URL="https://script.google.com/macros/s/AKfycbxWTOuXeCkH4tsDvrmCjkjxlhIZqLyIhxfvXR51ymWRc1FGAOYkLt0rkeGjTfQmWAv2RA/exec"
 
 # ── Validate prerequisites ────────────────────────────────────────────────────
 
@@ -119,19 +119,28 @@ for IDX in "${SELECTED_INDICES[@]}"; do
     --arg pin "$PIN" \
     '. + {action: $action, pin: $pin}')
 
-  RESPONSE=$(curl -s -L -X POST "$SCRIPT_URL" \
-    -H "Content-Type: application/json" \
-    -d "$PAYLOAD" 2>&1)
+  # GAS: POST to /exec triggers execution (302 redirect), GET the echo URL retrieves JSON.
+  # --data-raw implies POST for the initial request; -L follows the 302 with GET (browser behaviour).
+  RESPONSE=$(curl -s -L \
+    -H "Content-Type: text/plain" \
+    --data-raw "$PAYLOAD" \
+    "$SCRIPT_URL" 2>&1)
 
   OK=$(echo "$RESPONSE" | jq -r '.ok' 2>/dev/null || echo "false")
-  ERROR=$(echo "$RESPONSE" | jq -r '.error // ""' 2>/dev/null || echo "parse_error")
-  ID=$(echo "$RESPONSE" | jq -r '.id // ""' 2>/dev/null || echo "")
 
   if [ "$OK" = "true" ]; then
+    ID=$(echo "$RESPONSE" | jq -r '.id // ""' 2>/dev/null || echo "")
     pass "$ACCOUNT_NAME ($ACCOUNT_TYPE) — id: $ID"
     SUCCESS=$((SUCCESS + 1))
   else
-    fail "$ACCOUNT_NAME ($ACCOUNT_TYPE) — error: $ERROR"
+    ERROR=$(echo "$RESPONSE" | jq -r '.error // empty' 2>/dev/null)
+    if [ -z "$ERROR" ]; then
+      # Response was not JSON — show raw for diagnosis
+      RAW=$(echo "$RESPONSE" | head -c 200 | tr '\n' ' ')
+      fail "$ACCOUNT_NAME ($ACCOUNT_TYPE) — unexpected response: $RAW"
+    else
+      fail "$ACCOUNT_NAME ($ACCOUNT_TYPE) — error: $ERROR"
+    fi
     FAILED=$((FAILED + 1))
   fi
 done

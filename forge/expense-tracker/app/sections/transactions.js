@@ -204,29 +204,26 @@ function renderAddForm() {
           <select id="afMinor" disabled><option value="">— select major first —</option></select>
         </div>
         <div class="field">
-          <label for="afFromAccount">From account *</label>
+          <label for="afFromAccount" id="afFromAccountLabel">From account *</label>
           <select id="afFromAccount" disabled>
             <option value="">— select type first —</option>
             ${activeAccounts.map(a => `<option value="${esc(a.id)}">${esc(a.name)} (${esc(a.currency)})</option>`).join('')}
           </select>
         </div>
-        <div class="form-grid-full" id="afTransferSection" style="display:none">
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px 16px;align-items:end">
-            <div class="field" style="margin:0">
-              <label for="afToAccount">To account *</label>
-              <select id="afToAccount">
-                <option value="">— select from account first —</option>
-                ${activeAccounts.map(a => `<option value="${esc(a.id)}">${esc(a.name)} (${esc(a.currency)})</option>`).join('')}
-              </select>
-            </div>
-            <div class="field" id="afFxRateWrap" style="display:none;margin:0">
-              <label for="afFxRate">FX rate</label>
-              <input type="number" id="afFxRate" min="0.0001" step="any" placeholder="e.g. 105">
-              <div id="afFxDirection" class="field-hint" style="display:none"></div>
-              <div id="afFxPreview"   class="field-hint" style="display:none;color:var(--teal)"></div>
-            </div>
-          </div>
+        <div class="field" id="afToAccountField" style="display:none">
+          <label for="afToAccount">To account *</label>
+          <select id="afToAccount">
+            <option value="">— select —</option>
+            ${activeAccounts.map(a => `<option value="${esc(a.id)}">${esc(a.name)} (${esc(a.currency)})</option>`).join('')}
+          </select>
         </div>
+        <div class="field" id="afFxRateWrap" style="display:none">
+          <label for="afFxRate">FX rate</label>
+          <input type="number" id="afFxRate" min="0.0001" step="any" placeholder="e.g. 105">
+          <div id="afFxDirection" class="field-hint" style="display:none"></div>
+          <div id="afFxPreview"   class="field-hint" style="display:none;color:var(--teal)"></div>
+        </div>
+        <div id="afTransferFxSpacer" style="display:none"></div>
         <div class="field">
           <label for="afDate">Date &amp; time *</label>
           <input type="datetime-local" id="afDate" value="${nowLocalISO()}">
@@ -247,7 +244,7 @@ function renderAddForm() {
           <label for="afTags">Tags</label>
           <input type="text" id="afTags" placeholder="reimbursable, work">
         </div>
-        <div class="field form-grid-span-2">
+        <div class="field form-grid-span-2" id="afNotesField">
           <label for="afNotes">Notes</label>
           <input type="text" id="afNotes" placeholder="free text">
         </div>
@@ -269,6 +266,12 @@ function attachAddFormEvents() {
     const majorEl     = el('afMajor');
     const minorEl     = el('afMinor');
     const fromAccEl   = el('afFromAccount');
+    const isTransfer  = type === 'money-transfer';
+    const isMoneyIn   = type === 'money-in';
+
+    // Update From/To account label based on transaction direction
+    const fromLabelEl = el('afFromAccountLabel');
+    if (fromLabelEl) fromLabelEl.textContent = isMoneyIn ? 'To account *' : 'From account *';
 
     majorEl.innerHTML = '<option value="">— select type first —</option>';
     minorEl.innerHTML = '<option value="">— select major first —</option>';
@@ -280,10 +283,14 @@ function attachAddFormEvents() {
       majorEl.disabled   = true;
       minorEl.disabled   = true;
       fromAccEl.disabled = true;
-      el('afTransferSection').style.display = 'none';
+      el('afToAccountField').style.display   = 'none';
+      el('afFxRateWrap').style.display       = 'none';
+      el('afTransferFxSpacer').style.display = 'none';
       ['afMajorField', 'afMinorField', 'afCounterpartyField', 'afCountryField'].forEach(id => {
         const f = el(id); if (f) f.style.display = '';
       });
+      const notesField = el('afNotesField');
+      if (notesField) { notesField.classList.remove('form-grid-full'); notesField.classList.add('form-grid-span-2'); }
       return;
     }
 
@@ -293,15 +300,33 @@ function attachAddFormEvents() {
     minorEl.disabled   = false;
     fromAccEl.disabled = false;
 
-    const isTransfer = type === 'money-transfer';
-    el('afTransferSection').style.display = isTransfer ? '' : 'none';
-    if (isTransfer) _afRefreshToAccountOpts();
+    // Transfer: show To account inline (same row as From account); hide categorisation fields
+    el('afToAccountField').style.display = isTransfer ? '' : 'none';
+    if (isTransfer) {
+      _afRefreshToAccountOpts();
+      _afRefreshFxRateVis(); // sets spacer so Date stays on row 2
+    } else {
+      el('afFxRateWrap').style.display       = 'none';
+      el('afTransferFxSpacer').style.display = 'none';
+    }
 
     // Categorisation fields only apply to money-in and money-out
     ['afMajorField', 'afMinorField', 'afCounterpartyField', 'afCountryField'].forEach(id => {
       const f = el(id);
       if (f) f.style.display = isTransfer ? 'none' : '';
     });
+
+    // Notes spans full width for transfer (no Tags neighbour), half for money-in/out
+    const notesField = el('afNotesField');
+    if (notesField) {
+      if (isTransfer) {
+        notesField.classList.remove('form-grid-span-2');
+        notesField.classList.add('form-grid-full');
+      } else {
+        notesField.classList.remove('form-grid-full');
+        notesField.classList.add('form-grid-span-2');
+      }
+    }
   });
 
   el('afMajor')?.addEventListener('change', () => {
@@ -333,11 +358,16 @@ function attachAddFormEvents() {
     el('afMajor').disabled          = true;
     el('afMinor').innerHTML         = '<option value="">— select major first —</option>';
     el('afMinor').disabled          = true;
-    el('afTransferSection').style.display = 'none';
-    if (el('afFxRateWrap')) el('afFxRateWrap').style.display = 'none';
+    el('afToAccountField').style.display   = 'none';
+    el('afFxRateWrap').style.display       = 'none';
+    el('afTransferFxSpacer').style.display = 'none';
     ['afMajorField', 'afMinorField', 'afCounterpartyField', 'afCountryField'].forEach(id => {
       const f = el(id); if (f) f.style.display = '';
     });
+    const fromLabelEl = el('afFromAccountLabel');
+    if (fromLabelEl) fromLabelEl.textContent = 'From account *';
+    const notesField = el('afNotesField');
+    if (notesField) { notesField.classList.remove('form-grid-full'); notesField.classList.add('form-grid-span-2'); }
     el('afError').textContent       = '';
   });
 }
@@ -356,12 +386,17 @@ function _afRefreshToAccountOpts() {
 }
 
 function _afRefreshFxRateVis() {
-  const fromAcc = state.accounts.find(a => a.id === el('afFromAccount')?.value);
-  const toAcc   = state.accounts.find(a => a.id === el('afToAccount')?.value);
-  const show    = fromAcc && toAcc && fromAcc.currency !== toAcc.currency;
-  const wrap    = el('afFxRateWrap');
+  const fromAcc  = state.accounts.find(a => a.id === el('afFromAccount')?.value);
+  const toAcc    = state.accounts.find(a => a.id === el('afToAccount')?.value);
+  const show     = fromAcc && toAcc && fromAcc.currency !== toAcc.currency;
+  const wrap     = el('afFxRateWrap');
+  const spacer   = el('afTransferFxSpacer');
+  const isXfer   = el('afType')?.value === 'money-transfer';
+
   if (wrap) wrap.style.display = show ? '' : 'none';
   if (!show && el('afFxRate')) el('afFxRate').value = '';
+  // Spacer fills col 4 for same-currency transfers so Date stays on the next row
+  if (spacer) spacer.style.display = (isXfer && !show) ? '' : 'none';
 
   const dirEl = el('afFxDirection');
   const prvEl = el('afFxPreview');
@@ -613,7 +648,7 @@ function renderTxEditRow(tx) {
           <select id="txEditType-${r}">${typeOpts}</select>
         </div>
         <div class="field">
-          <label>From account</label>
+          <label id="txEditFromAccountLabel-${r}">${tx.transaction_type === 'money-in' ? 'To account' : 'From account'}</label>
           <select id="txEditFromAccount-${r}">
             <option value="">— select —</option>
             ${fromAccountOpts}
@@ -748,6 +783,8 @@ function attachTxEditCascadeEvents(r) {
     el(`txEditMajor-${r}`).innerHTML  = `<option value="">— select —</option>${majors.map(m => `<option>${esc(m)}</option>`).join('')}`;
     el(`txEditMinor-${r}`).innerHTML  = `<option value="">— select major first —</option>`;
     el(`txEditToAccount-${r}`).value  = '';
+    const fromLbl = el(`txEditFromAccountLabel-${r}`);
+    if (fromLbl) fromLbl.textContent = type === 'money-in' ? 'To account' : 'From account';
     _txEditRefreshFieldVis(r);
   });
   el(`txEditMajor-${r}`)?.addEventListener('change', () => {

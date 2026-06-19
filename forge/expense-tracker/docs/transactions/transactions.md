@@ -77,20 +77,45 @@ Sheet: `transactions`
 
 ## Add / Edit Form Fields
 
+### money-in / money-out layout
+
+Row 1: Type | Major category | Minor category | Account  
+Row 2: Date | Counterparty | Amount | Country  
+Row 3: Tags (span 2) | Notes (span 2)
+
+The primary account field label changes based on type:
+
+| Type | Account field label | Meaning |
+|---|---|---|
+| `money-in` | **To account \*** | Money flows INTO this account |
+| `money-out` | **From account \*** | Money flows OUT OF this account |
+
+The payload field name is `from_account` in both cases.
+
+### money-transfer layout
+
+Row 1: Type | From account | To account | FX rate (if cross-currency)  
+Row 2: Date | Amount | Tags  
+Row 3: Notes (full width)
+
+Categorisation fields (Major category, Minor category, Counterparty, Country) are **hidden** for `money-transfer`.
+
+### Field reference
+
 | Field | Required | Notes |
 |---|---|---|
-| Type | Yes | Drives category and account dropdowns; changes reset major/minor selection |
-| Major category | Yes | Populated from categories filtered by type; cascading dropdown |
-| Minor category | Yes | Populated from categories filtered by type and major |
-| From account | Yes | Active accounts only; determines the transaction currency |
+| Type | Yes | Drives form layout and account dropdowns; changes reset major/minor selection |
+| Major category | Yes (money-in/out) | Hidden for transfers; populated from categories filtered by type; cascading dropdown |
+| Minor category | Yes (money-in/out) | Hidden for transfers; populated from categories filtered by type and major |
+| Account (primary) | Yes | Active accounts only; determines the transaction currency; label is "To account" for money-in, "From account" for money-out |
 | Date & time | Yes | `datetime-local` input; defaults to current local time; stored as UTC ISO |
 | Amount | Yes | Must be positive; currency is derived from the from account |
-| Counterparty | No | Free text — merchant, employer, or other party |
-| Country | No | Free text — country where the transaction took place |
-| Tags | No | Comma-separated in the UI; stored as semicolons |
-| Notes | No | Free text |
+| Counterparty | No (money-in/out) | Hidden for transfers; free text — merchant, employer, or other party |
+| Country | No (money-in/out) | Hidden for transfers; free text — country where the transaction took place |
+| Tags | No | Present for all types |
+| Notes | No | Free text; present for all types |
 | To account | For transfers only | Shown only when type is `money-transfer`; excludes the from account |
-| FX rate | Optional, transfers only | Shown only when from and to accounts have different currencies; if omitted, the to account receives the amount 1:1 |
+| FX rate | Optional, transfers only | Shown only when from and to accounts have different currencies; entering a rate is required (Rule 6 hard-blocks cross-currency transfers without one) |
 
 ---
 
