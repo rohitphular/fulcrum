@@ -8,7 +8,7 @@
 
 function base32Decode(input) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  const s     = input.toUpperCase().replace(/[^A-Z2-7]/g, '');
+  const s     = input.toUpperCase().replace(new RegExp('[^A-Z2-7]', 'g'), '');
   const bytes = [];
   let buf = 0, bits = 0;
   for (let i = 0; i < s.length; i++) {
@@ -33,7 +33,7 @@ function generateTotp(keyBytes, counter) {
 }
 
 function verifyTotp(token) {
-  if (PropertiesService.getScriptProperties().getProperty('DEV_MODE') === 'true') return true;
+  if (PropertiesService.getScriptProperties().getProperty("DEV_MODE") === "true") return true;
   const secret = PropertiesService.getScriptProperties().getProperty('TOTP_SECRET');
   if (!secret || !token || String(token).length !== 6) return false;
   const key = base32Decode(secret);
