@@ -1,5 +1,5 @@
 import { state } from '../core/state.js';
-import { el, esc, fmtDateTime } from '../core/utils.js';
+import { el, esc, fmtDate, fmtDateTime } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { ExpenseAPI } from '../core/api.js';
 
