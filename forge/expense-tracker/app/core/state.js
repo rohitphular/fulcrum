@@ -31,13 +31,15 @@ export const state = {
   charts:        {},
   catDrillMajor: null,
 
-  catFilter:    'all',
+  catFilter:       'all',
+  catActiveFilter: 'active',  // 'active' | 'archived' | 'all'
   catAddOpen:   false,
   catEditRow:   null,
   catDeleteRow: null,
 
   accountSchema:      null,  // { types, liability_types, loan_types, investment_sub_types, mortgage_sub_types }
   transactionSchema:  null,  // { types, categorisation_fields, transfer_fields }
+  categorySchema:     null,  // { types, account_types }
 
   accAddOpen:   false,
   accEditRow:   null,

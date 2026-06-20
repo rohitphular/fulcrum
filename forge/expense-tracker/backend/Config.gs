@@ -12,7 +12,7 @@ const MAX_FAILURES       = 3;
 
 // TRANSACTION_COLUMNS, VALID_TRANSACTION_TYPES, txColIndex() removed — all in transaction-schema.gs
 
-const CATEGORY_COLUMNS = ['transaction_type', 'major_category', 'minor_category', 'description', 'tag_keywords'];
+// CATEGORY_COLUMNS removed — use getCategorySheetColumns() from category-schema.gs
 const RATES_COLUMNS    = ['currency', 'rate', 'symbol', 'updated_at'];
 // ACCOUNT_COLUMNS removed — use getAccountSheetColumns() from account-schema.gs
 

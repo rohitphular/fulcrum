@@ -8,7 +8,7 @@ import { renderDashboard } from './sections/dashboard.js';
 import { renderTransactions } from './sections/transactions.js';
 import { renderAccounts } from './sections/accounts.js';
 import { showPinGate, hidePinGate, fetchGeo, submitPin, readSession, clearSession } from './core/auth.js';
-import { loadAccountSchema, loadTransactionSchema } from './core/schema.js';
+import { loadAccountSchema, loadTransactionSchema, loadCategorySchema } from './core/schema.js';
 
 // ── Quote currency ────────────────────────────────────────────────────────────
 
@@ -36,13 +36,14 @@ function setTheme(theme) {
 async function loadAll() {
   showLoading();
   try {
-    const [txRes, catRes, accRes, ratesRes, schemaRes, txSchemaRes] = await Promise.all([
+    const [txRes, catRes, accRes, ratesRes, schemaRes, txSchemaRes, catSchemaRes] = await Promise.all([
       ExpenseAPI.listTransactions(),
       ExpenseAPI.listCategories(),
       ExpenseAPI.listAccounts(),
       ExpenseAPI.listRates(),
       loadAccountSchema(),
       loadTransactionSchema(),
+      loadCategorySchema(),
     ]);
 
     if (!txRes.ok) {
@@ -65,8 +66,9 @@ async function loadAll() {
       state.rateMap = {};
       state.rates.forEach(r => { state.rateMap[r.currency] = Number(r.rate) || 1; });
     }
-    if (schemaRes)   state.accountSchema     = schemaRes;
-    if (txSchemaRes) state.transactionSchema = txSchemaRes;
+    if (schemaRes)    state.accountSchema    = schemaRes;
+    if (txSchemaRes)  state.transactionSchema = txSchemaRes;
+    if (catSchemaRes) state.categorySchema   = catSchemaRes;
 
     populateQuoteCurrencySelect();
     const activeSection = sessionStorage.getItem('et_section') || 'dashboard';

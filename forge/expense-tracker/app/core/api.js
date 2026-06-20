@@ -7,6 +7,7 @@ export const ExpenseAPI = {
   listRates:          ()   => SheetsClient.get({ action: 'list_rates' }),
   getAccountSchema:      ()   => SheetsClient.get({ action: 'get_account_schema' }),
   getTransactionSchema:  ()   => SheetsClient.get({ action: 'get_transaction_schema' }),
+  getCategorySchema:     ()   => SheetsClient.get({ action: 'get_category_schema' }),
   createTransaction:  f   => SheetsClient.post({ action: 'create_transaction',  ...f }),
   updateTransaction:  f   => SheetsClient.post({ action: 'update_transaction',  ...f }),
   deleteTransaction:  f   => SheetsClient.post({ action: 'delete_transaction',  ...f }),

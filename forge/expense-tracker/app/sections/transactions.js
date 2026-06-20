@@ -7,6 +7,37 @@ import { ExpenseAPI } from '../core/api.js';
 let addFormOpen = false;
 let filterOpen  = false;
 
+// ── Category dropdown helpers — respect is_active (greyed-out when archived) ──
+
+// Major <option> list for a transaction type.
+// A major is active if at least one of its minors is active.
+function _catMajorOpts(type, selectedVal = '') {
+  const cats = state.categories.filter(c => c.transaction_type === type);
+  const majors = [...new Map(cats.map(c => {
+    const active = cats.some(x => x.major_category === c.major_category && x.is_active !== false);
+    return [c.major_category, { label: c.major_category, active }];
+  })).values()];
+  return `<option value="">— select —</option>` +
+    majors.map(({ label, active }) => {
+      const sel = selectedVal === label ? 'selected' : '';
+      return active
+        ? `<option value="${esc(label)}" ${sel}>${esc(label)}</option>`
+        : `<option value="${esc(label)}" ${sel} disabled style="color:var(--muted)">${esc(label)} (archived)</option>`;
+    }).join('');
+}
+
+// Minor <option> list for a type + major combo.
+function _catMinorOpts(type, major, selectedVal = '') {
+  const cats = state.categories.filter(c => c.transaction_type === type && c.major_category === major);
+  return `<option value="">— select —</option>` +
+    cats.map(c => {
+      const sel = selectedVal === c.minor_category ? 'selected' : '';
+      return c.is_active !== false
+        ? `<option value="${esc(c.minor_category)}" ${sel}>${esc(c.minor_category)}</option>`
+        : `<option value="${esc(c.minor_category)}" ${sel} disabled style="color:var(--muted)">${esc(c.minor_category)} (archived)</option>`;
+    }).join('');
+}
+
 // ── Transaction schema helpers ────────────────────────────────────────────────
 
 function _txTypes() {
@@ -294,8 +325,7 @@ function attachAddFormEvents() {
       return;
     }
 
-    const majors = [...new Set(state.categories.filter(c => c.transaction_type === type).map(c => c.major_category))];
-    majorEl.innerHTML  = `<option value="">— select —</option>${majors.map(m => `<option>${esc(m)}</option>`).join('')}`;
+    majorEl.innerHTML = _catMajorOpts(type);
     majorEl.disabled   = false;
     minorEl.disabled   = false;
     fromAccEl.disabled = false;
@@ -332,8 +362,7 @@ function attachAddFormEvents() {
   el('afMajor')?.addEventListener('change', () => {
     const type   = el('afType').value;
     const major  = el('afMajor').value;
-    const minors = state.categories.filter(c => c.transaction_type === type && c.major_category === major).map(c => c.minor_category);
-    el('afMinor').innerHTML = `<option value="">— select —</option>${minors.map(m => `<option>${esc(m)}</option>`).join('')}`;
+    el('afMinor').innerHTML = _catMinorOpts(type, major);
   });
 
   el('afFromAccount')?.addEventListener('change', () => {
@@ -609,14 +638,8 @@ function renderTxEditRow(tx) {
   const typeOpts = _txTypes().map(t =>
     `<option value="${esc(t.value)}" ${tx.transaction_type === t.value ? 'selected' : ''}>${esc(t.label)}</option>`
   ).join('');
-  const majors = [...new Set(state.categories.filter(c => c.transaction_type === tx.transaction_type).map(c => c.major_category))];
-  const majorOpts = majors.map(m =>
-    `<option value="${esc(m)}" ${tx.major_category === m ? 'selected' : ''}>${esc(m)}</option>`
-  ).join('');
-  const minors = state.categories.filter(c => c.transaction_type === tx.transaction_type && c.major_category === tx.major_category).map(c => c.minor_category);
-  const minorOpts = minors.map(m =>
-    `<option value="${esc(m)}" ${tx.minor_category === m ? 'selected' : ''}>${esc(m)}</option>`
-  ).join('');
+  const majorOpts = _catMajorOpts(tx.transaction_type, tx.major_category);
+  const minorOpts = _catMinorOpts(tx.transaction_type, tx.major_category, tx.minor_category);
 
   const dateVal = (() => {
     const s = String(tx.transaction_date_utc || '').trim();
@@ -779,9 +802,8 @@ function attachTxEditCascadeEvents(r) {
 
   el(`txEditType-${r}`)?.addEventListener('change', () => {
     const type   = el(`txEditType-${r}`).value;
-    const majors = [...new Set(state.categories.filter(c => c.transaction_type === type).map(c => c.major_category))];
-    el(`txEditMajor-${r}`).innerHTML  = `<option value="">— select —</option>${majors.map(m => `<option>${esc(m)}</option>`).join('')}`;
-    el(`txEditMinor-${r}`).innerHTML  = `<option value="">— select major first —</option>`;
+    el(`txEditMajor-${r}`).innerHTML = _catMajorOpts(type);
+    el(`txEditMinor-${r}`).innerHTML = `<option value="">— select major first —</option>`;
     el(`txEditToAccount-${r}`).value  = '';
     const fromLbl = el(`txEditFromAccountLabel-${r}`);
     if (fromLbl) fromLbl.textContent = type === 'money-in' ? 'To account' : 'From account';
@@ -790,8 +812,7 @@ function attachTxEditCascadeEvents(r) {
   el(`txEditMajor-${r}`)?.addEventListener('change', () => {
     const type   = el(`txEditType-${r}`).value;
     const major  = el(`txEditMajor-${r}`).value;
-    const minors = state.categories.filter(c => c.transaction_type === type && c.major_category === major).map(c => c.minor_category);
-    el(`txEditMinor-${r}`).innerHTML = `<option value="">— select —</option>${minors.map(m => `<option>${esc(m)}</option>`).join('')}`;
+    el(`txEditMinor-${r}`).innerHTML = _catMinorOpts(type, major);
   });
 
   el(`txEditFromAccount-${r}`)?.addEventListener('change', () => _txEditRefreshFieldVis(r));
