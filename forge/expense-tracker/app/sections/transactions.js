@@ -323,10 +323,6 @@ function _attachAddFormEvents() {
     const minorEl     = el('afMinor');
     const fromAccEl   = el('afFromAccount');
     const isTransfer  = type === 'money-transfer';
-    const isMoneyIn   = type === 'money-in';
-
-    const fromLabelEl = el('afFromAccountLabel');
-    if (fromLabelEl) fromLabelEl.textContent = isMoneyIn ? 'To account *' : 'From account *';
 
     majorEl.innerHTML = '<option value="">— select type first —</option>';
     minorEl.innerHTML = '<option value="">— select major first —</option>';
@@ -352,17 +348,12 @@ function _attachAddFormEvents() {
     }
 
     majorEl.innerHTML = _catMajorOpts(type);
-    majorEl.disabled   = false;
-    minorEl.disabled   = false;
-    fromAccEl.disabled = false;
-
-    el('afToAccountField').style.display = isTransfer ? '' : 'none';
+    majorEl.disabled  = false;
+    minorEl.disabled  = false;
 
     if (isTransfer) {
-      // Populate from-account immediately (no category filter yet)
+      // _afRefreshFromAccountOpts cascades → _afRefreshToAccountField → _afRefreshFxRateVis
       _afRefreshFromAccountOpts();
-      _afRefreshToAccountOpts();
-      _afRefreshFxRateVis();
       // Reorder grid: row 1 = Type | From | To | FX,  row 2 = Major | Minor | Date | Amount
       el('afFromAccountWrap').style.order    = '2';
       el('afToAccountField').style.order     = '3';
@@ -375,9 +366,10 @@ function _attachAddFormEvents() {
       el('afTagsField').style.order          = '9';
       el('afNotesField').style.order         = '10';
     } else {
-      el('afFxRateWrap').style.display       = 'none';
       el('afTransferFxSpacer').style.display = 'none';
       _orderIds.forEach(id => { const f = el(id); if (f) f.style.order = ''; });
+      // Handles source enabled/disabled + toAccountField visibility + FX visibility
+      _afRefreshFromAccountOpts();
     }
 
     ['afCounterpartyField', 'afCountryField'].forEach(id => {
@@ -395,10 +387,7 @@ function _attachAddFormEvents() {
 
   el('afMinor')?.addEventListener('change', _afRefreshFromAccountOpts);
 
-  el('afFromAccount')?.addEventListener('change', () => {
-    if (el('afType').value === 'money-transfer') _afRefreshToAccountOpts();
-    _afRefreshFxRateVis();
-  });
+  el('afFromAccount')?.addEventListener('change', _afRefreshToAccountField);
 
   el('afToAccount')?.addEventListener('change', _afRefreshFxRateVis);
 
@@ -438,29 +427,51 @@ function _afRefreshFromAccountOpts() {
   const minor  = el('afMinor')?.value || '';
   const fromEl = el('afFromAccount');
   if (!fromEl) return;
-  const prevVal    = fromEl.value;
-  const activeAccs = state.accounts.filter(a => a.is_active === true);
-  const cat        = _getCat(type, major, minor);
-  const srcTypes   = cat?.source_account_types || '';
-  fromEl.innerHTML = `<option value="">— select —</option>${_acctOptsWithHints(activeAccs, srcTypes, prevVal)}`;
-  if (prevVal) fromEl.value = prevVal;
-  if (type === 'money-transfer') _afRefreshToAccountOpts();
+  const cat          = _getCat(type, major, minor);
+  const srcMandatory = cat ? Boolean(cat.source_account_mandatory) : type !== 'money-in';
+
+  if (!srcMandatory) {
+    fromEl.disabled  = true;
+    fromEl.innerHTML = `<option value="">External</option>`;
+    fromEl.value     = '';
+  } else {
+    fromEl.disabled  = false;
+    const prevVal    = fromEl.value;
+    const activeAccs = state.accounts.filter(a => a.is_active === true);
+    const srcTypes   = cat?.source_account_types || '';
+    fromEl.innerHTML = `<option value="">— select —</option>${_acctOptsWithHints(activeAccs, srcTypes, prevVal)}`;
+    if (prevVal) fromEl.value = prevVal;
+  }
+  _afRefreshToAccountField();
 }
 
-function _afRefreshToAccountOpts() {
-  const fromId  = el('afFromAccount')?.value || '';
-  const toAccEl = el('afToAccount');
-  if (!toAccEl) return;
-  const type    = el('afType')?.value  || '';
-  const major   = el('afMajor')?.value || '';
-  const minor   = el('afMinor')?.value || '';
-  const cat     = _getCat(type, major, minor);
-  const dstTypes   = cat?.destination_account_types || '';
-  const activeAccs = state.accounts.filter(a => a.is_active === true);
-  const prevVal    = toAccEl.value;
-  const eligible   = activeAccs.filter(a => a.id !== fromId);
-  toAccEl.innerHTML = `<option value="">— select —</option>${_acctOptsWithHints(eligible, dstTypes, prevVal)}`;
-  if (prevVal && prevVal !== fromId) toAccEl.value = prevVal;
+function _afRefreshToAccountField() {
+  const type   = el('afType')?.value  || '';
+  const major  = el('afMajor')?.value || '';
+  const minor  = el('afMinor')?.value || '';
+  const cat    = _getCat(type, major, minor);
+  const isTransfer      = type === 'money-transfer';
+  const targetMandatory = cat ? Boolean(cat.target_account_mandatory) : isTransfer;
+  const show            = isTransfer || targetMandatory;
+
+  const toFieldWrap = el('afToAccountField');
+  const toAccEl     = el('afToAccount');
+  if (!toFieldWrap || !toAccEl) return;
+
+  toFieldWrap.style.display = show ? '' : 'none';
+
+  if (show) {
+    const fromId     = el('afFromAccount')?.value || '';
+    const prevVal    = toAccEl.value;
+    const activeAccs = state.accounts.filter(a => a.is_active === true);
+    const dstTypes   = cat?.destination_account_types || '';
+    const eligible   = activeAccs.filter(a => a.id !== fromId);
+    toAccEl.innerHTML = `<option value="">— select —</option>${_acctOptsWithHints(eligible, dstTypes, prevVal)}`;
+    if (prevVal && prevVal !== fromId) toAccEl.value = prevVal;
+  } else {
+    toAccEl.value = '';
+  }
+  _afRefreshFxRateVis();
 }
 
 function _afRefreshFxRateVis() {
@@ -614,7 +625,9 @@ async function _saveTransaction() {
   const to_account       = el('afToAccount')?.value || '';
   const fx_rate          = el('afFxRate')?.value     || '';
   const amount           = el('afAmount').value;
-  const currency         = state.accounts.find(a => a.id === from_account)?.currency || '';
+  const currency         = transaction_type === 'money-in'
+    ? (state.accountMap[to_account]?.currency || '')
+    : (state.accountMap[from_account]?.currency || '');
   const major_category   = el('afMajor').value;
   const minor_category   = el('afMinor').value;
   const counterparty     = el('afCounterparty').value.trim();
@@ -622,11 +635,14 @@ async function _saveTransaction() {
   const tags             = el('afTags').value.trim();
   const notes            = el('afNotes').value.trim();
 
-  const isTransfer = transaction_type === 'money-transfer';
+  const isTransfer    = transaction_type === 'money-transfer';
+  const _saveCat      = _getCat(transaction_type, major_category, minor_category);
+  const srcMandatory  = _saveCat ? Boolean(_saveCat.source_account_mandatory) : transaction_type !== 'money-in';
+  const tgtMandatory  = _saveCat ? Boolean(_saveCat.target_account_mandatory) : isTransfer;
   if (!dateRaw)                                  { errEl.textContent = 'Date is required.';                          return; }
   if (!transaction_type)                         { errEl.textContent = 'Type is required.';                          return; }
-  if (!from_account)                             { errEl.textContent = 'From account is required.';                  return; }
-  if (isTransfer && !to_account)                 { errEl.textContent = 'To account is required for transfers.';      return; }
+  if (srcMandatory && !from_account)             { errEl.textContent = 'Source account is required.';                return; }
+  if (tgtMandatory && !to_account)               { errEl.textContent = 'Target account is required.';                return; }
   if (!amount || parseFloat(amount) <= 0)        { errEl.textContent = 'Enter a positive amount.';                   return; }
   if (!isTransfer && !major_category)            { errEl.textContent = 'Major category is required.';                return; }
   if (!isTransfer && !minor_category)            { errEl.textContent = 'Minor category is required.';                return; }
@@ -698,12 +714,14 @@ function _renderTxEditRow(tx) {
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   })();
 
-  const fromCcy    = state.accountMap[tx.from_account]?.currency;
-  const toCcy      = state.accountMap[tx.to_account]?.currency;
-  const isXfer     = tx.transaction_type === 'money-transfer';
+  const fromCcy      = state.accountMap[tx.from_account]?.currency;
+  const toCcy        = state.accountMap[tx.to_account]?.currency;
+  const isXfer       = tx.transaction_type === 'money-transfer';
   const xferOnlyHide = isXfer ? 'display:none' : '';  // counterparty + country only
-  const isCrossCcy = isXfer && fromCcy && toCcy && fromCcy !== toCcy;
-  const toWrapStyle  = isXfer    ? '' : 'display:none';
+  const tgtMand      = _editCat ? Boolean(_editCat.target_account_mandatory) : isXfer;
+  const showTo       = isXfer || tgtMand;
+  const isCrossCcy   = showTo && fromCcy && toCcy && fromCcy !== toCcy;
+  const toWrapStyle  = showTo    ? '' : 'display:none';
   const fxWrapStyle  = isCrossCcy ? '' : 'display:none';
   const fxDirText    = isCrossCcy ? `Rate: units of ${esc(toCcy)} per 1 ${esc(fromCcy)}` : '';
 
@@ -814,17 +832,20 @@ function _attachTxEditCascadeEvents(r) {
   };
 
   const _txEditRefreshFieldVis = (row) => {
-    const type      = el(`txEditType-${row}`)?.value;
-    const fromAcc   = state.accountMap[el(`txEditFromAccount-${row}`)?.value];
-    const toAcc     = state.accountMap[el(`txEditToAccount-${row}`)?.value];
-    const isXfer    = type === 'money-transfer';
-    const isCrossCcy = isXfer && fromAcc && toAcc && fromAcc.currency !== toAcc.currency;
+    const type    = el(`txEditType-${row}`)?.value;
+    const major   = el(`txEditMajor-${row}`)?.value || '';
+    const minor   = el(`txEditMinor-${row}`)?.value || '';
+    const cat     = _getCat(type, major, minor);
+    const fromAcc = state.accountMap[el(`txEditFromAccount-${row}`)?.value];
+    const toAcc   = state.accountMap[el(`txEditToAccount-${row}`)?.value];
+    const isXfer  = type === 'money-transfer';
+    const tgtMand = cat ? Boolean(cat.target_account_mandatory) : isXfer;
+    const showTo  = isXfer || tgtMand;
+    const isCrossCcy = showTo && fromAcc && toAcc && fromAcc.currency !== toAcc.currency;
 
-    // to_account wrap: visible only for transfers
     const toWrap = el(`txEditToAccountWrap-${row}`);
-    if (toWrap) toWrap.style.display = isXfer ? '' : 'none';
+    if (toWrap) toWrap.style.display = showTo ? '' : 'none';
 
-    // fx_rate wrap: visible only for cross-currency transfers
     const fxWrap = el(`txEditFxRateWrap-${row}`);
     if (fxWrap) fxWrap.style.display = isCrossCcy ? '' : 'none';
 
@@ -873,13 +894,21 @@ function _attachTxEditCascadeEvents(r) {
     const cat      = _getCat(type, major, minor);
     const srcTypes = cat?.source_account_types      || '';
     const dstTypes = cat?.destination_account_types || '';
+    const srcMand  = cat ? Boolean(cat.source_account_mandatory) : type !== 'money-in';
     const actives  = state.accounts.filter(a => a.is_active === true);
     const fromEl   = el(`txEditFromAccount-${row}`);
     const toEl     = el(`txEditToAccount-${row}`);
     if (fromEl) {
-      const prev = fromEl.value;
-      fromEl.innerHTML = `<option value="">— select —</option>${_acctOptsWithHints(actives, srcTypes, prev)}`;
-      if (prev) fromEl.value = prev;
+      if (!srcMand) {
+        fromEl.disabled  = true;
+        fromEl.innerHTML = `<option value="">External</option>`;
+        fromEl.value     = '';
+      } else {
+        fromEl.disabled  = false;
+        const prev = fromEl.value;
+        fromEl.innerHTML = `<option value="">— select —</option>${_acctOptsWithHints(actives, srcTypes, prev)}`;
+        if (prev) fromEl.value = prev;
+      }
     }
     if (toEl) {
       const fromId = fromEl?.value || '';
@@ -887,6 +916,7 @@ function _attachTxEditCascadeEvents(r) {
       toEl.innerHTML = `<option value="">— none —</option>${_acctOptsWithHints(actives.filter(a => a.id !== fromId), dstTypes, prev)}`;
       if (prev && prev !== fromId) toEl.value = prev;
     }
+    _txEditRefreshFieldVis(row);
   };
 
   el(`txEditFromAccount-${r}`)?.addEventListener('change', () => _txEditRefreshFieldVis(r));
@@ -908,7 +938,9 @@ async function _saveEdit(rowNum) {
   const to_account       = el(`txEditToAccount-${r}`)?.value  || '';
   const fx_rate          = el(`txEditFxRate-${r}`)?.value     || '';
   const amount           = el(`txEditAmount-${r}`)?.value;
-  const currency         = state.accounts.find(a => a.id === from_account)?.currency || '';
+  const currency         = transaction_type === 'money-in'
+    ? (state.accountMap[to_account]?.currency || '')
+    : (state.accountMap[from_account]?.currency || '');
   const major_category   = el(`txEditMajor-${r}`)?.value;
   const minor_category   = el(`txEditMinor-${r}`)?.value;
   const counterparty     = el(`txEditCounterparty-${r}`)?.value.trim();
@@ -916,11 +948,14 @@ async function _saveEdit(rowNum) {
   const tags             = el(`txEditTags-${r}`)?.value.trim();
   const notes            = el(`txEditNotes-${r}`)?.value.trim();
 
-  const isEditTransfer = transaction_type === 'money-transfer';
+  const isEditTransfer   = transaction_type === 'money-transfer';
+  const _editSaveCat     = _getCat(transaction_type, major_category, minor_category);
+  const editSrcMandatory = _editSaveCat ? Boolean(_editSaveCat.source_account_mandatory) : transaction_type !== 'money-in';
+  const editTgtMandatory = _editSaveCat ? Boolean(_editSaveCat.target_account_mandatory) : isEditTransfer;
   if (!dateRaw)                                 { errEl.textContent = 'Date is required.';                          return; }
   if (!transaction_type)                        { errEl.textContent = 'Type is required.';                          return; }
-  if (!from_account)                            { errEl.textContent = 'From account is required.';                  return; }
-  if (isEditTransfer && !to_account)            { errEl.textContent = 'To account is required for transfers.';      return; }
+  if (editSrcMandatory && !from_account)        { errEl.textContent = 'Source account is required.';                return; }
+  if (editTgtMandatory && !to_account)          { errEl.textContent = 'Target account is required.';                return; }
   if (!amount || parseFloat(amount) <= 0)       { errEl.textContent = 'Enter a positive amount.';                   return; }
   if (!isEditTransfer && !major_category)       { errEl.textContent = 'Major category is required.';                return; }
   if (!isEditTransfer && !minor_category)       { errEl.textContent = 'Minor category is required.';                return; }

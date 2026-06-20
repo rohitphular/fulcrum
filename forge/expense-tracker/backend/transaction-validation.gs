@@ -10,7 +10,8 @@ function validateTransactionCreate(body) {
     return { ok: false, error: 'invalid_transaction_type' };
   if (!body.amount || Number(body.amount) <= 0)
     return { ok: false, error: 'invalid_amount' };
-  if (!body.from_account)
+  // money-in: source is external — from_account is not sent by the UI
+  if (body.transaction_type !== 'money-in' && !body.from_account)
     return { ok: false, error: 'missing_from_account' };
 
   const acctTypeErr = _validateCategoryAccountTypeHints(body);
@@ -28,7 +29,7 @@ function validateTransactionUpdate(body) {
     return { ok: false, error: 'invalid_transaction_type' };
   if (!body.amount || Number(body.amount) <= 0)
     return { ok: false, error: 'invalid_amount' };
-  if (!body.from_account)
+  if (body.transaction_type !== 'money-in' && !body.from_account)
     return { ok: false, error: 'missing_from_account' };
 
   const acctTypeErr = _validateCategoryAccountTypeHints(body);
@@ -43,14 +44,24 @@ function _validateCategoryAccountTypeHints(body) {
   const cat = _findCategoryHints(body.transaction_type, body.major_category, body.minor_category);
   if (!cat) return null;
 
-  if (cat.source_account_types) {
-    const err = _checkAccountTypeHint(body.from_account, cat.source_account_types, 'from');
-    if (err) return err;
+  if (cat.source_account_mandatory) {
+    if (!body.from_account)
+      return { ok: false, error: 'missing_source_account' };
+    if (cat.source_account_types) {
+      const err = _checkAccountTypeHint(body.from_account, cat.source_account_types, 'source');
+      if (err) return err;
+    }
   }
-  if (body.transaction_type === 'money-transfer' && body.to_account && cat.destination_account_types) {
-    const err = _checkAccountTypeHint(body.to_account, cat.destination_account_types, 'to');
-    if (err) return err;
+
+  if (cat.target_account_mandatory) {
+    if (!body.to_account)
+      return { ok: false, error: 'missing_target_account' };
+    if (cat.destination_account_types) {
+      const err = _checkAccountTypeHint(body.to_account, cat.destination_account_types, 'target');
+      if (err) return err;
+    }
   }
+
   return null;
 }
 
@@ -59,17 +70,21 @@ function _findCategoryHints(type, major, minor) {
   const sheet  = getOrCreateSheet(CATEGORIES_SHEET, getCategorySheetColumns());
   const values = sheet.getDataRange().getValues();
   const ci = {
-    type:  catColIndex('transaction_type'),
-    major: catColIndex('major_category'),
-    minor: catColIndex('minor_category'),
-    src:   catColIndex('source_account_types'),
-    dst:   catColIndex('destination_account_types'),
+    type:         catColIndex('transaction_type'),
+    major:        catColIndex('major_category'),
+    minor:        catColIndex('minor_category'),
+    src:          catColIndex('source_account_types'),
+    dst:          catColIndex('destination_account_types'),
+    srcMandatory: catColIndex('source_account_mandatory'),
+    dstMandatory: catColIndex('target_account_mandatory'),
   };
   for (let i = 1; i < values.length; i++) {
     if (values[i][ci.type] === type && values[i][ci.major] === major && values[i][ci.minor] === minor) {
       return {
-        source_account_types:      String(values[i][ci.src] || '').trim(),
-        destination_account_types: String(values[i][ci.dst] || '').trim(),
+        source_account_types:      String(values[i][ci.src]          || '').trim(),
+        destination_account_types: String(values[i][ci.dst]          || '').trim(),
+        source_account_mandatory:  Boolean(values[i][ci.srcMandatory]),
+        target_account_mandatory:  Boolean(values[i][ci.dstMandatory]),
       };
     }
   }

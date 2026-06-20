@@ -7,7 +7,7 @@
 // =============================================================================
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Schema — 10 fields in column-position order
+// Schema — 12 fields in column-position order
 // ─────────────────────────────────────────────────────────────────────────────
 const CATEGORY_SCHEMA = {
 
@@ -85,12 +85,12 @@ const CATEGORY_SCHEMA = {
     default_value: '',
   },
 
-  // ── Account hints (columns 8–9) ───────────────────────────────────────────
-  // Stored as comma-separated account type values, normalised lowercase.
-  // source_account_types → hints for from_account (for money-out: the funding
-  //   account; for money-in: the receiving account; for transfers: the source).
-  // destination_account_types → hints for to_account (transfers only; blank
-  //   for money-in / money-out).
+  // ── Account hints (columns 8–11) ─────────────────────────────────────────
+  // source_account_types / destination_account_types: comma-separated account
+  // type values used to filter the respective account dropdowns.
+  // source_account_mandatory / target_account_mandatory: when true the field
+  // is enabled and required; when false the field is visible but disabled
+  // (shows "External").
   source_account_types: {
     sheet_column_name: 'source_account_types',
     sheet_column_position: 8,
@@ -112,10 +112,31 @@ const CATEGORY_SCHEMA = {
     default_value: '',
   },
 
-  // ── Meta (column 10) ──────────────────────────────────────────────────────
+  source_account_mandatory: {
+    sheet_column_name:     'source_account_mandatory',
+    sheet_column_position: 10,
+    ui_label:              'Source account mandatory',
+    type:                  'boolean',
+    enum_values:           null,
+    group:                 'account_hints',
+    editable:              true,
+    default_value:         false,
+  },
+  target_account_mandatory: {
+    sheet_column_name:     'target_account_mandatory',
+    sheet_column_position: 11,
+    ui_label:              'Target account mandatory',
+    type:                  'boolean',
+    enum_values:           null,
+    group:                 'account_hints',
+    editable:              true,
+    default_value:         false,
+  },
+
+  // ── Meta (column 12) ─────────────────────────────────────────────────────
   sort_order: {
     sheet_column_name: 'sort_order',
-    sheet_column_position: 10,
+    sheet_column_position: 12,
     ui_label: 'Sort order',
     type: 'number',
     enum_values: null,
