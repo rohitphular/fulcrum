@@ -498,6 +498,7 @@ td.td-muted { color: var(--muted); }
 }
 .cat-filter {
   display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 16px;
 }
 .cat-count {
   font-family: var(--mono); font-size: 11px; color: var(--muted);
@@ -506,25 +507,47 @@ td.td-muted { color: var(--muted); }
 
 /* ── account type multi-select checkboxes ── */
 .account-type-checkboxes {
-  display: flex; gap: 20px; flex-wrap: wrap; margin-top: 4px;
+  display: flex; flex-direction: column; gap: 8px; margin-top: 4px;
 }
 .acct-type-group {
-  display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px;
 }
 .acct-type-group-label {
   font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
-  color: var(--muted); margin-right: 4px; white-space: nowrap;
+  color: var(--muted); min-width: 68px; white-space: nowrap;
 }
 .acct-type-check {
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 5px;
   font-size: 13px; cursor: pointer; white-space: nowrap;
 }
-.acct-type-check input[type=checkbox] { cursor: pointer; }
+/* Override the global .field input { width:100% } for checkboxes */
+.field input[type=checkbox],
+.acct-type-check input[type=checkbox] {
+  width: auto !important; min-width: unset !important;
+  padding: 0 !important; border: none !important;
+  border-radius: 0 !important; background: none !important;
+  cursor: pointer;
+}
 .checkbox-label {
   display: flex; align-items: center; gap: 6px; cursor: pointer;
 }
 .cat-keywords {
   font-family: var(--mono); font-size: 12px; color: var(--muted);
+}
+/* ── category view row ── */
+.cat-view-detail {
+  display: flex; align-items: baseline; gap: 8px;
+  margin-top: 5px; font-size: 13px;
+}
+.cat-view-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); min-width: 80px; white-space: nowrap; flex-shrink: 0;
+}
+.cat-view-badge {
+  display: inline-block; padding: 1px 7px;
+  font-size: 11px; border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--hair-strong);
+  color: var(--ink); margin: 1px 2px 1px 0;
 }
 td.td-keywords { max-width: 220px; }
 .cat-edit-select {

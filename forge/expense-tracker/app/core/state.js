@@ -32,8 +32,9 @@ export const state = {
   catDrillMajor: null,
 
   catFilter:       'all',
-  catActiveFilter: 'active',  // 'active' | 'archived' | 'all'
+  catActiveFilter: 'active',
   catAddOpen:   false,
+  catViewRow:   null,
   catEditRow:   null,
   catDeleteRow: null,
 

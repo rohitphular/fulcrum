@@ -5,9 +5,9 @@ import { ExpenseAPI } from '../core/api.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const ASSET_TYPES      = ['current', 'savings', 'cash', 'investment'];
-const LIABILITY_TYPES  = ['credit_card', 'overdraft', 'mortgage', 'auto_loan', 'heloc',
-                          'personal_loan', 'student_loan', 'medical_loan', 'debt_consolidation'];
+const ASSET_TYPES   = ['current', 'savings', 'cash', 'investment'];
+const CREDIT_TYPES  = ['credit_card', 'overdraft'];
+const LOAN_TYPES    = ['mortgage', 'auto_loan', 'heloc', 'personal_loan', 'student_loan', 'medical_loan', 'debt_consolidation'];
 
 const ACCT_TYPE_LABELS = {
   current: 'Current', savings: 'Savings', cash: 'Cash', investment: 'Investment',
@@ -22,13 +22,9 @@ const ACCT_TYPE_LABELS = {
 export function renderCategories() {
   const content = el('categoriesContent');
 
-  const byType = state.catFilter === 'all'
+  const filtered = state.catFilter === 'all'
     ? state.categories
     : state.categories.filter(c => c.transaction_type === state.catFilter);
-
-  const filtered = state.catActiveFilter === 'all'
-    ? byType
-    : byType.filter(c => state.catActiveFilter === 'active' ? c.is_active !== false : c.is_active === false);
 
   content.innerHTML = `
     <div class="sec-head">
@@ -36,18 +32,11 @@ export function renderCategories() {
       <button class="btn btn-primary btn-sm" id="catAddBtn">${state.catAddOpen ? '× Close' : '+ Add category'}</button>
     </div>
     ${state.catAddOpen ? _renderAddForm() : ''}
-    <div class="cat-filters">
-      <div class="cat-filter" id="catTypeFilter">
-        ${['all','money-in','money-out','money-transfer'].map(t =>
-          `<button class="range-btn ${state.catFilter === t ? 'active' : ''}" data-cat-filter="${esc(t)}">${t === 'all' ? 'All types' : t}</button>`
-        ).join('')}
-      </div>
-      <div class="cat-filter" id="catActiveFilter">
-        ${[['active','Active'],['archived','Archived'],['all','All']].map(([v,l]) =>
-          `<button class="range-btn ${state.catActiveFilter === v ? 'active' : ''}" data-cat-active="${esc(v)}">${l}</button>`
-        ).join('')}
-        <span class="cat-count">${filtered.length} ${filtered.length === 1 ? 'category' : 'categories'}</span>
-      </div>
+    <div class="cat-filter" id="catTypeFilter">
+      ${['all','money-in','money-out','money-transfer'].map(t =>
+        `<button class="range-btn ${state.catFilter === t ? 'active' : ''}" data-cat-filter="${esc(t)}">${t === 'all' ? 'All types' : t}</button>`
+      ).join('')}
+      <span class="cat-count">${filtered.length} ${filtered.length === 1 ? 'category' : 'categories'}</span>
     </div>
     ${_renderCatTable(filtered)}
   `;
@@ -60,7 +49,7 @@ export function renderCategories() {
 function _renderAddForm() {
   return `
   <div class="card" style="margin-bottom:20px">
-    <div class="form-grid">
+    <div class="form-grid form-grid-4">
       <div class="field">
         <label for="catNewType">Type *</label>
         <select id="catNewType">
@@ -71,18 +60,18 @@ function _renderAddForm() {
         <label for="catNewMajor">Major category *</label>
         <input type="text" id="catNewMajor" placeholder="e.g. Food">
       </div>
-      <div class="field">
+      <div class="field form-grid-span-2">
         <label for="catNewMinor">Minor category *</label>
         <input type="text" id="catNewMinor" placeholder="e.g. Groceries">
+      </div>
+      <div class="field form-grid-span-3">
+        <label for="catNewDesc">Description</label>
+        <input type="text" id="catNewDesc" placeholder="Short description of this category">
       </div>
       <div class="field">
         <label for="catNewSortOrder">Sort order</label>
         <input type="number" id="catNewSortOrder" value="0" min="0" step="1" placeholder="0">
-        <div class="field-hint">Lower numbers appear first within a major group.</div>
-      </div>
-      <div class="field form-grid-full">
-        <label for="catNewDesc">Description</label>
-        <input type="text" id="catNewDesc" placeholder="Short description of this category">
+        <div class="field-hint">Lower = appears first.</div>
       </div>
       <div class="field form-grid-span-2">
         <label for="catNewKeywords">Tag keywords</label>
@@ -94,12 +83,12 @@ function _renderAddForm() {
         <input type="text" id="catNewCounterparty" placeholder="Tesco, Sainsbury's, Lidl">
         <div class="field-hint">Comma-separated merchant or payer names shown as hints.</div>
       </div>
-      <div class="field form-grid-span-2">
+      <div class="field form-grid-full">
         <label>Source account types</label>
         <div class="field-hint" style="margin-bottom:6px">Typical account types for the <em>from account</em> (receiving account for money-in; funding account for money-out; source for transfer).</div>
         ${_renderAcctTypeCheckboxes('catNewSrc', '')}
       </div>
-      <div class="field form-grid-span-2">
+      <div class="field form-grid-full">
         <label>Destination account types</label>
         <div class="field-hint" style="margin-bottom:6px">Typical account types for the <em>to account</em> (transfers only; leave blank for money-in / money-out).</div>
         ${_renderAcctTypeCheckboxes('catNewDst', '')}
@@ -112,7 +101,7 @@ function _renderAddForm() {
       </div>
     </div>
     <div class="form-actions">
-      <button class="btn btn-primary" id="catSaveNew">Save category</button>
+      <button class="btn btn-primary" id="catSaveNew">Save</button>
       <button class="btn btn-secondary" id="catCancelNew">Cancel</button>
     </div>
     <div class="pin-error" id="catAddError"></div>
@@ -128,11 +117,12 @@ function _renderCatTable(cats) {
 
   const rows = cats.map(cat => {
     const isArchived = cat.is_active === false;
+    const rowStyle   = isArchived ? ' style="opacity:0.5"' : '';
 
     if (state.catDeleteRow === cat._row) {
       return `<tr>
         <td>${_catTypeBadge(cat.transaction_type)}</td>
-        <td colspan="5"><span class="confirm-text">Delete <strong>${esc(cat.major_category)} → ${esc(cat.minor_category)}</strong>?</span></td>
+        <td colspan="2"><span class="confirm-text">Delete <strong>${esc(cat.major_category)} → ${esc(cat.minor_category)}</strong>?</span></td>
         <td><div class="row-actions">
           <button class="btn-link danger" data-action="cat-confirm-delete" data-row="${cat._row}">Yes, delete</button>
           <button class="btn-link" data-action="cat-cancel-delete">Cancel</button>
@@ -142,29 +132,15 @@ function _renderCatTable(cats) {
 
     if (state.catEditRow === cat._row) return _renderCatEditRow(cat);
 
-    const cpHtml = cat.counterparty_examples
-      ? `<span class="cat-keywords">${esc(String(cat.counterparty_examples))}</span>`
-      : `<span style="color:var(--muted)">—</span>`;
-
-    const kwHtml = cat.tag_keywords
-      ? `<span class="cat-keywords">${esc(String(cat.tag_keywords))}</span>`
-      : `<span style="color:var(--muted)">—</span>`;
-
-    const statusBadge = isArchived
-      ? `<span class="badge" style="background:var(--muted);color:var(--bg);font-size:10px">archived</span>`
-      : `<span class="badge badge-in" style="font-size:10px">active</span>`;
-
-    const rowStyle = isArchived ? ' style="opacity:0.5"' : '';
+    if (state.catViewRow === cat._row) return _renderCatViewRow(cat);
 
     return `<tr${rowStyle}>
       <td>${_catTypeBadge(cat.transaction_type)}</td>
       <td class="td-name">${esc(cat.major_category)}</td>
       <td>${esc(cat.minor_category)}</td>
-      <td class="td-keywords">${cpHtml}</td>
-      <td class="td-keywords">${kwHtml}</td>
-      <td style="text-align:center">${statusBadge}</td>
       <td><div class="row-actions">
-        <button class="btn-link" data-action="cat-edit" data-row="${cat._row}">Edit</button>
+        <button class="btn-link" data-action="cat-view"   data-row="${cat._row}">View</button>
+        <button class="btn-link" data-action="cat-edit"   data-row="${cat._row}">Edit</button>
         <button class="btn-link danger" data-action="cat-delete" data-row="${cat._row}">Delete</button>
       </div></td>
     </tr>`;
@@ -177,14 +153,43 @@ function _renderCatTable(cats) {
           <th style="width:80px">Type</th>
           <th>Major</th>
           <th>Minor</th>
-          <th>Counterparty examples</th>
-          <th>Keywords</th>
-          <th style="width:72px;text-align:center">Status</th>
-          <th style="width:110px">Actions</th>
+          <th style="width:150px">Actions</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
+}
+
+// ── View row ──────────────────────────────────────────────────────────────────
+
+function _renderCatViewRow(cat) {
+  const detail = (label, value) => value
+    ? `<div class="cat-view-detail"><span class="cat-view-label">${label}</span><span>${esc(String(value))}</span></div>`
+    : '';
+
+  const acctBadges = str => String(str || '').split(',').map(s => s.trim()).filter(Boolean)
+    .map(t => `<span class="cat-view-badge">${esc(t)}</span>`).join('');
+
+  const statusBadge = cat.is_active !== false
+    ? `<span class="badge badge-in" style="font-size:10px">active</span>`
+    : `<span class="badge" style="background:var(--muted);color:var(--bg);font-size:10px">archived</span>`;
+
+  return `<tr>
+    <td>${_catTypeBadge(cat.transaction_type)}</td>
+    <td><strong>${esc(cat.major_category)}</strong></td>
+    <td>
+      <div style="margin-bottom:6px"><strong>${esc(cat.minor_category)}</strong> ${statusBadge}</div>
+      ${detail('Description', cat.description)}
+      ${detail('Keywords', cat.tag_keywords)}
+      ${detail('Counterparty', cat.counterparty_examples)}
+      ${cat.source_account_types ? `<div class="cat-view-detail"><span class="cat-view-label">Source types</span><span>${acctBadges(cat.source_account_types)}</span></div>` : ''}
+      ${cat.destination_account_types ? `<div class="cat-view-detail"><span class="cat-view-label">Dest. types</span><span>${acctBadges(cat.destination_account_types)}</span></div>` : ''}
+      ${cat.sort_order ? detail('Sort order', cat.sort_order) : ''}
+    </td>
+    <td><div class="row-actions">
+      <button class="btn-link" data-action="cat-cancel-view">Close</button>
+    </div></td>
+  </tr>`;
 }
 
 // ── Edit row ──────────────────────────────────────────────────────────────────
@@ -194,7 +199,7 @@ function _renderCatEditRow(cat) {
   return `<tr>
     <td colspan="7">
       <div class="card" style="margin:6px 0">
-        <div class="form-grid">
+        <div class="form-grid form-grid-4">
           <div class="field">
             <label>Type *</label>
             <select id="catEditType-${r}">
@@ -207,17 +212,17 @@ function _renderCatEditRow(cat) {
             <label>Major *</label>
             <input class="rate-edit-input" id="catEditMajor-${r}" value="${esc(cat.major_category)}" placeholder="Major">
           </div>
-          <div class="field">
+          <div class="field form-grid-span-2">
             <label>Minor *</label>
             <input class="rate-edit-input" id="catEditMinor-${r}" value="${esc(cat.minor_category)}" placeholder="Minor">
+          </div>
+          <div class="field form-grid-span-3">
+            <label>Description</label>
+            <input id="catEditDesc-${r}" value="${esc(String(cat.description || ''))}" placeholder="Short description">
           </div>
           <div class="field">
             <label>Sort order</label>
             <input type="number" id="catEditSortOrder-${r}" value="${esc(String(cat.sort_order ?? 0))}" min="0" step="1">
-          </div>
-          <div class="field form-grid-full">
-            <label>Description</label>
-            <input id="catEditDesc-${r}" value="${esc(String(cat.description || ''))}" placeholder="Short description">
           </div>
           <div class="field form-grid-span-2">
             <label>Tag keywords</label>
@@ -227,11 +232,11 @@ function _renderCatEditRow(cat) {
             <label>Counterparty examples</label>
             <input id="catEditCounterparty-${r}" value="${esc(String(cat.counterparty_examples || ''))}" placeholder="Tesco, Sainsbury's, …">
           </div>
-          <div class="field form-grid-span-2">
+          <div class="field form-grid-full">
             <label>Source account types</label>
             ${_renderAcctTypeCheckboxes(`catEditSrc-${r}`, cat.source_account_types || '')}
           </div>
-          <div class="field form-grid-span-2">
+          <div class="field form-grid-full">
             <label>Destination account types</label>
             ${_renderAcctTypeCheckboxes(`catEditDst-${r}`, cat.destination_account_types || '')}
           </div>
@@ -269,7 +274,8 @@ function _renderAcctTypeCheckboxes(containerId, currentValue) {
 
   return `<div class="account-type-checkboxes" id="${esc(containerId)}">
     ${renderGroup('Assets', ASSET_TYPES)}
-    ${renderGroup('Liabilities', LIABILITY_TYPES)}
+    ${renderGroup('Credit', CREDIT_TYPES)}
+    ${renderGroup('Loans', LOAN_TYPES)}
   </div>`;
 }
 
@@ -303,17 +309,9 @@ function _attachCatEvents() {
   el('catTypeFilter')?.querySelectorAll('[data-cat-filter]').forEach(btn => {
     btn.addEventListener('click', () => {
       state.catFilter    = btn.dataset.catFilter;
+      state.catViewRow   = null;
       state.catEditRow   = null;
       state.catDeleteRow = null;
-      renderCategories();
-    });
-  });
-
-  el('catActiveFilter')?.querySelectorAll('[data-cat-active]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.catActiveFilter = btn.dataset.catActive;
-      state.catEditRow      = null;
-      state.catDeleteRow    = null;
       renderCategories();
     });
   });
@@ -324,10 +322,12 @@ function _attachCatEvents() {
     const action = btn.dataset.action;
     const row    = btn.dataset.row ? Number(btn.dataset.row) : null;
 
-    if (action === 'cat-edit')           { state.catEditRow = row; state.catDeleteRow = null; renderCategories(); }
+    if (action === 'cat-view')           { state.catViewRow = row; state.catEditRow = null; state.catDeleteRow = null; renderCategories(); }
+    if (action === 'cat-cancel-view')   { state.catViewRow = null; renderCategories(); }
+    if (action === 'cat-edit')           { state.catEditRow = row; state.catViewRow = null; state.catDeleteRow = null; renderCategories(); }
     if (action === 'cat-cancel-edit')    { state.catEditRow = null; renderCategories(); }
     if (action === 'cat-save-edit')      { _saveCatEdit(row); }
-    if (action === 'cat-delete')         { state.catDeleteRow = row; state.catEditRow = null; renderCategories(); }
+    if (action === 'cat-delete')         { state.catDeleteRow = row; state.catViewRow = null; state.catEditRow = null; renderCategories(); }
     if (action === 'cat-cancel-delete')  { state.catDeleteRow = null; renderCategories(); }
     if (action === 'cat-confirm-delete') { _deleteCat(row); }
   });
@@ -368,11 +368,11 @@ async function _saveNewCategory() {
       renderCategories();
     } else {
       if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
-      if (btn) { btn.disabled = false; btn.textContent = 'Save category'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
     }
   } catch (_) {
     if (errEl) errEl.textContent = 'Connection error.';
-    if (btn) { btn.disabled = false; btn.textContent = 'Save category'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
   } finally {
     hideLoading();
   }

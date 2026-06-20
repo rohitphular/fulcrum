@@ -38,7 +38,7 @@ Sheet: `categories`
 | Action | How |
 |---|---|
 | Filter by type | Click **All**, **money-in**, **money-out**, or **money-transfer** in the filter bar |
-| Add a category | Click **+ Add category** → fill type, major, minor, keywords → **Save category** |
+| Add a category | Click **+ Add category** → fill type, major, minor, keywords → **Save** |
 | Edit a category | Click **Edit** on a row → inline form → **Save** |
 | Delete a category | Click **Delete** → inline confirmation → **Yes, delete** |
 | Cancel any action | Click **Cancel** or **× Close** |
