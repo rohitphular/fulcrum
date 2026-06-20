@@ -263,6 +263,7 @@ h2 { font-size: 18px; font-weight: 700; margin: 0; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px 16px; align-items: end; }
 .form-grid-full { grid-column: 1 / -1; }
 .form-grid-4 { grid-template-columns: repeat(4, 1fr); }
+.form-grid-6 { grid-template-columns: repeat(6, 1fr); }
 .form-grid-span-2 { grid-column: span 2; }
 .form-grid-span-3 { grid-column: span 3; }
 

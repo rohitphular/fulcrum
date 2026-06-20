@@ -243,64 +243,66 @@ function _renderAddForm() {
       <span class="plus-icon">${addFormOpen ? '×' : '+'}</span>
     </button>
     <div class="add-form-body ${addFormOpen ? '' : 'hidden'}" id="addFormBody">
-      <div class="form-grid form-grid-4">
-        <div class="field">
+      <div class="form-grid form-grid-6">
+        <!-- Row 1: Type | Major category | Minor category -->
+        <div class="field form-grid-span-2">
           <label for="afType">Type *</label>
           <select id="afType">
             <option value="">— select —</option>
             ${_txTypes().map(t => `<option value="${esc(t.value)}">${esc(t.label)}</option>`).join('')}
           </select>
         </div>
-        <div class="field" id="afMajorField">
+        <div class="field form-grid-span-2" id="afMajorField">
           <label for="afMajor">Major category *</label>
           <select id="afMajor" disabled><option value="">— select type first —</option></select>
         </div>
-        <div class="field" id="afMinorField">
+        <div class="field form-grid-span-2" id="afMinorField">
           <label for="afMinor">Minor category *</label>
           <select id="afMinor" disabled><option value="">— select major first —</option></select>
         </div>
-        <div class="field" id="afFromAccountWrap">
-          <label for="afFromAccount" id="afFromAccountLabel">From account *</label>
+        <!-- Row 2: Source account | Target account | Country -->
+        <div class="field form-grid-span-2" id="afFromAccountWrap">
+          <label for="afFromAccount">Source account</label>
           <select id="afFromAccount" disabled>
             <option value="">— select type first —</option>
-            ${activeAccounts.map(a => `<option value="${esc(a.id)}">${esc(a.name)} (${esc(a.currency)})</option>`).join('')}
           </select>
         </div>
-        <div class="field" id="afToAccountField" style="display:none">
-          <label for="afToAccount">To account *</label>
-          <select id="afToAccount">
-            <option value="">— select —</option>
-            ${activeAccounts.map(a => `<option value="${esc(a.id)}">${esc(a.name)} (${esc(a.currency)})</option>`).join('')}
+        <div class="field form-grid-span-2" id="afToAccountWrap">
+          <label for="afToAccount">Target account</label>
+          <select id="afToAccount" disabled>
+            <option value="">External</option>
           </select>
         </div>
-        <div class="field" id="afFxRateWrap" style="display:none">
-          <label for="afFxRate">FX rate</label>
-          <input type="number" id="afFxRate" min="0.0001" step="any" placeholder="e.g. 105">
-          <div id="afFxDirection" class="field-hint" style="display:none"></div>
-          <div id="afFxPreview"   class="field-hint" style="display:none;color:var(--teal)"></div>
-        </div>
-        <div id="afTransferFxSpacer" style="display:none"></div>
-        <div class="field" id="afDateField">
-          <label for="afDate">Date &amp; time *</label>
-          <input type="datetime-local" id="afDate" value="${nowLocalISO()}">
-        </div>
-        <div class="field" id="afCounterpartyField">
-          <label for="afCounterparty">Counterparty</label>
-          <input type="text" id="afCounterparty" placeholder="Tesco, employer, …">
-        </div>
-        <div class="field" id="afAmountField">
-          <label for="afAmount">Amount *</label>
-          <input type="number" id="afAmount" min="0.01" step="0.01" placeholder="0.00">
-        </div>
-        <div class="field" id="afCountryField">
+        <div class="field form-grid-span-2" id="afCountryField">
           <label for="afCountry">Country</label>
           <input type="text" id="afCountry" placeholder="UK">
         </div>
-        <div class="field form-grid-span-2" id="afTagsField">
+        <!-- FX rate: full width, shown only when source and target are cross-currency -->
+        <div class="field form-grid-full" id="afFxRateWrap" style="display:none">
+          <label for="afFxRate">FX rate</label>
+          <input type="number" id="afFxRate" min="0.0001" step="any" placeholder="e.g. 105" style="max-width:240px">
+          <div id="afFxDirection" class="field-hint"></div>
+          <div id="afFxPreview"   class="field-hint" style="color:var(--teal)"></div>
+        </div>
+        <!-- Row 3: Date & time | Amount | Counterparty -->
+        <div class="field form-grid-span-2" id="afDateField">
+          <label for="afDate">Date &amp; time *</label>
+          <input type="datetime-local" id="afDate" value="${nowLocalISO()}">
+        </div>
+        <div class="field form-grid-span-2" id="afAmountField">
+          <label for="afAmount">Amount *</label>
+          <input type="number" id="afAmount" min="0.01" step="0.01" placeholder="0.00">
+        </div>
+        <div class="field form-grid-span-2" id="afCounterpartyField">
+          <label for="afCounterparty">Counterparty</label>
+          <input type="text" id="afCounterparty" placeholder="Tesco, employer, …">
+        </div>
+        <!-- Row 4: Tags 50% | Notes 50% -->
+        <div class="field form-grid-span-3" id="afTagsField">
           <label for="afTags">Tags</label>
           <input type="text" id="afTags" placeholder="reimbursable, work">
         </div>
-        <div class="field form-grid-span-2" id="afNotesField">
+        <div class="field form-grid-span-3" id="afNotesField">
           <label for="afNotes">Notes</label>
           <input type="text" id="afNotes" placeholder="free text">
         </div>
@@ -318,32 +320,26 @@ function _attachAddFormEvents() {
   el('addFormToggle')?.addEventListener('click', () => { addFormOpen = !addFormOpen; renderTransactions(); });
 
   el('afType')?.addEventListener('change', () => {
-    const type        = el('afType').value;
-    const majorEl     = el('afMajor');
-    const minorEl     = el('afMinor');
-    const fromAccEl   = el('afFromAccount');
-    const isTransfer  = type === 'money-transfer';
+    const type       = el('afType').value;
+    const majorEl    = el('afMajor');
+    const minorEl    = el('afMinor');
+    const isTransfer = type === 'money-transfer';
 
     majorEl.innerHTML = '<option value="">— select type first —</option>';
     minorEl.innerHTML = '<option value="">— select major first —</option>';
-    fromAccEl.value   = '';
-    if (el('afToAccount'))  el('afToAccount').value  = '';
-    if (el('afFxRate'))     el('afFxRate').value      = '';
-
-    const _orderIds = ['afFromAccountWrap','afToAccountField','afFxRateWrap','afTransferFxSpacer',
-                       'afMajorField','afMinorField','afDateField','afAmountField','afTagsField','afNotesField'];
+    if (el('afFromAccount')) el('afFromAccount').value = '';
+    if (el('afToAccount'))   el('afToAccount').value   = '';
+    if (el('afFxRate'))      el('afFxRate').value       = '';
 
     if (!type) {
-      majorEl.disabled   = true;
-      minorEl.disabled   = true;
-      fromAccEl.disabled = true;
-      el('afToAccountField').style.display   = 'none';
-      el('afFxRateWrap').style.display       = 'none';
-      el('afTransferFxSpacer').style.display = 'none';
-      ['afMajorField', 'afMinorField', 'afCounterpartyField', 'afCountryField'].forEach(id => {
-        const f = el(id); if (f) f.style.display = '';
-      });
-      _orderIds.forEach(id => { const f = el(id); if (f) f.style.order = ''; });
+      majorEl.disabled = true;
+      minorEl.disabled = true;
+      const fromEl = el('afFromAccount');
+      if (fromEl) { fromEl.disabled = true; fromEl.innerHTML = '<option value="">— select type first —</option>'; }
+      const toEl = el('afToAccount');
+      if (toEl) { toEl.disabled = true; toEl.innerHTML = '<option value="">External</option>'; }
+      const fxWrap = el('afFxRateWrap');
+      if (fxWrap) fxWrap.style.display = 'none';
       return;
     }
 
@@ -351,31 +347,8 @@ function _attachAddFormEvents() {
     majorEl.disabled  = false;
     minorEl.disabled  = false;
 
-    if (isTransfer) {
-      // _afRefreshFromAccountOpts cascades → _afRefreshToAccountField → _afRefreshFxRateVis
-      _afRefreshFromAccountOpts();
-      // Reorder grid: row 1 = Type | From | To | FX,  row 2 = Major | Minor | Date | Amount
-      el('afFromAccountWrap').style.order    = '2';
-      el('afToAccountField').style.order     = '3';
-      el('afFxRateWrap').style.order         = '4';
-      el('afTransferFxSpacer').style.order   = '4';
-      el('afMajorField').style.order         = '5';
-      el('afMinorField').style.order         = '6';
-      el('afDateField').style.order          = '7';
-      el('afAmountField').style.order        = '8';
-      el('afTagsField').style.order          = '9';
-      el('afNotesField').style.order         = '10';
-    } else {
-      el('afTransferFxSpacer').style.display = 'none';
-      _orderIds.forEach(id => { const f = el(id); if (f) f.style.order = ''; });
-      // Handles source enabled/disabled + toAccountField visibility + FX visibility
-      _afRefreshFromAccountOpts();
-    }
-
-    ['afCounterpartyField', 'afCountryField'].forEach(id => {
-      const f = el(id);
-      if (f) f.style.display = isTransfer ? 'none' : '';
-    });
+    // _afRefreshFromAccountOpts cascades → _afRefreshToAccountField → _afRefreshFxRateVis
+    _afRefreshFromAccountOpts();
   });
 
   el('afMajor')?.addEventListener('change', () => {
@@ -398,26 +371,18 @@ function _attachAddFormEvents() {
   el('afReset')?.addEventListener('click', () => {
     ['afDate','afAmount','afCounterparty','afCountry','afTags','afNotes','afFxRate']
       .forEach(id => { if (el(id)) el(id).value = id === 'afDate' ? nowLocalISO() : ''; });
-    el('afType').value              = '';
-    el('afFromAccount').value       = '';
-    el('afFromAccount').disabled    = true;
-    if (el('afToAccount')) el('afToAccount').value = '';
-    el('afMajor').innerHTML         = '<option value="">— select type first —</option>';
-    el('afMajor').disabled          = true;
-    el('afMinor').innerHTML         = '<option value="">— select major first —</option>';
-    el('afMinor').disabled          = true;
-    el('afToAccountField').style.display   = 'none';
-    el('afFxRateWrap').style.display       = 'none';
-    el('afTransferFxSpacer').style.display = 'none';
-    ['afMajorField', 'afMinorField', 'afCounterpartyField', 'afCountryField'].forEach(id => {
-      const f = el(id); if (f) f.style.display = '';
-    });
-    ['afFromAccountWrap','afToAccountField','afFxRateWrap','afTransferFxSpacer',
-     'afMajorField','afMinorField','afDateField','afAmountField','afTagsField','afNotesField'
-    ].forEach(id => { const f = el(id); if (f) f.style.order = ''; });
-    const fromLabelEl = el('afFromAccountLabel');
-    if (fromLabelEl) fromLabelEl.textContent = 'From account *';
-    el('afError').textContent       = '';
+    el('afType').value = '';
+    const fromEl = el('afFromAccount');
+    if (fromEl) { fromEl.disabled = true; fromEl.innerHTML = '<option value="">— select type first —</option>'; }
+    const toEl = el('afToAccount');
+    if (toEl) { toEl.disabled = true; toEl.innerHTML = '<option value="">External</option>'; }
+    el('afMajor').innerHTML = '<option value="">— select type first —</option>';
+    el('afMajor').disabled  = true;
+    el('afMinor').innerHTML = '<option value="">— select major first —</option>';
+    el('afMinor').disabled  = true;
+    const fxWrap = el('afFxRateWrap');
+    if (fxWrap) fxWrap.style.display = 'none';
+    el('afError').textContent = '';
   });
 }
 
@@ -452,53 +417,45 @@ function _afRefreshToAccountField() {
   const cat    = _getCat(type, major, minor);
   const isTransfer      = type === 'money-transfer';
   const targetMandatory = cat ? Boolean(cat.target_account_mandatory) : isTransfer;
-  const show            = isTransfer || targetMandatory;
 
-  const toFieldWrap = el('afToAccountField');
-  const toAccEl     = el('afToAccount');
-  if (!toFieldWrap || !toAccEl) return;
+  const toAccEl = el('afToAccount');
+  if (!toAccEl) return;
 
-  toFieldWrap.style.display = show ? '' : 'none';
-
-  if (show) {
-    const fromId     = el('afFromAccount')?.value || '';
-    const prevVal    = toAccEl.value;
-    const activeAccs = state.accounts.filter(a => a.is_active === true);
-    const dstTypes   = cat?.destination_account_types || '';
-    const eligible   = activeAccs.filter(a => a.id !== fromId);
+  if (targetMandatory) {
+    toAccEl.disabled  = false;
+    const fromId      = el('afFromAccount')?.value || '';
+    const prevVal     = toAccEl.value;
+    const activeAccs  = state.accounts.filter(a => a.is_active === true);
+    const dstTypes    = cat?.destination_account_types || '';
+    const eligible    = activeAccs.filter(a => a.id !== fromId);
     toAccEl.innerHTML = `<option value="">— select —</option>${_acctOptsWithHints(eligible, dstTypes, prevVal)}`;
     if (prevVal && prevVal !== fromId) toAccEl.value = prevVal;
   } else {
-    toAccEl.value = '';
+    toAccEl.disabled  = true;
+    toAccEl.innerHTML = `<option value="">External</option>`;
+    toAccEl.value     = '';
   }
   _afRefreshFxRateVis();
 }
 
 function _afRefreshFxRateVis() {
-  const fromAcc  = state.accounts.find(a => a.id === el('afFromAccount')?.value);
-  const toAcc    = state.accounts.find(a => a.id === el('afToAccount')?.value);
-  const show     = fromAcc && toAcc && fromAcc.currency !== toAcc.currency;
-  const wrap     = el('afFxRateWrap');
-  const spacer   = el('afTransferFxSpacer');
-  const isXfer   = el('afType')?.value === 'money-transfer';
+  const fromAcc = state.accounts.find(a => a.id === el('afFromAccount')?.value);
+  const toAcc   = state.accounts.find(a => a.id === el('afToAccount')?.value);
+  const show    = fromAcc && toAcc && fromAcc.currency !== toAcc.currency;
+  const wrap    = el('afFxRateWrap');
 
   if (wrap) wrap.style.display = show ? '' : 'none';
   if (!show && el('afFxRate')) el('afFxRate').value = '';
-  // Spacer fills col 4 for same-currency transfers so Date stays on the next row
-  if (spacer) spacer.style.display = (isXfer && !show) ? '' : 'none';
 
   const dirEl = el('afFxDirection');
   const prvEl = el('afFxPreview');
   if (show) {
     const fromCcy = fromAcc.currency;
     const toCcy   = toAcc.currency;
-    if (dirEl) {
-      dirEl.textContent    = `Rate: units of ${toCcy} per 1 ${fromCcy} (e.g. 105 ${toCcy} per 1 ${fromCcy})`;
-      dirEl.style.display  = '';
-    }
+    if (dirEl) dirEl.textContent = `Rate: units of ${toCcy} per 1 ${fromCcy} (e.g. 105 ${toCcy} per 1 ${fromCcy})`;
   } else {
-    if (dirEl) { dirEl.style.display = 'none'; dirEl.textContent = ''; }
-    if (prvEl) { prvEl.style.display = 'none'; prvEl.textContent = ''; }
+    if (dirEl) dirEl.textContent = '';
+    if (prvEl) prvEl.textContent = '';
   }
   _afUpdateFxPreview();
 }
@@ -512,11 +469,9 @@ function _afUpdateFxPreview() {
   const amount  = parseFloat(el('afAmount')?.value) || 0;
   if (fromAcc && toAcc && fromAcc.currency !== toAcc.currency && fxRate > 0 && amount > 0) {
     const credited = (amount * fxRate).toFixed(2);
-    prvEl.textContent   = `${amount} ${fromAcc.currency} will be sent; ${credited} ${toAcc.currency} will be credited to ${toAcc.name}`;
-    prvEl.style.display = '';
+    prvEl.textContent = `${amount} ${fromAcc.currency} will be sent; ${credited} ${toAcc.currency} will be credited to ${toAcc.name}`;
   } else {
-    prvEl.textContent   = '';
-    prvEl.style.display = 'none';
+    prvEl.textContent = '';
   }
 }
 
@@ -714,79 +669,82 @@ function _renderTxEditRow(tx) {
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   })();
 
-  const fromCcy      = state.accountMap[tx.source_account]?.currency;
-  const toCcy        = state.accountMap[tx.target_account]?.currency;
-  const isXfer       = tx.transaction_type === 'money-transfer';
-  const xferOnlyHide = isXfer ? 'display:none' : '';  // counterparty + country only
-  const tgtMand      = _editCat ? Boolean(_editCat.target_account_mandatory) : isXfer;
-  const showTo       = isXfer || tgtMand;
-  const isCrossCcy   = showTo && fromCcy && toCcy && fromCcy !== toCcy;
-  const toWrapStyle  = showTo    ? '' : 'display:none';
-  const fxWrapStyle  = isCrossCcy ? '' : 'display:none';
-  const fxDirText    = isCrossCcy ? `Rate: units of ${esc(toCcy)} per 1 ${esc(fromCcy)}` : '';
+  const fromCcy    = state.accountMap[tx.source_account]?.currency;
+  const toCcy      = state.accountMap[tx.target_account]?.currency;
+  const isXfer     = tx.transaction_type === 'money-transfer';
+  const tgtMand    = _editCat ? Boolean(_editCat.target_account_mandatory) : isXfer;
+  const isCrossCcy = tgtMand && fromCcy && toCcy && fromCcy !== toCcy;
+  const fxDisplay  = isCrossCcy ? '' : 'display:none';
+  const fxDirText  = isCrossCcy ? `Rate: units of ${esc(toCcy)} per 1 ${esc(fromCcy)}` : '';
 
   return `<tr class="tx-edit-row">
     <td colspan="9">
-      <div class="form-grid form-grid-4" style="padding:6px 0 4px">
-        <div class="field">
-          <label>Date &amp; time</label>
-          <input type="datetime-local" id="txEditDate-${r}" value="${esc(dateVal)}">
-        </div>
-        <div class="field">
+      <div class="form-grid form-grid-6" style="padding:6px 0 4px">
+        <!-- Row 1: Type | Major category | Minor category -->
+        <div class="field form-grid-span-2">
           <label>Type</label>
           <select id="txEditType-${r}">${typeOpts}</select>
         </div>
-        <div class="field">
-          <label id="txEditFromAccountLabel-${r}">${tx.transaction_type === 'money-in' ? 'To account' : 'From account'}</label>
-          <select id="txEditFromAccount-${r}">
-            <option value="">— select —</option>
-            ${fromAccountOpts}
-          </select>
-        </div>
-        <div class="field">
-          <label>Amount</label>
-          <input type="number" id="txEditAmount-${r}" min="0.01" step="0.01" value="${esc(String(tx.amount || ''))}">
-        </div>
-        <div class="field" id="txEditMajorField-${r}">
+        <div class="field form-grid-span-2" id="txEditMajorField-${r}">
           <label>Major category</label>
           <select id="txEditMajor-${r}">
             <option value="">— select —</option>
             ${majorOpts}
           </select>
         </div>
-        <div class="field" id="txEditMinorField-${r}">
+        <div class="field form-grid-span-2" id="txEditMinorField-${r}">
           <label>Minor category</label>
           <select id="txEditMinor-${r}">
             <option value="">— select —</option>
             ${minorOpts}
           </select>
         </div>
-        <div class="field" id="txEditCounterpartyField-${r}" style="${xferOnlyHide}">
-          <label>Counterparty</label>
-          <input type="text" id="txEditCounterparty-${r}" value="${esc(tx.counterparty || '')}">
+        <!-- Row 2: Source account | Target account | Country -->
+        <div class="field form-grid-span-2">
+          <label>Source account</label>
+          <select id="txEditFromAccount-${r}">
+            <option value="">— select —</option>
+            ${fromAccountOpts}
+          </select>
         </div>
-        <div class="field" id="txEditCountryField-${r}" style="${xferOnlyHide}">
+        <div class="field form-grid-span-2" id="txEditToAccountWrap-${r}">
+          <label>Target account</label>
+          <select id="txEditToAccount-${r}" ${tgtMand ? '' : 'disabled'}>
+            ${tgtMand
+              ? `<option value="">— select —</option>${toAccountOpts}`
+              : `<option value="">External</option>`}
+          </select>
+        </div>
+        <div class="field form-grid-span-2" id="txEditCountryField-${r}">
           <label>Country</label>
           <input type="text" id="txEditCountry-${r}" value="${esc(tx.country || '')}">
         </div>
-        <div class="field" id="txEditToAccountWrap-${r}" style="${toWrapStyle}">
-          <label>To account</label>
-          <select id="txEditToAccount-${r}">
-            <option value="">— none —</option>
-            ${toAccountOpts}
-          </select>
-        </div>
-        <div class="field" id="txEditFxRateWrap-${r}" style="${fxWrapStyle}">
+        <!-- FX rate: full width, shown only when cross-currency -->
+        <div class="field form-grid-full" id="txEditFxRateWrap-${r}" style="${fxDisplay}">
           <label>FX rate</label>
-          <input type="number" id="txEditFxRate-${r}" min="0.0001" step="any" value="${esc(String(tx.fx_rate || ''))}">
+          <input type="number" id="txEditFxRate-${r}" min="0.0001" step="any" value="${esc(String(tx.fx_rate || ''))}" style="max-width:240px">
           <div id="txEditFxDirection-${r}" class="field-hint">${fxDirText}</div>
           <div id="txEditFxPreview-${r}" class="field-hint" style="color:var(--teal)"></div>
         </div>
-        <div class="field">
+        <!-- Row 3: Date & time | Amount | Counterparty -->
+        <div class="field form-grid-span-2">
+          <label>Date &amp; time</label>
+          <input type="datetime-local" id="txEditDate-${r}" value="${esc(dateVal)}">
+        </div>
+        <div class="field form-grid-span-2">
+          <label>Amount</label>
+          <input type="number" id="txEditAmount-${r}" min="0.01" step="0.01" value="${esc(String(tx.amount || ''))}">
+        </div>
+        <div class="field form-grid-span-2" id="txEditCounterpartyField-${r}">
+          <label>Counterparty</label>
+          <input type="text" id="txEditCounterparty-${r}" value="${esc(tx.counterparty || '')}">
+        </div>
+        <!-- Row 4: Tags 50% | Notes 50% -->
+        <div class="field form-grid-span-3">
           <label>Tags</label>
           <input type="text" id="txEditTags-${r}" value="${esc(String(tx.tags || '').replace(/;/g, ', '))}">
         </div>
-        <div class="field">
+        <div class="field form-grid-span-3">
           <label>Notes</label>
           <input type="text" id="txEditNotes-${r}" value="${esc(tx.notes || '')}">
         </div>
@@ -838,18 +796,27 @@ function _attachTxEditCascadeEvents(r) {
     const cat     = _getCat(type, major, minor);
     const fromAcc = state.accountMap[el(`txEditFromAccount-${row}`)?.value];
     const toAcc   = state.accountMap[el(`txEditToAccount-${row}`)?.value];
-    const isXfer  = type === 'money-transfer';
-    const tgtMand = cat ? Boolean(cat.target_account_mandatory) : isXfer;
-    const showTo  = isXfer || tgtMand;
-    const isCrossCcy = showTo && fromAcc && toAcc && fromAcc.currency !== toAcc.currency;
+    const isXfer     = type === 'money-transfer';
+    const tgtMand    = cat ? Boolean(cat.target_account_mandatory) : isXfer;
+    const isCrossCcy = tgtMand && fromAcc && toAcc && fromAcc.currency !== toAcc.currency;
 
-    const toWrap = el(`txEditToAccountWrap-${row}`);
-    if (toWrap) toWrap.style.display = showTo ? '' : 'none';
+    const toEl = el(`txEditToAccount-${row}`);
+    if (toEl) {
+      if (tgtMand) {
+        toEl.disabled = false;
+        if (toEl.innerHTML.trim().startsWith('<option value="">External')) {
+          toEl.innerHTML = `<option value="">— select —</option>`;
+        }
+      } else {
+        toEl.disabled  = true;
+        toEl.innerHTML = `<option value="">External</option>`;
+        toEl.value     = '';
+      }
+    }
 
     const fxWrap = el(`txEditFxRateWrap-${row}`);
     if (fxWrap) fxWrap.style.display = isCrossCcy ? '' : 'none';
 
-    // Direction label
     const dirEl = el(`txEditFxDirection-${row}`);
     if (dirEl) {
       dirEl.textContent = isCrossCcy
@@ -857,25 +824,16 @@ function _attachTxEditCascadeEvents(r) {
         : '';
     }
 
-    // Clear fx_rate value when hidden
     if (!isCrossCcy && el(`txEditFxRate-${row}`)) el(`txEditFxRate-${row}`).value = '';
-
-    // Categorisation fields only apply to money-in and money-out
-    ['txEditCounterpartyField', 'txEditCountryField'].forEach(prefix => {
-      const f = el(`${prefix}-${row}`);
-      if (f) f.style.display = isXfer ? 'none' : '';
-    });
 
     _txEditUpdateFxPreview(row);
   };
 
   el(`txEditType-${r}`)?.addEventListener('change', () => {
-    const type   = el(`txEditType-${r}`).value;
+    const type = el(`txEditType-${r}`).value;
     el(`txEditMajor-${r}`).innerHTML = _catMajorOpts(type);
     el(`txEditMinor-${r}`).innerHTML = `<option value="">— select major first —</option>`;
-    el(`txEditToAccount-${r}`).value  = '';
-    const fromLbl = el(`txEditFromAccountLabel-${r}`);
-    if (fromLbl) fromLbl.textContent = type === 'money-in' ? 'To account' : 'From account';
+    el(`txEditToAccount-${r}`).value = '';
     _txEditRefreshFieldVis(r);
   });
   el(`txEditMajor-${r}`)?.addEventListener('change', () => {
