@@ -13,7 +13,7 @@ const MAX_FAILURES       = 3;
 // TRANSACTION_COLUMNS, VALID_TRANSACTION_TYPES, txColIndex() removed — all in transaction-schema.gs
 
 // CATEGORY_COLUMNS removed — use getCategorySheetColumns() from category-schema.gs
-const RATES_COLUMNS    = ['currency', 'rate', 'symbol', 'updated_at'];
+// RATES_COLUMNS removed — use getRateSheetColumns() from rate-schema.gs
 // ACCOUNT_COLUMNS removed — use getAccountSheetColumns() from account-schema.gs
 
 const AUDIT_COLUMNS = [
@@ -24,14 +24,7 @@ const AUDIT_COLUMNS = [
 ];
 
 // VALID_TYPES removed — use VALID_TRANSACTION_TYPES from transaction-schema.gs
-
-const DEFAULT_RATES = [
-  { currency: 'GBP', rate: 1,    symbol: '£'    },
-  { currency: 'INR', rate: 105,  symbol: '₹'    },
-  { currency: 'USD', rate: 1.27, symbol: '$'    },
-  { currency: 'EUR', rate: 1.17, symbol: '€'    },
-  { currency: 'AED', rate: 4.66, symbol: 'AED ' }
-];
+// DEFAULT_RATES removed — defined in rate-core.gs
 
 // VALID_ACCOUNT_TYPES, ACCOUNT_LIABILITY_TYPES, ACCOUNT_LOAN_TYPES removed
 // — all defined in account-schema.gs

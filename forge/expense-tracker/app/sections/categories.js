@@ -139,7 +139,7 @@ function _renderCatTable(cats) {
       <td class="td-name">${esc(cat.major_category)}</td>
       <td>${esc(cat.minor_category)}</td>
       <td><div class="row-actions">
-        <button class="btn-link" data-action="cat-view"   data-row="${cat._row}">View</button>
+        <button class="btn-link muted" data-action="cat-view"   data-row="${cat._row}">View</button>
         <button class="btn-link" data-action="cat-edit"   data-row="${cat._row}">Edit</button>
         <button class="btn-link danger" data-action="cat-delete" data-row="${cat._row}">Delete</button>
       </div></td>

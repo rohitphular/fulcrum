@@ -38,6 +38,10 @@ export const state = {
   catEditRow:   null,
   catDeleteRow: null,
 
+  rateAddOpen:        false,
+  rateEditCurrency:   null,
+  rateDeleteCurrency: null,
+
   accountSchema:      null,  // { types, liability_types, loan_types, investment_sub_types, mortgage_sub_types }
   transactionSchema:  null,  // { types, categorisation_fields, transfer_fields }
   categorySchema:     null,  // { types, account_types }

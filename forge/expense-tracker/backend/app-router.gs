@@ -61,6 +61,7 @@ function doPost(e) {
   if (body.action === 'update_transaction') return json(updateTransaction(body));
   if (body.action === 'delete_transaction') return json(deleteTransaction(body));
   if (body.action === 'upsert_rate')        return json(upsertRate(body));
+  if (body.action === 'delete_rate')        return json(deleteRate(body));
   if (body.action === 'create_category')    return json(createCategory(body));
   if (body.action === 'update_category')    return json(updateCategory(body));
   if (body.action === 'delete_category')    return json(deleteCategory(body));
