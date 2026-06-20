@@ -6,6 +6,17 @@ function listTransactions() {
   return sheetToObjectsWithRow(getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS));
 }
 
+// Renames sheet column headers from_account→source_account and to_account→target_account.
+// Idempotent: safe to run repeatedly; skips columns already at the new name.
+function migrateTransactionColumnHeaders() {
+  const sheet = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
+  const headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  for (let c = 0; c < headerRow.length; c++) {
+    if (headerRow[c] === 'from_account') sheet.getRange(1, c + 1).setValue('source_account');
+    if (headerRow[c] === 'to_account')   sheet.getRange(1, c + 1).setValue('target_account');
+  }
+}
+
 function createTransaction(body) {
   const validation = validateTransactionCreate(body);
   if (!validation.ok) return validation;
@@ -14,7 +25,11 @@ function createTransaction(body) {
   const fxRate = body.fx_rate !== undefined && body.fx_rate !== '' ? Number(body.fx_rate) : 0;
 
   if (body.transaction_type === 'money-transfer') {
-    const fxValidation = validateFxRate(body.from_account, body.to_account, fxRate);
+    const fxValidation = validateFxRate(body.source_account, body.target_account, fxRate);
+    if (!fxValidation.ok) return fxValidation;
+  }
+  if (body.transaction_type === 'money-out' && body.target_account) {
+    const fxValidation = validateFxRate(body.source_account, body.target_account, fxRate);
     if (!fxValidation.ok) return fxValidation;
   }
 
@@ -27,8 +42,8 @@ function createTransaction(body) {
     body.transaction_type,
     amount,
     body.currency          || '',
-    body.from_account,
-    body.to_account        || '',
+    body.source_account    || '',
+    body.target_account    || '',
     body.major_category    || '',
     body.minor_category    || '',
     body.counterparty      || '',
@@ -41,13 +56,20 @@ function createTransaction(body) {
   ]);
 
   const type = body.transaction_type;
-  if (type === 'money-in')  adjustAccountBalance(body.from_account,  amount);
-  if (type === 'money-out') adjustAccountBalance(body.from_account, -amount);
+  // money-in: source is external; credit the target account
+  if (type === 'money-in') adjustAccountBalance(body.target_account, amount);
+  // money-out: debit the source account
+  if (type === 'money-out') adjustAccountBalance(body.source_account, -amount);
+  // money-out with target (loan repayment, CC payment, etc.): also credit target with FX
+  if (type === 'money-out' && body.target_account) {
+    const credited = fxRate > 0 ? amount * fxRate : amount;
+    adjustAccountBalance(body.target_account, credited);
+  }
   if (type === 'money-transfer') {
-    adjustAccountBalance(body.from_account, -amount);
-    if (body.to_account) {
+    adjustAccountBalance(body.source_account, -amount);
+    if (body.target_account) {
       const toAmount = fxRate > 0 ? amount * fxRate : amount;
-      adjustAccountBalance(body.to_account, toAmount);
+      adjustAccountBalance(body.target_account, toAmount);
     }
   }
 
@@ -64,18 +86,22 @@ function updateTransaction(body) {
   if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
 
   const oldRow    = sheet.getRange(rowNum, 1, 1, TRANSACTION_COLUMNS.length).getValues()[0];
-  const oldType          = String(oldRow[txColIndex('transaction_type')]);
-  const oldAmount        = Number(oldRow[txColIndex('amount')]) || 0;
-  const oldFromAccountId = String(oldRow[txColIndex('from_account')]);
-  const oldToAccountId   = String(oldRow[txColIndex('to_account')]);
-  const oldFxRate        = Number(oldRow[txColIndex('fx_rate')]) || 0;
+  const oldType            = String(oldRow[txColIndex('transaction_type')]);
+  const oldAmount          = Number(oldRow[txColIndex('amount')]) || 0;
+  const oldSourceAccountId = String(oldRow[txColIndex('source_account')]);
+  const oldTargetAccountId = String(oldRow[txColIndex('target_account')]);
+  const oldFxRate          = Number(oldRow[txColIndex('fx_rate')]) || 0;
 
   // Phase 1 — reverse old transaction
-  if (oldType === 'money-in')  adjustAccountBalance(oldFromAccountId, -oldAmount);
-  if (oldType === 'money-out') adjustAccountBalance(oldFromAccountId,  oldAmount);
+  if (oldType === 'money-in') adjustAccountBalance(oldTargetAccountId, -oldAmount);
+  if (oldType === 'money-out') adjustAccountBalance(oldSourceAccountId, oldAmount);
+  if (oldType === 'money-out' && oldTargetAccountId) {
+    const oldCredited = oldFxRate > 0 ? oldAmount * oldFxRate : oldAmount;
+    adjustAccountBalance(oldTargetAccountId, -oldCredited);
+  }
   if (oldType === 'money-transfer') {
-    adjustAccountBalance(oldFromAccountId, oldAmount);
-    if (oldToAccountId) adjustAccountBalance(oldToAccountId, -(oldFxRate > 0 ? oldAmount * oldFxRate : oldAmount));
+    adjustAccountBalance(oldSourceAccountId, oldAmount);
+    if (oldTargetAccountId) adjustAccountBalance(oldTargetAccountId, -(oldFxRate > 0 ? oldAmount * oldFxRate : oldAmount));
   }
 
   // Phase 2 — apply new transaction
@@ -84,16 +110,24 @@ function updateTransaction(body) {
   const newFxRate = body.fx_rate ? Number(body.fx_rate) : 0;
 
   if (newType === 'money-transfer') {
-    const fxValidation = validateFxRate(body.from_account, body.to_account, newFxRate);
+    const fxValidation = validateFxRate(body.source_account, body.target_account, newFxRate);
+    if (!fxValidation.ok) return fxValidation;
+  }
+  if (newType === 'money-out' && body.target_account) {
+    const fxValidation = validateFxRate(body.source_account, body.target_account, newFxRate);
     if (!fxValidation.ok) return fxValidation;
   }
 
-  if (newType === 'money-in')  adjustAccountBalance(body.from_account,  newAmount);
-  if (newType === 'money-out') adjustAccountBalance(body.from_account, -newAmount);
+  if (newType === 'money-in') adjustAccountBalance(body.target_account, newAmount);
+  if (newType === 'money-out') adjustAccountBalance(body.source_account, -newAmount);
+  if (newType === 'money-out' && body.target_account) {
+    const credited = newFxRate > 0 ? newAmount * newFxRate : newAmount;
+    adjustAccountBalance(body.target_account, credited);
+  }
   if (newType === 'money-transfer') {
-    adjustAccountBalance(body.from_account, -newAmount);
-    if (body.to_account) {
-      adjustAccountBalance(body.to_account, newFxRate > 0 ? newAmount * newFxRate : newAmount);
+    adjustAccountBalance(body.source_account, -newAmount);
+    if (body.target_account) {
+      adjustAccountBalance(body.target_account, newFxRate > 0 ? newAmount * newFxRate : newAmount);
     }
   }
 
@@ -102,17 +136,17 @@ function updateTransaction(body) {
     body.transaction_date_utc,
     body.transaction_type,
     newAmount,
-    body.currency         || '',
-    body.from_account,
-    body.to_account       || '',
-    body.major_category   || '',
-    body.minor_category   || '',
-    body.counterparty     || '',
-    body.notes            || '',
+    body.currency          || '',
+    body.source_account    || '',
+    body.target_account    || '',
+    body.major_category    || '',
+    body.minor_category    || '',
+    body.counterparty      || '',
+    body.notes             || '',
     normaliseTags(body.tags),
     '',
     newFxRate > 0 ? newFxRate : '',
-    body.country          || '',
+    body.country           || '',
     '',
   ]]);
 
@@ -128,17 +162,21 @@ function deleteTransaction(body) {
   if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
 
   const row    = sheet.getRange(rowNum, 1, 1, TRANSACTION_COLUMNS.length).getValues()[0];
-  const txType       = String(row[txColIndex('transaction_type')]);
-  const txAmount     = Number(row[txColIndex('amount')]) || 0;
-  const fromAccountId = String(row[txColIndex('from_account')]);
-  const toAccountId   = String(row[txColIndex('to_account')]);
-  const fxRate        = Number(row[txColIndex('fx_rate')]) || 0;
+  const txType          = String(row[txColIndex('transaction_type')]);
+  const txAmount        = Number(row[txColIndex('amount')]) || 0;
+  const sourceAccountId = String(row[txColIndex('source_account')]);
+  const targetAccountId = String(row[txColIndex('target_account')]);
+  const fxRate          = Number(row[txColIndex('fx_rate')]) || 0;
 
-  if (txType === 'money-in')  adjustAccountBalance(fromAccountId, -txAmount);
-  if (txType === 'money-out') adjustAccountBalance(fromAccountId,  txAmount);
+  if (txType === 'money-in') adjustAccountBalance(targetAccountId, -txAmount);
+  if (txType === 'money-out') adjustAccountBalance(sourceAccountId, txAmount);
+  if (txType === 'money-out' && targetAccountId) {
+    const credited = fxRate > 0 ? txAmount * fxRate : txAmount;
+    adjustAccountBalance(targetAccountId, -credited);
+  }
   if (txType === 'money-transfer') {
-    adjustAccountBalance(fromAccountId, txAmount);
-    if (toAccountId) adjustAccountBalance(toAccountId, -(fxRate > 0 ? txAmount * fxRate : txAmount));
+    adjustAccountBalance(sourceAccountId, txAmount);
+    if (targetAccountId) adjustAccountBalance(targetAccountId, -(fxRate > 0 ? txAmount * fxRate : txAmount));
   }
 
   sheet.deleteRow(rowNum);

@@ -10,9 +10,9 @@ function validateTransactionCreate(body) {
     return { ok: false, error: 'invalid_transaction_type' };
   if (!body.amount || Number(body.amount) <= 0)
     return { ok: false, error: 'invalid_amount' };
-  // money-in: source is external — from_account is not sent by the UI
-  if (body.transaction_type !== 'money-in' && !body.from_account)
-    return { ok: false, error: 'missing_from_account' };
+  // money-in: source is external — source_account is not sent by the UI
+  if (body.transaction_type !== 'money-in' && !body.source_account)
+    return { ok: false, error: 'missing_source_account' };
 
   const acctTypeErr = _validateCategoryAccountTypeHints(body);
   if (acctTypeErr) return acctTypeErr;
@@ -29,8 +29,8 @@ function validateTransactionUpdate(body) {
     return { ok: false, error: 'invalid_transaction_type' };
   if (!body.amount || Number(body.amount) <= 0)
     return { ok: false, error: 'invalid_amount' };
-  if (body.transaction_type !== 'money-in' && !body.from_account)
-    return { ok: false, error: 'missing_from_account' };
+  if (body.transaction_type !== 'money-in' && !body.source_account)
+    return { ok: false, error: 'missing_source_account' };
 
   const acctTypeErr = _validateCategoryAccountTypeHints(body);
   if (acctTypeErr) return acctTypeErr;
@@ -45,19 +45,19 @@ function _validateCategoryAccountTypeHints(body) {
   if (!cat) return null;
 
   if (cat.source_account_mandatory) {
-    if (!body.from_account)
+    if (!body.source_account)
       return { ok: false, error: 'missing_source_account' };
     if (cat.source_account_types) {
-      const err = _checkAccountTypeHint(body.from_account, cat.source_account_types, 'source');
+      const err = _checkAccountTypeHint(body.source_account, cat.source_account_types, 'source');
       if (err) return err;
     }
   }
 
   if (cat.target_account_mandatory) {
-    if (!body.to_account)
+    if (!body.target_account)
       return { ok: false, error: 'missing_target_account' };
     if (cat.destination_account_types) {
-      const err = _checkAccountTypeHint(body.to_account, cat.destination_account_types, 'target');
+      const err = _checkAccountTypeHint(body.target_account, cat.destination_account_types, 'target');
       if (err) return err;
     }
   }
@@ -116,8 +116,8 @@ function _checkAccountTypeHint(accountId, allowedTypesStr, label) {
   return null;
 }
 
-function validateFxRate(fromAccount, toAccount, fxRate) {
-  if (!toAccount) return { ok: true };
+function validateFxRate(sourceAccount, targetAccount, fxRate) {
+  if (!targetAccount) return { ok: true };
   const accSheet          = getOrCreateSheet(ACCOUNTS_SHEET, getAccountSheetColumns());
   const accValues         = accSheet.getDataRange().getValues();
   const accountIdColIdx   = acctColIndex('id');
@@ -126,10 +126,10 @@ function validateFxRate(fromAccount, toAccount, fxRate) {
   for (let i = 1; i < accValues.length; i++) {
     accountCurrencyMap[String(accValues[i][accountIdColIdx])] = String(accValues[i][currencyColIdx]);
   }
-  const fromCcy = accountCurrencyMap[fromAccount];
-  const toCcy   = accountCurrencyMap[toAccount];
+  const fromCcy = accountCurrencyMap[sourceAccount];
+  const toCcy   = accountCurrencyMap[targetAccount];
   if (fromCcy && toCcy && fromCcy !== toCcy && fxRate <= 0) {
-    return { ok: false, error: `FX rate required for ${fromCcy} → ${toCcy} transfer.` };
+    return { ok: false, error: `FX rate required for ${fromCcy} → ${toCcy} transaction.` };
   }
   return { ok: true };
 }

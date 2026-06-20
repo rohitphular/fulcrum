@@ -130,9 +130,9 @@ function _renderTxTable(validRows, warnRows) {
     return `<tr>
       <td class="td-mono">${esc(fmtDateTime(tx.transaction_date_utc))}</td>
       <td><span class="badge ${badgeCls}">${typeLabel}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}</td>
-      <td>${tx.transaction_type === 'money-transfer' && tx.to_account
-        ? `${esc(state.accountMap[tx.from_account]?.name || '—')} → ${esc(state.accountMap[tx.to_account]?.name || '—')}`
-        : esc(state.accountMap[tx.from_account]?.name || '—')
+      <td>${tx.target_account
+        ? `${esc(state.accountMap[tx.source_account]?.name || '—')} → ${esc(state.accountMap[tx.target_account]?.name || '—')}`
+        : esc(state.accountMap[tx.source_account]?.name || '—')
       }</td>
       <td class="td-mono">${esc(fmtNative(tx.amount, tx.currency))}${missingRate ? ' <span class="badge badge-warn" title="Currency not in rates tab">?</span>' : ''}</td>
       <td class="td-mono">${esc(fmtBase(tx.amount, tx.currency, tx.fx_rate))}${rowRate ? ' <span title="Row-level FX rate used" style="color:var(--muted);font-size:10px">†</span>' : ''}</td>
@@ -166,7 +166,7 @@ function _renderTxTable(validRows, warnRows) {
         <thead><tr>
           ${thSort('transaction_date_utc','Date')}
           ${thSort('transaction_type','Type')}
-          ${thSort('from_account','Account')}
+          ${thSort('source_account','Account')}
           <th>Amount</th>
           <th>≈ ${esc(state.quoteCurrency)}</th>
           ${thSort('major_category','Category')}
@@ -527,22 +527,22 @@ function _afUpdateFxPreview() {
 // Rule 5     — money-out from a loan account (with exemption for interest/charges).
 // Rule 6     — FX rate required for cross-currency money-transfer.
 
-function _checkBalanceRules(transaction_type, fromAccount, amount) {
-  if (!fromAccount) return null;
+function _checkBalanceRules(transaction_type, sourceAccount, amount) {
+  if (!sourceAccount) return null;
   const isMoneyOut      = transaction_type === 'money-out';
   const isTransfer      = transaction_type === 'money-transfer';
   if (!isMoneyOut && !isTransfer) return null;
 
-  const sym = getSymbol(fromAccount.currency);
+  const sym = getSymbol(sourceAccount.currency);
   const fmt = n => Number(n).toFixed(2);
 
   // Rules 1 & 3 — asset accounts
-  if ((state.accountSchema?.asset_types || []).includes(fromAccount.type)) {
-    const balance = Number(fromAccount.current_balance);
+  if ((state.accountSchema?.asset_types || []).includes(sourceAccount.type)) {
+    const balance = Number(sourceAccount.current_balance);
     if (balance < amount) {
       return (
         `Insufficient balance.\n` +
-        `${fromAccount.name} has ${sym}${fmt(balance)} — this transaction requires ${sym}${fmt(amount)}.\n` +
+        `${sourceAccount.name} has ${sym}${fmt(balance)} — this transaction requires ${sym}${fmt(amount)}.\n` +
         `Record an Adjustments / Balance correction first if your actual balance is higher.`
       );
     }
@@ -550,12 +550,12 @@ function _checkBalanceRules(transaction_type, fromAccount, amount) {
   }
 
   // Rules 2 & 4 — credit card accounts
-  if (fromAccount.type === 'credit_card') {
-    const creditLimit = Number(fromAccount.credit_card_limit) || 0;
+  if (sourceAccount.type === 'credit_card') {
+    const creditLimit = Number(sourceAccount.credit_card_limit) || 0;
     if (creditLimit <= 0) return null; // no limit set — skip check
 
-    const balance        = Number(fromAccount.current_balance); // negative: amount owed stored as negative
-    const availableCredit = creditLimit + balance;              // e.g. limit=1000, balance=−600 → available=400
+    const balance        = Number(sourceAccount.current_balance); // negative: amount owed stored as negative
+    const availableCredit = creditLimit + balance;                // e.g. limit=1000, balance=−600 → available=400
 
     if (amount > availableCredit) {
       const owed = Math.abs(balance);
@@ -564,7 +564,7 @@ function _checkBalanceRules(transaction_type, fromAccount, amount) {
         const alreadyOver = Math.abs(availableCredit);
         return (
           `Credit limit exceeded.\n` +
-          `${fromAccount.name} — limit ${sym}${fmt(creditLimit)}, currently ${sym}${fmt(owed)} owed, already ${sym}${fmt(alreadyOver)} over the limit.\n` +
+          `${sourceAccount.name} — limit ${sym}${fmt(creditLimit)}, currently ${sym}${fmt(owed)} owed, already ${sym}${fmt(alreadyOver)} over the limit.\n` +
           `This transaction of ${sym}${fmt(amount)} cannot be applied.`
         );
       } else {
@@ -572,7 +572,7 @@ function _checkBalanceRules(transaction_type, fromAccount, amount) {
         const overage = amount - availableCredit;
         return (
           `Credit limit exceeded.\n` +
-          `${fromAccount.name} — limit ${sym}${fmt(creditLimit)}, currently ${sym}${fmt(owed)} owed, available ${sym}${fmt(availableCredit)}.\n` +
+          `${sourceAccount.name} — limit ${sym}${fmt(creditLimit)}, currently ${sym}${fmt(owed)} owed, available ${sym}${fmt(availableCredit)}.\n` +
           `This transaction of ${sym}${fmt(amount)} would exceed the limit by ${sym}${fmt(overage)}.`
         );
       }
@@ -586,11 +586,11 @@ function _checkBalanceRules(transaction_type, fromAccount, amount) {
 // Rule 5 — block money-out from a loan account.
 // Exemption: major_category === 'Debt & finance' AND minor_category === 'Interest & charges'.
 // Returns null on pass, or the error string on block.
-function _checkRule5(transaction_type, fromAccount, major_category, minor_category) {
+function _checkRule5(transaction_type, sourceAccount, major_category, minor_category) {
   if (transaction_type !== 'money-out') return null;
-  if (!fromAccount) return null;
+  if (!sourceAccount) return null;
   const loanTypes = state.accountSchema?.loan_types || [];
-  if (!loanTypes.includes(fromAccount.type)) return null;
+  if (!loanTypes.includes(sourceAccount.type)) return null;
   if (major_category === 'Debt & finance' && minor_category === 'Interest & charges') return null;
   return (
     `Cannot record money-out from a loan account.\n` +
@@ -598,18 +598,18 @@ function _checkRule5(transaction_type, fromAccount, major_category, minor_catego
   );
 }
 
-// Rule 6 — FX rate required for cross-currency money-transfer.
+// Rule 6 — FX rate required for cross-currency money-transfer or linked money-out.
 // Returns null on pass, or the error string on block.
-function _checkRule6(transaction_type, fromAccount, toAccount, fx_rate) {
+function _checkRule6(transaction_type, sourceAccount, targetAccount, fx_rate) {
   if (transaction_type !== 'money-transfer') return null;
-  if (!fromAccount || !toAccount) return null;
-  const fromCcy = fromAccount.currency;
-  const toCcy   = toAccount.currency;
+  if (!sourceAccount || !targetAccount) return null;
+  const fromCcy = sourceAccount.currency;
+  const toCcy   = targetAccount.currency;
   if (fromCcy === toCcy) return null;
   if (fx_rate && parseFloat(fx_rate) > 0) return null;
   return (
     `FX rate required.\n` +
-    `${fromAccount.name} is in ${fromCcy} and ${toAccount.name} is in ${toCcy}. Enter the exchange rate to continue.\n` +
+    `${sourceAccount.name} is in ${fromCcy} and ${targetAccount.name} is in ${toCcy}. Enter the exchange rate to continue.\n` +
     `(Rate expressed as units of ${toCcy} per 1 ${fromCcy}.)`
   );
 }
@@ -621,13 +621,13 @@ async function _saveTransaction() {
 
   const dateRaw          = el('afDate').value;
   const transaction_type = el('afType').value;
-  const from_account     = el('afFromAccount').value;
-  const to_account       = el('afToAccount')?.value || '';
+  const source_account   = el('afFromAccount').value;
+  const target_account   = el('afToAccount')?.value || '';
   const fx_rate          = el('afFxRate')?.value     || '';
   const amount           = el('afAmount').value;
   const currency         = transaction_type === 'money-in'
-    ? (state.accountMap[to_account]?.currency || '')
-    : (state.accountMap[from_account]?.currency || '');
+    ? (state.accountMap[target_account]?.currency || '')
+    : (state.accountMap[source_account]?.currency || '');
   const major_category   = el('afMajor').value;
   const minor_category   = el('afMinor').value;
   const counterparty     = el('afCounterparty').value.trim();
@@ -641,21 +641,21 @@ async function _saveTransaction() {
   const tgtMandatory  = _saveCat ? Boolean(_saveCat.target_account_mandatory) : isTransfer;
   if (!dateRaw)                                  { errEl.textContent = 'Date is required.';                          return; }
   if (!transaction_type)                         { errEl.textContent = 'Type is required.';                          return; }
-  if (srcMandatory && !from_account)             { errEl.textContent = 'Source account is required.';                return; }
-  if (tgtMandatory && !to_account)               { errEl.textContent = 'Target account is required.';                return; }
+  if (srcMandatory && !source_account)           { errEl.textContent = 'Source account is required.';                return; }
+  if (tgtMandatory && !target_account)           { errEl.textContent = 'Target account is required.';                return; }
   if (!amount || parseFloat(amount) <= 0)        { errEl.textContent = 'Enter a positive amount.';                   return; }
   if (!isTransfer && !major_category)            { errEl.textContent = 'Major category is required.';                return; }
   if (!isTransfer && !minor_category)            { errEl.textContent = 'Minor category is required.';                return; }
 
-  const fromAcc       = state.accountMap[from_account];
-  const toAcc         = state.accountMap[to_account];
-  const balanceError  = _checkBalanceRules(transaction_type, fromAcc, parseFloat(amount));
+  const sourceAcc     = state.accountMap[source_account];
+  const targetAcc     = state.accountMap[target_account];
+  const balanceError  = _checkBalanceRules(transaction_type, sourceAcc, parseFloat(amount));
   if (balanceError) { errEl.textContent = balanceError; return; }
 
-  const rule5Error    = _checkRule5(transaction_type, fromAcc, major_category, minor_category);
+  const rule5Error    = _checkRule5(transaction_type, sourceAcc, major_category, minor_category);
   if (rule5Error) { errEl.textContent = rule5Error; return; }
 
-  const rule6Error    = _checkRule6(transaction_type, fromAcc, toAcc, fx_rate);
+  const rule6Error    = _checkRule6(transaction_type, sourceAcc, targetAcc, fx_rate);
   if (rule6Error) { errEl.textContent = rule6Error; return; }
 
   btn.disabled = true; btn.textContent = 'Saving…';
@@ -663,7 +663,7 @@ async function _saveTransaction() {
   try {
     const res = await ExpenseAPI.createTransaction({
       transaction_date_utc: new Date(dateRaw).toISOString(),
-      transaction_type, from_account, to_account,
+      transaction_type, source_account, target_account,
       amount: parseFloat(amount), currency,
       fx_rate: fx_rate ? parseFloat(fx_rate) : '',
       major_category, minor_category, counterparty, country,
@@ -693,11 +693,11 @@ function _renderTxEditRow(tx) {
     a => a.is_active === true
   );
   const _editCat        = _getCat(tx.transaction_type, tx.major_category, tx.minor_category);
-  const fromAccountOpts = _acctOptsWithHints(activeAccounts, _editCat?.source_account_types || '', tx.from_account);
+  const fromAccountOpts = _acctOptsWithHints(activeAccounts, _editCat?.source_account_types || '', tx.source_account);
   const toAccountOpts   = _acctOptsWithHints(
-    activeAccounts.filter(a => a.id !== tx.from_account),
+    activeAccounts.filter(a => a.id !== tx.source_account),
     _editCat?.destination_account_types || '',
-    tx.to_account
+    tx.target_account
   );
   const typeOpts = _txTypes().map(t =>
     `<option value="${esc(t.value)}" ${tx.transaction_type === t.value ? 'selected' : ''}>${esc(t.label)}</option>`
@@ -714,8 +714,8 @@ function _renderTxEditRow(tx) {
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   })();
 
-  const fromCcy      = state.accountMap[tx.from_account]?.currency;
-  const toCcy        = state.accountMap[tx.to_account]?.currency;
+  const fromCcy      = state.accountMap[tx.source_account]?.currency;
+  const toCcy        = state.accountMap[tx.target_account]?.currency;
   const isXfer       = tx.transaction_type === 'money-transfer';
   const xferOnlyHide = isXfer ? 'display:none' : '';  // counterparty + country only
   const tgtMand      = _editCat ? Boolean(_editCat.target_account_mandatory) : isXfer;
@@ -801,8 +801,8 @@ function _renderTxEditRow(tx) {
 }
 
 function _renderTxDeleteRow(tx) {
-  const fromName = state.accountMap[tx.from_account]?.name || '—';
-  const toName   = tx.to_account ? state.accountMap[tx.to_account]?.name : null;
+  const fromName = state.accountMap[tx.source_account]?.name || '—';
+  const toName   = tx.target_account ? state.accountMap[tx.target_account]?.name : null;
   const accLabel = toName ? `${fromName} → ${toName}` : fromName;
   return `<tr>
     <td colspan="9">
@@ -934,13 +934,13 @@ async function _saveEdit(rowNum) {
 
   const dateRaw          = el(`txEditDate-${r}`)?.value;
   const transaction_type = el(`txEditType-${r}`)?.value;
-  const from_account     = el(`txEditFromAccount-${r}`)?.value;
-  const to_account       = el(`txEditToAccount-${r}`)?.value  || '';
+  const source_account   = el(`txEditFromAccount-${r}`)?.value;
+  const target_account   = el(`txEditToAccount-${r}`)?.value  || '';
   const fx_rate          = el(`txEditFxRate-${r}`)?.value     || '';
   const amount           = el(`txEditAmount-${r}`)?.value;
   const currency         = transaction_type === 'money-in'
-    ? (state.accountMap[to_account]?.currency || '')
-    : (state.accountMap[from_account]?.currency || '');
+    ? (state.accountMap[target_account]?.currency || '')
+    : (state.accountMap[source_account]?.currency || '');
   const major_category   = el(`txEditMajor-${r}`)?.value;
   const minor_category   = el(`txEditMinor-${r}`)?.value;
   const counterparty     = el(`txEditCounterparty-${r}`)?.value.trim();
@@ -954,23 +954,23 @@ async function _saveEdit(rowNum) {
   const editTgtMandatory = _editSaveCat ? Boolean(_editSaveCat.target_account_mandatory) : isEditTransfer;
   if (!dateRaw)                                 { errEl.textContent = 'Date is required.';                          return; }
   if (!transaction_type)                        { errEl.textContent = 'Type is required.';                          return; }
-  if (editSrcMandatory && !from_account)        { errEl.textContent = 'Source account is required.';                return; }
-  if (editTgtMandatory && !to_account)          { errEl.textContent = 'Target account is required.';                return; }
+  if (editSrcMandatory && !source_account)      { errEl.textContent = 'Source account is required.';                return; }
+  if (editTgtMandatory && !target_account)      { errEl.textContent = 'Target account is required.';                return; }
   if (!amount || parseFloat(amount) <= 0)       { errEl.textContent = 'Enter a positive amount.';                   return; }
   if (!isEditTransfer && !major_category)       { errEl.textContent = 'Major category is required.';                return; }
   if (!isEditTransfer && !minor_category)       { errEl.textContent = 'Minor category is required.';                return; }
 
-  const fromAccEdit = state.accountMap[from_account];
-  const toAccEdit   = state.accountMap[to_account];
+  const fromAccEdit = state.accountMap[source_account];
+  const toAccEdit   = state.accountMap[target_account];
 
   // Locate the original transaction so we can compute post-reversal balances.
   const oldTx = state.transactions.find(t => t._row === rowNum);
 
-  // Post-reversal balance for from_account:
+  // Post-reversal balance for source_account:
   // Phase 1 of the backend edit reverses the old transaction before Phase 2 applies new values.
-  // We only undo the old debit/credit if the from_account hasn't changed.
+  // We only undo the old debit/credit if the source_account hasn't changed.
   let fromPostRevBal = fromAccEdit ? Number(fromAccEdit.current_balance) : 0;
-  if (oldTx && String(oldTx.from_account) === String(from_account)) {
+  if (oldTx && String(oldTx.source_account) === String(source_account)) {
     const oldAmt = Number(oldTx.amount) || 0;
     if (oldTx.transaction_type === 'money-in')       fromPostRevBal -= oldAmt; // reversal removes the credit
     if (oldTx.transaction_type === 'money-out')      fromPostRevBal += oldAmt; // reversal restores the debit
@@ -998,9 +998,9 @@ async function _saveEdit(rowNum) {
     const newFxRate   = fx_rate ? parseFloat(fx_rate) : 0;
     const newCredited = newFxRate > 0 ? parseFloat(amount) * newFxRate : parseFloat(amount);
 
-    // Post-reversal balance of to_account: undo old credited amount (if same to_account).
+    // Post-reversal balance of target_account: undo old credited amount (if same target_account).
     let toPostRevBal = Number(toAccEdit.current_balance);
-    if (oldTx && String(oldTx.to_account) === String(to_account)) {
+    if (oldTx && String(oldTx.target_account) === String(target_account)) {
       const oldFx       = Number(oldTx.fx_rate) || 0;
       const oldCredited = oldFx > 0 ? Number(oldTx.amount) * oldFx : Number(oldTx.amount);
       toPostRevBal     -= oldCredited; // reversal removes the old credit
@@ -1030,7 +1030,7 @@ async function _saveEdit(rowNum) {
   try {
     const res = await ExpenseAPI.updateTransaction({
       row_num: rowNum, transaction_date_utc: new Date(dateRaw).toISOString(), transaction_type,
-      from_account, to_account, amount: parseFloat(amount), currency,
+      source_account, target_account, amount: parseFloat(amount), currency,
       fx_rate: fx_rate ? parseFloat(fx_rate) : '',
       major_category, minor_category, counterparty, country, tags, notes,
     });

@@ -11,7 +11,7 @@ const VALID_TRANSACTION_TYPES = ['money-in', 'money-out', 'money-transfer'];
 // ─────────────────────────────────────────────────────────────────────────────
 const TRANSACTION_SCHEMA = {
 
-  // ── Core (columns 1–6, all transaction types) ─────────────────────────────
+  // ── Core (columns 1–7, all transaction types) ─────────────────────────────
   id: {
     sheet_column_name: 'id',
     sheet_column_position: 1,
@@ -72,10 +72,10 @@ const TRANSACTION_SCHEMA = {
     editable: true,
     default_value: '',
   },
-  from_account: {
-    sheet_column_name: 'from_account',
+  source_account: {
+    sheet_column_name: 'source_account',
     sheet_column_position: 6,
-    ui_label: 'From Account',
+    ui_label: 'Source Account',
     type: 'string',
     enum_values: null,
     group: 'core',
@@ -84,22 +84,20 @@ const TRANSACTION_SCHEMA = {
     editable: true,
     default_value: null,
   },
-
-  // ── Transfer (columns 7, 13–14) ───────────────────────────────────────────
-  to_account: {
-    sheet_column_name: 'to_account',
+  target_account: {
+    sheet_column_name: 'target_account',
     sheet_column_position: 7,
-    ui_label: 'To Account',
+    ui_label: 'Target Account',
     type: 'string',
     enum_values: null,
-    group: 'transfer',
-    applies_to: ['money-transfer'],
-    required_for: ['money-transfer'],
+    group: 'core',
+    applies_to: null,
+    required_for: null,
     editable: true,
     default_value: '',
   },
 
-  // ── Categorisation (columns 8–10, 15–16) ─────────────────────────────────
+  // ── Categorisation (columns 8–10, 15–16) ──────────────────────────────────
   major_category: {
     sheet_column_name: 'major_category',
     sheet_column_position: 8,
