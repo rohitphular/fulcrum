@@ -58,7 +58,12 @@ async function loadAll() {
 
     if (catRes.ok) {
       state.categories = catRes.data || [];
-      state.categories.forEach(c => { c.is_active = c.is_active === true || String(c.is_active).toLowerCase() === 'true'; });
+      state.categories.forEach(c => {
+        const toBool = v => v === true || String(v).toLowerCase() === 'true';
+        c.is_active               = toBool(c.is_active);
+        c.source_account_mandatory = toBool(c.source_account_mandatory);
+        c.target_account_mandatory = toBool(c.target_account_mandatory);
+      });
     }
     if (accRes.ok) {
       state.accounts   = accRes.data || [];

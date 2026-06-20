@@ -233,9 +233,6 @@ function _sortTx(rows) {
 // ── Add-transaction form ──────────────────────────────────────────────────────
 
 function _renderAddForm() {
-  const activeAccounts = state.accounts.filter(
-    a => a.is_active === true
-  );
   return `
   <div class="add-form-wrap">
     <button class="add-form-toggle" id="addFormToggle">
@@ -881,8 +878,8 @@ function _attachTxEditCascadeEvents(r) {
   el(`txEditToAccount-${r}`)?.addEventListener('change', () => _txEditRefreshFieldVis(r));
   el(`txEditFxRate-${r}`)?.addEventListener('input', () => _txEditUpdateFxPreview(r));
   el(`txEditAmount-${r}`)?.addEventListener('input', () => _txEditUpdateFxPreview(r));
-  // Initial render for pre-filled values
-  _txEditRefreshFieldVis(r);
+  // Initial render: apply source/target disabled state based on category flags
+  _txEditRefreshAccountOpts(r);
 }
 
 async function _saveEdit(rowNum) {

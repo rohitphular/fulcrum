@@ -10,12 +10,58 @@ function listCategories() {
     seedCategories();
     rows = sheetToObjectsWithRow(sheet);
   }
-  // Coerce is_active to boolean (sheet may store TRUE/FALSE as boolean or string)
+  // Coerce boolean fields (sheet may store TRUE/FALSE as boolean or string)
   return rows.map(function(r) {
-    r.is_active = r.is_active === true || String(r.is_active).toLowerCase() === 'true';
+    var toBool = function(v) { return v === true || String(v).toLowerCase() === 'true'; };
+    r.is_active                = toBool(r.is_active);
+    r.source_account_mandatory = toBool(r.source_account_mandatory);
+    r.target_account_mandatory = toBool(r.target_account_mandatory);
     r.sort_order = Number(r.sort_order) || 0;
     return r;
   });
+}
+
+// Sets source_account_mandatory / target_account_mandatory on existing category rows
+// that were seeded before T-14 (columns added later; cells are empty for old rows).
+// Logic: money-in → src=false, tgt=true; money-transfer → src=true, tgt=true;
+// money-out standard → src=true, tgt=false; debt-repayment rows are already
+// handled because the seed wrote their flags on initial seed.
+// Idempotent: skips rows where either flag is already set.
+function migrateCategoryMandatoryFlags() {
+  var cols  = getCategorySheetColumns();
+  var sheet = getOrCreateSheet(CATEGORIES_SHEET, cols);
+  var values = sheet.getDataRange().getValues();
+  var ciType = catColIndex('transaction_type');
+  var ciSrcM = catColIndex('source_account_mandatory');
+  var ciTgtM = catColIndex('target_account_mandatory');
+  var ciSrcT = catColIndex('source_account_types');
+  var ciDstT = catColIndex('destination_account_types');
+
+  for (var i = 1; i < values.length; i++) {
+    var row  = values[i];
+    var type = String(row[ciType]);
+    var srcM = row[ciSrcM];
+    var tgtM = row[ciTgtM];
+
+    // Skip rows where both flags are already populated (non-empty, non-null)
+    var isSet = function(v) { return v !== '' && v !== null && v !== undefined; };
+    if (isSet(srcM) && isSet(tgtM)) continue;
+
+    var newSrcM, newTgtM;
+    if (type === 'money-in') {
+      newSrcM = false; newTgtM = true;
+    } else if (type === 'money-transfer') {
+      newSrcM = true;  newTgtM = true;
+    } else if (type === 'money-out') {
+      // money-out with a destination type = two-account (loan repayment etc.)
+      var dstTypes = String(row[ciDstT] || '').trim();
+      newSrcM = true; newTgtM = dstTypes !== '';
+    } else {
+      continue;
+    }
+    sheet.getRange(i + 1, ciSrcM + 1).setValue(newSrcM);
+    sheet.getRange(i + 1, ciTgtM + 1).setValue(newTgtM);
+  }
 }
 
 function seedCategories() {
@@ -46,9 +92,11 @@ function createCategory(body) {
   setCol('is_active',               body.is_active !== false);
   setCol('tag_keywords',            normaliseKeywords(body.tag_keywords || ''));
   setCol('counterparty_examples',   normaliseCandidates(body.counterparty_examples   || ''));
-  setCol('source_account_types',    normaliseAccountTypes(body.source_account_types    || ''));
+  setCol('source_account_types',      normaliseAccountTypes(body.source_account_types      || ''));
   setCol('destination_account_types', normaliseAccountTypes(body.destination_account_types || ''));
-  setCol('sort_order',              Number(body.sort_order) || 0);
+  setCol('source_account_mandatory',  body.source_account_mandatory === true || body.source_account_mandatory === 'true');
+  setCol('target_account_mandatory',  body.target_account_mandatory === true || body.target_account_mandatory === 'true');
+  setCol('sort_order',                Number(body.sort_order) || 0);
 
   sheet.appendRow(row);
   return { ok: true };
@@ -77,9 +125,11 @@ function updateCategory(body) {
   writeField('is_active',               body.is_active !== false);
   writeField('tag_keywords',            normaliseKeywords(body.tag_keywords || ''));
   writeField('counterparty_examples',   normaliseCandidates(body.counterparty_examples   || ''));
-  writeField('source_account_types',    normaliseAccountTypes(body.source_account_types    || ''));
+  writeField('source_account_types',      normaliseAccountTypes(body.source_account_types      || ''));
   writeField('destination_account_types', normaliseAccountTypes(body.destination_account_types || ''));
-  writeField('sort_order',              Number(body.sort_order) || 0);
+  writeField('source_account_mandatory',  body.source_account_mandatory === true || body.source_account_mandatory === 'true');
+  writeField('target_account_mandatory',  body.target_account_mandatory === true || body.target_account_mandatory === 'true');
+  writeField('sort_order',                Number(body.sort_order) || 0);
 
   return { ok: true };
 }
