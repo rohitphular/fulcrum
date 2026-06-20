@@ -101,6 +101,24 @@ if [ ${#SELECTED_INDICES[@]} -eq 0 ]; then
   exit 0
 fi
 
+# ── Warm up rates sheet (auto-seeds GBP/USD/EUR/INR/AED if empty) ─────────────
+
+echo -e "${CYAN}Checking rates sheet...${RESET}"
+RATES_RESP=$(curl -s -L \
+  "${SCRIPT_URL}?action=list_rates&pin=${PIN}" 2>&1)
+RATES_OK=$(echo "$RATES_RESP" | jq -r '.ok' 2>/dev/null || echo "false")
+if [ "$RATES_OK" != "true" ]; then
+  RATES_ERR=$(echo "$RATES_RESP" | jq -r '.error // empty' 2>/dev/null)
+  if [ -z "$RATES_ERR" ]; then
+    echo -e "${RED}✗${RESET} Could not reach backend: $(echo "$RATES_RESP" | head -c 200 | tr '\n' ' ')"
+  else
+    echo -e "${RED}✗${RESET} Rates check failed: $RATES_ERR"
+  fi
+  exit 1
+fi
+echo -e "${GREEN}✓${RESET} Rates sheet ready"
+echo ""
+
 # ── Seed selected accounts ────────────────────────────────────────────────────
 
 echo "Creating ${#SELECTED_INDICES[@]} account(s)..."

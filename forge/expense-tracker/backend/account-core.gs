@@ -29,13 +29,13 @@ function createAccount(body) {
   var validation = validateAccountCreate(body);
   if (!validation.ok) return validation;
 
-  var ratesSheet      = getOrCreateSheet(RATES_SHEET, RATES_COLUMNS);
-  var ratesVals       = ratesSheet.getDataRange().getValues();
+  // listRates() auto-seeds default currencies (GBP, INR, USD, EUR, AED) when
+  // the rates sheet is empty; reading the sheet directly misses that seeding.
+  var ratesData       = listRates();
   var knownCurrencies = {};
-  for (var i = 1; i < ratesVals.length; i++) {
-    var currencyCode = String(ratesVals[i][0]).trim().toUpperCase();
-    if (currencyCode) knownCurrencies[currencyCode] = true;
-  }
+  ratesData.forEach(function(r) {
+    if (r.currency) knownCurrencies[String(r.currency).trim().toUpperCase()] = true;
+  });
   var normCurrency = String(body.currency).trim().toUpperCase();
   if (!knownCurrencies[normCurrency]) {
     return { ok: false, error: 'unknown_currency:' + normCurrency };
