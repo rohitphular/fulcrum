@@ -80,11 +80,12 @@ function _findCategoryHints(type, major, minor) {
   };
   for (let i = 1; i < values.length; i++) {
     if (values[i][ci.type] === type && values[i][ci.major] === major && values[i][ci.minor] === minor) {
+      var toBool = function(v) { return v === true || String(v).toLowerCase() === 'true'; };
       return {
         source_account_types:      String(values[i][ci.src]          || '').trim(),
         destination_account_types: String(values[i][ci.dst]          || '').trim(),
-        source_account_mandatory:  Boolean(values[i][ci.srcMandatory]),
-        target_account_mandatory:  Boolean(values[i][ci.dstMandatory]),
+        source_account_mandatory:  toBool(values[i][ci.srcMandatory]),
+        target_account_mandatory:  toBool(values[i][ci.dstMandatory]),
       };
     }
   }
