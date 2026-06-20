@@ -16,8 +16,4 @@ function getRateSheetColumns() {
   );
 }
 
-function rateColIndex(name) {
-  const f = RATE_SCHEMA[name];
-  if (!f) throw new Error('Unknown rate column: ' + name);
-  return f.sheet_column_position - 1;  // 0-based
-}
+function rateColIndex(name) { return getColIndex(RATE_SCHEMA, name); }

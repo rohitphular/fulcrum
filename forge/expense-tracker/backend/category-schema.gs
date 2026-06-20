@@ -169,8 +169,4 @@ function getCategorySchemaField(key) {
   return CATEGORY_SCHEMA[key] || null;
 }
 
-function catColIndex(name) {
-  var f = CATEGORY_SCHEMA[name];
-  if (!f) throw new Error('Unknown category column: ' + name);
-  return f.sheet_column_position - 1;
-}
+function catColIndex(name) { return getColIndex(CATEGORY_SCHEMA, name); }

@@ -1,4 +1,5 @@
 let _overlay = null;
+let _depth   = 0;
 
 function _getOverlay() {
   if (!_overlay) {
@@ -11,8 +12,16 @@ function _getOverlay() {
   return _overlay;
 }
 
-export function showLoading() { _getOverlay().classList.remove('hidden'); }
-export function hideLoading() { _getOverlay().classList.add('hidden');    }
+export function showLoading() {
+  _depth++;
+  _getOverlay().classList.remove('hidden');
+}
+export function hideLoading() {
+  if (--_depth <= 0) {
+    _depth = 0;
+    _getOverlay().classList.add('hidden');
+  }
+}
 
 export function showMsg(text, type = 'success') {
   const b = document.getElementById('msgBanner');

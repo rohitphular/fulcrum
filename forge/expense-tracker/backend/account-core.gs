@@ -1,6 +1,5 @@
 // =============================================================================
 // FULCRUM FORGE — Account Core: CRUD operations
-// Uses ACCOUNT_SCHEMA for all column mapping — no magic column numbers.
 // =============================================================================
 
 function listAccounts() {
@@ -30,7 +29,6 @@ function createAccount(body) {
   var validation = validateAccountCreate(body);
   if (!validation.ok) return validation;
 
-  // Verify currency exists in rates sheet
   var ratesSheet      = getOrCreateSheet(RATES_SHEET, RATES_COLUMNS);
   var ratesVals       = ratesSheet.getDataRange().getValues();
   var knownCurrencies = {};
@@ -55,10 +53,9 @@ function createAccount(body) {
     ? -(Math.abs(Number(body.opening_balance) || 0))
     : (Number(body.opening_balance) || 0);
 
-  // Build row array indexed by schema column positions
   var row = new Array(cols.length).fill('');
 
-  function setCol(key, value) { // writes value into the row array at the schema-defined column position
+  function setCol(key, value) {
     var field = getAccountSchemaField(key);
     if (field) row[field.sheet_column_position - 1] = (value === undefined || value === null) ? '' : value;
   }
@@ -147,7 +144,6 @@ function updateAccount(body) {
     sheet.getRange(rowNum, field.sheet_column_position).setValue(value);
   }
 
-  // Always-editable core
   writeField('name',                 String(body.name).trim());
   writeField('is_active',            body.is_active === true || body.is_active === 'true');
   writeField('institution',          String(body.institution          || '').trim());

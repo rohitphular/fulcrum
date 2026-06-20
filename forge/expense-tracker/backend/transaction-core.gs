@@ -1,6 +1,5 @@
 // =============================================================================
 // FULCRUM FORGE — Transaction Core: CRUD + balance adjustment
-// Depends on: transaction-schema.gs, transaction-validation.gs, transaction-utils.gs
 // =============================================================================
 
 function listTransactions() {
@@ -8,15 +7,15 @@ function listTransactions() {
 }
 
 function createTransaction(body) {
-  const validationError = validateTransactionCreate(body);
-  if (validationError) return validationError;
+  const validation = validateTransactionCreate(body);
+  if (!validation.ok) return validation;
 
   const amount = Number(body.amount);
   const fxRate = body.fx_rate !== undefined && body.fx_rate !== '' ? Number(body.fx_rate) : 0;
 
   if (body.transaction_type === 'money-transfer') {
-    const fxValidationError = validateFxRate(body.from_account, body.to_account, fxRate);
-    if (fxValidationError) return fxValidationError;
+    const fxValidation = validateFxRate(body.from_account, body.to_account, fxRate);
+    if (!fxValidation.ok) return fxValidation;
   }
 
   const sheet = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
@@ -56,15 +55,14 @@ function createTransaction(body) {
 }
 
 function updateTransaction(body) {
-  const validationError = validateTransactionUpdate(body);
-  if (validationError) return validationError;
+  const validation = validateTransactionUpdate(body);
+  if (!validation.ok) return validation;
 
   const sheet   = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
   const rowNum  = Number(body.row_num);
   const lastRow = sheet.getLastRow();
   if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
 
-  // 0=id 1=date 2=transaction_type 3=amount 4=currency 5=from_account 6=to_account … 13=fx_rate
   const oldRow    = sheet.getRange(rowNum, 1, 1, TRANSACTION_COLUMNS.length).getValues()[0];
   const oldType          = String(oldRow[txColIndex('transaction_type')]);
   const oldAmount        = Number(oldRow[txColIndex('amount')]) || 0;
@@ -86,8 +84,8 @@ function updateTransaction(body) {
   const newFxRate = body.fx_rate ? Number(body.fx_rate) : 0;
 
   if (newType === 'money-transfer') {
-    const fxValidationError = validateFxRate(body.from_account, body.to_account, newFxRate);
-    if (fxValidationError) return fxValidationError;
+    const fxValidation = validateFxRate(body.from_account, body.to_account, newFxRate);
+    if (!fxValidation.ok) return fxValidation;
   }
 
   if (newType === 'money-in')  adjustAccountBalance(body.from_account,  newAmount);

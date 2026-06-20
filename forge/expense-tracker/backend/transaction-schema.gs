@@ -275,9 +275,4 @@ function getTransactionSchemaField(key) {
   return TRANSACTION_SCHEMA[key] || null;
 }
 
-// 0-based column index for sheet row array access — backed by schema, not indexOf
-function txColIndex(name) {
-  var f = TRANSACTION_SCHEMA[name];
-  if (!f) throw new Error('Unknown transaction column: ' + name);
-  return f.sheet_column_position - 1;
-}
+function txColIndex(name) { return getColIndex(TRANSACTION_SCHEMA, name); }

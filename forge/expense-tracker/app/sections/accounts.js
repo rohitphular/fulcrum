@@ -13,17 +13,15 @@ function _invSubTypes()  { return _sch().investment_sub_types || []; }
 function _mortSubTypes() { return _sch().mortgage_sub_types   || []; }
 function _validTypes()   { return new Set(_accountTypes().map(t => t.value)); }
 
-function isActive(a) {
-  return a.is_active === true || a.is_active === 'TRUE' || a.is_active === 'true';
-}
+function _isActive(a) { return a.is_active === true; }
 
-function isLiability(a) { return _liabSet().has(a.type); }
+function _isLiability(a) { return _liabSet().has(a.type); }
 
-function typeLabel(type) {
+function _typeLabel(type) {
   return _accountTypes().find(t => t.value === type)?.label || type || '—';
 }
 
-function typeOptgroupHtml(selected) {
+function _typeOptgroupHtml(selected) {
   const groups = [
     { key: 'liquid',         label: 'Liquid' },
     { key: 'investment',     label: 'Investment' },
@@ -41,50 +39,50 @@ function typeOptgroupHtml(selected) {
   }).join('');
 }
 
-function fmtBal(n) {
+function _fmtBal(n) {
   return Math.abs(parseFloat(n || 0)).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function progressBar(pct, highIsRed) {
+function _progressBar(pct, highIsRed) {
   const fill = highIsRed
     ? (pct > 90 ? 'var(--ember)' : pct > 60 ? '#D97706' : pct > 30 ? '#F59E0B' : 'var(--teal)')
     : (pct > 90 ? 'var(--teal)' : pct > 60 ? '#10B981' : pct > 30 ? '#F59E0B' : 'var(--ember)');
-  return `<div style="height:3px;background:var(--hair);border-radius:2px;margin-top:3px;overflow:hidden">
-    <div style="height:100%;width:${Math.min(pct,100).toFixed(1)}%;background:${fill};border-radius:2px"></div>
+  return `<div class="acc-prog-track">
+    <div class="acc-prog-fill" style="width:${Math.min(pct,100).toFixed(1)}%;background:${fill}"></div>
   </div>`;
 }
 
-function balanceCell(a) {
+function _balanceCell(a) {
   const bal = parseFloat(a.current_balance || 0);
   const sym = getSymbol(a.currency);
-  if (isLiability(a)) {
-    const html = `<span class="summary-card-value negative" style="font-size:13px">${sym}${fmtBal(bal)} owed</span>`;
+  if (_isLiability(a)) {
+    const html = `<span class="acc-bal-owed">${sym}${_fmtBal(bal)} owed</span>`;
 
     if (a.type === 'credit_card' && Number(a.credit_card_limit) > 0) {
       const pct = a.utilisation_pct ?? 0;
       return `${html}
-        <div style="margin-top:4px;font-size:10px;color:var(--muted);font-family:var(--mono)">${sym}${fmtBal(Math.abs(bal))} of ${sym}${fmtBal(a.credit_card_limit)} (${pct.toFixed(1)}%)</div>
-        ${progressBar(pct, true)}`;
+        <div class="acc-bal-detail">${sym}${_fmtBal(Math.abs(bal))} of ${sym}${_fmtBal(a.credit_card_limit)} (${pct.toFixed(1)}%)</div>
+        ${_progressBar(pct, true)}`;
     }
 
     if (a.type === 'overdraft' && Number(a.overdraft_limit) > 0) {
       const pct = a.utilisation_pct ?? 0;
       return `${html}
-        <div style="margin-top:4px;font-size:10px;color:var(--muted);font-family:var(--mono)">${sym}${fmtBal(Math.abs(bal))} of ${sym}${fmtBal(a.overdraft_limit)} (${pct.toFixed(1)}%)</div>
-        ${progressBar(pct, true)}`;
+        <div class="acc-bal-detail">${sym}${_fmtBal(Math.abs(bal))} of ${sym}${_fmtBal(a.overdraft_limit)} (${pct.toFixed(1)}%)</div>
+        ${_progressBar(pct, true)}`;
     }
 
     if (_loanSet().has(a.type) && a.repayment_pct != null) {
       const pct = a.repayment_pct;
       return `${html}
-        <div style="margin-top:4px;font-size:10px;color:var(--muted);font-family:var(--mono)">${pct.toFixed(1)}% repaid${a.next_payment_date ? ` · next ${a.next_payment_date}` : ''}</div>
-        ${progressBar(pct, false)}`;
+        <div class="acc-bal-detail">${pct.toFixed(1)}% repaid${a.next_payment_date ? ` · next ${a.next_payment_date}` : ''}</div>
+        ${_progressBar(pct, false)}`;
     }
 
     return html;
   }
-  const cls = bal < 0 ? 'negative' : '';
-  return `<span class="${cls}" style="font-family:var(--mono)">${bal < 0 ? '−' : ''}${sym}${fmtBal(bal)}</span>`;
+  const cls = bal < 0 ? 'negative acc-bal-mono' : 'acc-bal-mono';
+  return `<span class="${cls}">${bal < 0 ? '−' : ''}${sym}${_fmtBal(bal)}</span>`;
 }
 
 export function renderAccounts() {
@@ -93,23 +91,23 @@ export function renderAccounts() {
       <div class="sec-head-left"><h2>Accounts</h2></div>
       <button class="btn btn-primary btn-sm" id="accAddBtn">${state.accAddOpen ? '× Close' : '+ Add account'}</button>
     </div>
-    ${state.accAddOpen ? renderAddForm() : ''}
-    ${renderNetWorth()}
-    ${renderTable()}
+    ${state.accAddOpen ? _renderAddForm() : ''}
+    ${_renderNetWorth()}
+    ${_renderTable()}
   `;
-  attachEvents();
+  _attachEvents();
 }
 
-function renderNetWorth() {
+function _renderNetWorth() {
   if (!state.accounts.length) return '';
   const sym = getSymbol(state.quoteCurrency);
   const fmt = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   const totalAssets = state.accounts
-    .filter(a => !isLiability(a))
+    .filter(a => !_isLiability(a))
     .reduce((s, a) => s + toBase(a.current_balance, a.currency, null), 0);
   const totalLiab = state.accounts
-    .filter(a => isLiability(a))
+    .filter(a => _isLiability(a))
     .reduce((s, a) => s + Math.abs(toBase(a.current_balance, a.currency, null)), 0);
   const netWorth = totalAssets - totalLiab;
 
@@ -130,7 +128,7 @@ function renderNetWorth() {
     </div>`;
 }
 
-function subTypeOptsHtml(type, selected) {
+function _subTypeOptsHtml(type, selected) {
   const opts = type === 'investment' ? _invSubTypes()
              : type === 'mortgage'   ? _mortSubTypes()
              : [];
@@ -138,7 +136,7 @@ function subTypeOptsHtml(type, selected) {
     opts.map(v => `<option value="${esc(v)}" ${selected === v ? 'selected' : ''}>${esc(v.replace(/_/g, ' '))}</option>`).join('');
 }
 
-function renderAddForm() {
+function _renderAddForm() {
   const currencyOpts = state.rates.map(r =>
     `<option value="${esc(r.currency)}">${esc(r.currency)}</option>`
   ).join('');
@@ -156,7 +154,7 @@ function renderAddForm() {
       </div>
       <div class="field">
         <label for="accNewType">Type *</label>
-        <select id="accNewType">${typeOptgroupHtml('current')}</select>
+        <select id="accNewType">${_typeOptgroupHtml('current')}</select>
       </div>
     </div>
 
@@ -348,13 +346,13 @@ function renderAddForm() {
   </div>`;
 }
 
-function activeBadge(a) {
-  return isActive(a)
+function _activeBadge(a) {
+  return _isActive(a)
     ? `<span class="badge badge-in">active</span>`
     : `<span class="badge badge-out">archived</span>`;
 }
 
-function renderAccountRow(a) {
+function _renderAccountRow(a) {
   if (state.accDeleteRow === a._row) {
     return `<tr>
       <td colspan="6"><span class="confirm-text">Delete <strong>${esc(a.name)}</strong>? Existing transactions linked to this account are not affected.</span></td>
@@ -364,15 +362,15 @@ function renderAccountRow(a) {
       </div></td>
     </tr>`;
   }
-  if (state.accEditRow === a._row) return renderEditRow(a);
+  if (state.accEditRow === a._row) return _renderEditRow(a);
 
   return `<tr>
     <td class="td-mono" style="color:var(--muted);font-size:11px">${esc(a.id)}</td>
     <td>${esc(a.name)}${a.notes ? `<span class="info-icon-wrap"><span style="cursor:help;color:var(--teal);font-size:13px">ⓘ</span><span class="info-tooltip">${esc(a.notes)}</span></span>` : ''}</td>
-    <td style="color:var(--muted);font-size:12px">${esc(typeLabel(a.type))}</td>
+    <td style="color:var(--muted);font-size:12px">${esc(_typeLabel(a.type))}</td>
     <td>${esc(a.currency)}</td>
-    <td>${balanceCell(a)}</td>
-    <td>${activeBadge(a)}</td>
+    <td>${_balanceCell(a)}</td>
+    <td>${_activeBadge(a)}</td>
     <td><div class="row-actions">
       <button class="btn-link" data-action="acc-edit" data-row="${a._row}">Edit</button>
       <button class="btn-link danger" data-action="acc-delete" data-row="${a._row}">Delete</button>
@@ -380,7 +378,7 @@ function renderAccountRow(a) {
   </tr>`;
 }
 
-function groupHeader(label, total, sym, isLiab) {
+function _groupHeader(label, total, sym, isLiab) {
   const sign = isLiab ? '−' : '';
   return `<tr class="acc-group-header">
     <td colspan="7" style="background:var(--canvas);padding:10px 12px 4px;font-size:11px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:none">
@@ -399,11 +397,11 @@ const TABLE_GROUPS = [
   { key: 'overdraft',      label: 'Overdrafts',      isLiab: true  },
 ];
 
-function typeGroup(type) {
+function _typeGroup(type) {
   return _accountTypes().find(t => t.value === type)?.group || 'liquid';
 }
 
-function renderTable() {
+function _renderTable() {
   if (!state.accounts.length) {
     return `<p class="placeholder">No accounts yet. Use &ldquo;+ Add account&rdquo; to create one.</p>`;
   }
@@ -412,7 +410,7 @@ function renderTable() {
 
   const byGroup = {};
   state.accounts.forEach(a => {
-    const g = typeGroup(a.type);
+    const g = _typeGroup(a.type);
     (byGroup[g] = byGroup[g] || []).push(a);
   });
 
@@ -422,7 +420,7 @@ function renderTable() {
     const total = g.isLiab
       ? accs.reduce((s, a) => s + Math.abs(toBase(a.current_balance, a.currency, null)), 0)
       : accs.reduce((s, a) => s + toBase(a.current_balance, a.currency, null), 0);
-    return [groupHeader(g.label, total, sym, g.isLiab), ...accs.map(renderAccountRow)];
+    return [_groupHeader(g.label, total, sym, g.isLiab), ...accs.map(_renderAccountRow)];
   }).join('');
 
   return `
@@ -442,7 +440,7 @@ function renderTable() {
     </div>`;
 }
 
-function renderEditRow(a) {
+function _renderEditRow(a) {
   const r    = a._row;
   const type = a.type;
   const isCC   = type === 'credit_card';
@@ -484,7 +482,7 @@ function renderEditRow(a) {
         </div>` : ''}
 
         ${isLoan ? `<div class="form-grid" style="gap:10px 12px">
-          ${f('',                          'Orig. loan amt',    ro(getSymbol(a.currency) + fmtBal(a.loan_original_amount || 0)))}
+          ${f('',                          'Orig. loan amt',    ro(getSymbol(a.currency) + _fmtBal(a.loan_original_amount || 0)))}
           ${f(`accEditLoanRate-${r}`,       'Interest rate (%)', num(`accEditLoanRate-${r}`, a.loan_interest_rate))}
           ${f(`accEditLoanIType-${r}`,      'Interest type',     sel(`accEditLoanIType-${r}`, [['','— select —'],['fixed','Fixed'],['variable','Variable'],['tracker','Tracker']], a.loan_interest_type || ''))}
           ${f(`accEditLoanTenure-${r}`,     'Tenure (months)',   `<input class="rate-edit-input" style="width:100%" type="number" step="1" min="1" id="accEditLoanTenure-${r}" value="${esc(String(a.loan_tenure_months ?? ''))}">`)  }
@@ -514,10 +512,10 @@ function renderEditRow(a) {
         </div>` : ''}
 
         <div class="form-grid form-grid-4" style="gap:10px 12px">
-          ${f('', 'Type',        ro(typeLabel(a.type)))}
+          ${f('', 'Type',        ro(_typeLabel(a.type)))}
           ${f('', 'Currency',    ro(a.currency))}
-          ${f('', 'Opening bal.',ro(getSymbol(a.currency) + fmtBal(a.opening_balance || 0)))}
-          ${f('', 'Current bal.',`<div style="padding:6px 0;font-size:13px">${balanceCell(a)}</div>`)}
+          ${f('', 'Opening bal.',ro(getSymbol(a.currency) + _fmtBal(a.opening_balance || 0)))}
+          ${f('', 'Current bal.',`<div style="padding:6px 0;font-size:13px">${_balanceCell(a)}</div>`)}
         </div>
 
       </div>
@@ -540,7 +538,7 @@ function _refreshAddTypeUI() {
   hasSubType ? show('accNewSubTypeWrap') : hide('accNewSubTypeWrap');
   if (hasSubType) {
     const sel = el('accNewSubType');
-    if (sel) sel.innerHTML = subTypeOptsHtml(type, '');
+    if (sel) sel.innerHTML = _subTypeOptsHtml(type, '');
   }
 
   // Savings fields (current + savings)
@@ -563,13 +561,13 @@ function _refreshAddTypeUI() {
 }
 
 
-function attachEvents() {
+function _attachEvents() {
   el('accAddBtn')?.addEventListener('click', () => {
     state.accAddOpen = !state.accAddOpen;
     renderAccounts();
   });
 
-  el('accSaveNew')?.addEventListener('click', saveNew);
+  el('accSaveNew')?.addEventListener('click', _saveNew);
   el('accCancelNew')?.addEventListener('click', () => { state.accAddOpen = false; renderAccounts(); });
   if (el('accNewType')) {
     el('accNewType').addEventListener('change', _refreshAddTypeUI);
@@ -587,10 +585,10 @@ function attachEvents() {
       return;
     }
     if (action === 'acc-cancel-edit')    { state.accEditRow = null; renderAccounts(); }
-    if (action === 'acc-save-edit')      { saveEdit(row); }
+    if (action === 'acc-save-edit')      { _saveEdit(row); }
     if (action === 'acc-delete')         { state.accDeleteRow = row; state.accEditRow = null; renderAccounts(); }
     if (action === 'acc-cancel-delete')  { state.accDeleteRow = null; renderAccounts(); }
-    if (action === 'acc-confirm-delete') { confirmDelete(row); }
+    if (action === 'acc-confirm-delete') { _confirmDelete(row); }
   });
 
 }
@@ -599,7 +597,7 @@ function _v(id)  { return el(id)?.value ?? ''; }
 function _n(id)  { const v = _v(id); return v === '' ? undefined : parseFloat(v); }
 function _ni(id) { const v = _v(id); return v === '' ? undefined : parseInt(v, 10); }
 
-async function saveNew() {
+async function _saveNew() {
   const name       = _v('accNewName').trim();
   const currency   = _v('accNewCurrency');
   const type       = _v('accNewType');
@@ -678,7 +676,7 @@ async function saveNew() {
     if (res.ok) {
       showMsg('Account added.');
       state.accAddOpen = false;
-      await refreshAccounts();
+      await _refreshAccounts();
       renderAccounts();
       renderDashboard();
     } else {
@@ -693,7 +691,7 @@ async function saveNew() {
   }
 }
 
-async function saveEdit(rowNum) {
+async function _saveEdit(rowNum) {
   const r    = rowNum;
   const name = el(`accEditName-${r}`)?.value.trim();
   if (!name) { showMsg('Name is required.', 'warn'); return; }
@@ -756,7 +754,7 @@ async function saveEdit(rowNum) {
     if (res.ok) {
       showMsg('Account updated.');
       state.accEditRow = null;
-      await refreshAccounts();
+      await _refreshAccounts();
       renderAccounts();
       renderDashboard();
     } else {
@@ -769,14 +767,14 @@ async function saveEdit(rowNum) {
   }
 }
 
-async function confirmDelete(rowNum) {
+async function _confirmDelete(rowNum) {
   showLoading();
   try {
     const res = await ExpenseAPI.deleteAccount({ row_num: rowNum });
     if (res.ok) {
       showMsg('Account deleted.');
       state.accDeleteRow = null;
-      await refreshAccounts();
+      await _refreshAccounts();
       renderAccounts();
       renderDashboard();
     } else {
@@ -793,7 +791,7 @@ async function confirmDelete(rowNum) {
   }
 }
 
-async function refreshAccounts() {
+async function _refreshAccounts() {
   const r = await ExpenseAPI.listAccounts();
   if (r.ok) {
     state.accounts   = r.data || [];

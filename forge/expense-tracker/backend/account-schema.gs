@@ -521,6 +521,7 @@ function getAccountSchemaForClient() {
     types: VALID_ACCOUNT_TYPES.map(function(v) {
       return { value: v, label: TYPE_LABELS[v] || v, group: TYPE_GROUPS[v] || 'other' };
     }),
+    asset_types:          VALID_ACCOUNT_TYPES.filter(function(v) { return !ACCOUNT_LIABILITY_TYPES.has(v); }),
     liability_types:      Array.from(ACCOUNT_LIABILITY_TYPES),
     loan_types:           Array.from(ACCOUNT_LOAN_TYPES),
     investment_sub_types: INVESTMENT_SUB_TYPES,
@@ -549,10 +550,9 @@ function getFieldsForAccountType(type) {
     .map(function(key) { return Object.assign({ key: key }, ACCOUNT_SCHEMA[key]); });
 }
 
-// Single field entry by key
-function getAccountSchemaField(key) {
-  return ACCOUNT_SCHEMA[key] || null;
-}
+function getAccountSchemaField(key) { return ACCOUNT_SCHEMA[key] || null; }
+
+function acctColIndex(name) { return getColIndex(ACCOUNT_SCHEMA, name); }
 
 // True if type is a liability (stored with negative balance)
 function isLiabilityType(type) {

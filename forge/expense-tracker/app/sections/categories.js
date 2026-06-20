@@ -116,7 +116,7 @@ function _renderCatTable(cats) {
   }
 
   const rows = cats.map(cat => {
-    const isArchived = cat.is_active === false;
+    const isArchived = !cat.is_active;
     const rowStyle   = isArchived ? ' style="opacity:0.5"' : '';
 
     if (state.catDeleteRow === cat._row) {
@@ -170,7 +170,7 @@ function _renderCatViewRow(cat) {
   const acctBadges = str => String(str || '').split(',').map(s => s.trim()).filter(Boolean)
     .map(t => `<span class="cat-view-badge">${esc(t)}</span>`).join('');
 
-  const statusBadge = cat.is_active !== false
+  const statusBadge = cat.is_active === true
     ? `<span class="badge badge-in" style="font-size:10px">active</span>`
     : `<span class="badge" style="background:var(--muted);color:var(--bg);font-size:10px">archived</span>`;
 
@@ -242,7 +242,7 @@ function _renderCatEditRow(cat) {
           </div>
           <div class="field">
             <label class="checkbox-label">
-              <input type="checkbox" id="catEditIsActive-${r}" ${cat.is_active !== false ? 'checked' : ''}> Active
+              <input type="checkbox" id="catEditIsActive-${r}" ${cat.is_active === true ? 'checked' : ''}> Active
             </label>
           </div>
         </div>

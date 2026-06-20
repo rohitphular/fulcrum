@@ -61,7 +61,21 @@ function json(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// Splits a comma-separated string into a trimmed, non-empty array.
+function splitToList(str) {
+  if (!str) return [];
+  return String(str).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+}
+
 function normaliseTags(tags) {
   if (!tags) return '';
-  return String(tags).split(/[,;]+/).map(t => t.trim()).filter(Boolean).join(';');
+  return String(tags).split(/[,;]+/).map(function(t) { return t.trim(); }).filter(Boolean).join(';');
+}
+
+// Shared column-index helper used by every *ColIndex wrapper.
+// Returns the 0-based array index for a schema field's sheet column position.
+function getColIndex(schema, name) {
+  var f = schema[name];
+  if (!f) throw new Error('Unknown column: ' + name);
+  return f.sheet_column_position - 1;
 }

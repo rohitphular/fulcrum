@@ -56,9 +56,13 @@ async function loadAll() {
       sessionStorage.setItem('et_transactions_cache', JSON.stringify(state.transactions));
     }
 
-    if (catRes.ok) state.categories = catRes.data || [];
+    if (catRes.ok) {
+      state.categories = catRes.data || [];
+      state.categories.forEach(c => { c.is_active = c.is_active === true || String(c.is_active).toLowerCase() === 'true'; });
+    }
     if (accRes.ok) {
       state.accounts   = accRes.data || [];
+      state.accounts.forEach(a => { a.is_active = a.is_active === true || String(a.is_active).toLowerCase() === 'true'; });
       state.accountMap = Object.fromEntries(state.accounts.map(a => [a.id, a]));
     }
     if (ratesRes.ok) {

@@ -1,6 +1,5 @@
 // =============================================================================
 // FULCRUM FORGE — Category Core: CRUD + seed + onEdit sheet cascade
-// Uses CATEGORY_SCHEMA for all column mapping — no magic column numbers.
 // =============================================================================
 
 function listCategories() {

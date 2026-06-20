@@ -14,7 +14,7 @@ let filterOpen  = false;
 function _catMajorOpts(type, selectedVal = '') {
   const cats = state.categories.filter(c => c.transaction_type === type);
   const majors = [...new Map(cats.map(c => {
-    const active = cats.some(x => x.major_category === c.major_category && x.is_active !== false);
+    const active = cats.some(x => x.major_category === c.major_category && x.is_active === true);
     return [c.major_category, { label: c.major_category, active }];
   })).values()];
   return `<option value="">— select —</option>` +
@@ -32,10 +32,35 @@ function _catMinorOpts(type, major, selectedVal = '') {
   return `<option value="">— select —</option>` +
     cats.map(c => {
       const sel = selectedVal === c.minor_category ? 'selected' : '';
-      return c.is_active !== false
+      return c.is_active === true
         ? `<option value="${esc(c.minor_category)}" ${sel}>${esc(c.minor_category)}</option>`
         : `<option value="${esc(c.minor_category)}" ${sel} disabled style="color:var(--muted)">${esc(c.minor_category)} (archived)</option>`;
     }).join('');
+}
+
+// ── Account dropdown helpers — filter by category source/dest account types ──
+
+function _getCat(type, major, minor) {
+  if (!type || !major || !minor) return null;
+  return state.categories.find(c =>
+    c.transaction_type === type &&
+    c.major_category   === major &&
+    c.minor_category   === minor
+  ) || null;
+}
+
+// Returns <option> elements filtered to allowedTypesStr account types.
+// Shows all accounts when no types are configured for the category.
+function _acctOptsWithHints(accounts, allowedTypesStr, selectedId = '') {
+  const allowed = allowedTypesStr
+    ? new Set(allowedTypesStr.split(',').map(s => s.trim().toLowerCase()).filter(Boolean))
+    : new Set();
+  const filtered = allowed.size
+    ? accounts.filter(a => allowed.has((a.type || '').toLowerCase()))
+    : accounts;
+  return filtered.map(a =>
+    `<option value="${esc(a.id)}" ${a.id === selectedId ? 'selected' : ''}>${esc(a.name)} (${esc(a.currency)})</option>`
+  ).join('');
 }
 
 // ── Transaction schema helpers ────────────────────────────────────────────────
@@ -59,18 +84,18 @@ export function renderTransactions() {
   const warnRows  = rows.filter(tx => !tx.id || !tx.transaction_date_utc || !VALID_TX_TYPES.includes(tx.transaction_type));
 
   txEl.innerHTML = `
-    ${renderAddForm()}
-    ${renderFilterBar()}
+    ${_renderAddForm()}
+    ${_renderFilterBar()}
     ${warnRows.length ? `<div class="warning-count" id="warnToggle">⚠ ${warnRows.length} row${warnRows.length > 1 ? 's' : ''} have warnings — click to expand</div>` : ''}
     <div class="table-controls">
       <button class="btn btn-secondary btn-sm" id="exportCsv">Export CSV</button>
       <button class="btn btn-secondary btn-sm" id="exportJson">Export JSON</button>
     </div>
-    ${renderTxTable(validRows, warnRows)}
+    ${_renderTxTable(validRows, warnRows)}
   `;
 
-  attachFilterEvents();
-  attachAddFormEvents();
+  _attachFilterEvents();
+  _attachAddFormEvents();
 
   el('exportCsv')?.addEventListener('click', () => exportData('csv', rows));
   el('exportJson')?.addEventListener('click', () => exportData('json', rows));
@@ -80,8 +105,8 @@ export function renderTransactions() {
   }
 }
 
-function renderTxTable(validRows, warnRows) {
-  const sorted = sortTx([...validRows]);
+function _renderTxTable(validRows, warnRows) {
+  const sorted = _sortTx([...validRows]);
   const total  = sorted.length;
   const pages  = Math.max(1, Math.ceil(total / state.txPerPage));
   if (state.txPage > pages) state.txPage = 1;
@@ -94,8 +119,8 @@ function renderTxTable(validRows, warnRows) {
   };
 
   const rows = paged.map(tx => {
-    if (state.txDeleteRow === tx._row) return renderTxDeleteRow(tx);
-    if (state.txEditRow   === tx._row) return renderTxEditRow(tx);
+    if (state.txDeleteRow === tx._row) return _renderTxDeleteRow(tx);
+    if (state.txEditRow   === tx._row) return _renderTxEditRow(tx);
 
     const badgeCls  = tx.transaction_type === 'money-in' ? 'badge-in' : tx.transaction_type === 'money-out' ? 'badge-out' : 'badge-transfer';
     const typeLabel = _txTypeMap()[tx.transaction_type] || tx.transaction_type;
@@ -176,19 +201,19 @@ function renderTxTable(validRows, warnRows) {
       const row    = btn.dataset.row ? Number(btn.dataset.row) : null;
       if (action === 'tx-edit')           { state.txEditRow = row; state.txDeleteRow = null; renderTransactions(); }
       if (action === 'tx-cancel-edit')    { state.txEditRow = null; renderTransactions(); }
-      if (action === 'tx-save-edit')      { saveEdit(row); }
+      if (action === 'tx-save-edit')      { _saveEdit(row); }
       if (action === 'tx-delete')         { state.txDeleteRow = row; state.txEditRow = null; renderTransactions(); }
       if (action === 'tx-cancel-delete')  { state.txDeleteRow = null; renderTransactions(); }
-      if (action === 'tx-confirm-delete') { confirmDelete(row); }
+      if (action === 'tx-confirm-delete') { _confirmDelete(row); }
     });
 
-    if (state.txEditRow !== null) attachTxEditCascadeEvents(state.txEditRow);
+    if (state.txEditRow !== null) _attachTxEditCascadeEvents(state.txEditRow);
   }, 0);
 
   return html;
 }
 
-function sortTx(rows) {
+function _sortTx(rows) {
   const col = state.txSort.col;
   const dir = state.txSort.dir === 'asc' ? 1 : -1;
   return rows.sort((a, b) => {
@@ -207,9 +232,9 @@ function sortTx(rows) {
 
 // ── Add-transaction form ──────────────────────────────────────────────────────
 
-function renderAddForm() {
+function _renderAddForm() {
   const activeAccounts = state.accounts.filter(
-    a => a.is_active === true || a.is_active === 'TRUE' || a.is_active === 'true'
+    a => a.is_active === true
   );
   return `
   <div class="add-form-wrap">
@@ -234,7 +259,7 @@ function renderAddForm() {
           <label for="afMinor">Minor category *</label>
           <select id="afMinor" disabled><option value="">— select major first —</option></select>
         </div>
-        <div class="field">
+        <div class="field" id="afFromAccountWrap">
           <label for="afFromAccount" id="afFromAccountLabel">From account *</label>
           <select id="afFromAccount" disabled>
             <option value="">— select type first —</option>
@@ -255,7 +280,7 @@ function renderAddForm() {
           <div id="afFxPreview"   class="field-hint" style="display:none;color:var(--teal)"></div>
         </div>
         <div id="afTransferFxSpacer" style="display:none"></div>
-        <div class="field">
+        <div class="field" id="afDateField">
           <label for="afDate">Date &amp; time *</label>
           <input type="datetime-local" id="afDate" value="${nowLocalISO()}">
         </div>
@@ -263,7 +288,7 @@ function renderAddForm() {
           <label for="afCounterparty">Counterparty</label>
           <input type="text" id="afCounterparty" placeholder="Tesco, employer, …">
         </div>
-        <div class="field">
+        <div class="field" id="afAmountField">
           <label for="afAmount">Amount *</label>
           <input type="number" id="afAmount" min="0.01" step="0.01" placeholder="0.00">
         </div>
@@ -271,7 +296,7 @@ function renderAddForm() {
           <label for="afCountry">Country</label>
           <input type="text" id="afCountry" placeholder="UK">
         </div>
-        <div class="field form-grid-span-2">
+        <div class="field form-grid-span-2" id="afTagsField">
           <label for="afTags">Tags</label>
           <input type="text" id="afTags" placeholder="reimbursable, work">
         </div>
@@ -289,7 +314,7 @@ function renderAddForm() {
   </div>`;
 }
 
-function attachAddFormEvents() {
+function _attachAddFormEvents() {
   el('addFormToggle')?.addEventListener('click', () => { addFormOpen = !addFormOpen; renderTransactions(); });
 
   el('afType')?.addEventListener('change', () => {
@@ -300,7 +325,6 @@ function attachAddFormEvents() {
     const isTransfer  = type === 'money-transfer';
     const isMoneyIn   = type === 'money-in';
 
-    // Update From/To account label based on transaction direction
     const fromLabelEl = el('afFromAccountLabel');
     if (fromLabelEl) fromLabelEl.textContent = isMoneyIn ? 'To account *' : 'From account *';
 
@@ -309,6 +333,9 @@ function attachAddFormEvents() {
     fromAccEl.value   = '';
     if (el('afToAccount'))  el('afToAccount').value  = '';
     if (el('afFxRate'))     el('afFxRate').value      = '';
+
+    const _orderIds = ['afFromAccountWrap','afToAccountField','afFxRateWrap','afTransferFxSpacer',
+                       'afMajorField','afMinorField','afDateField','afAmountField','afTagsField','afNotesField'];
 
     if (!type) {
       majorEl.disabled   = true;
@@ -320,8 +347,7 @@ function attachAddFormEvents() {
       ['afMajorField', 'afMinorField', 'afCounterpartyField', 'afCountryField'].forEach(id => {
         const f = el(id); if (f) f.style.display = '';
       });
-      const notesField = el('afNotesField');
-      if (notesField) { notesField.classList.remove('form-grid-full'); notesField.classList.add('form-grid-span-2'); }
+      _orderIds.forEach(id => { const f = el(id); if (f) f.style.order = ''; });
       return;
     }
 
@@ -330,40 +356,44 @@ function attachAddFormEvents() {
     minorEl.disabled   = false;
     fromAccEl.disabled = false;
 
-    // Transfer: show To account inline (same row as From account); hide categorisation fields
     el('afToAccountField').style.display = isTransfer ? '' : 'none';
+
     if (isTransfer) {
+      // Populate from-account immediately (no category filter yet)
+      _afRefreshFromAccountOpts();
       _afRefreshToAccountOpts();
-      _afRefreshFxRateVis(); // sets spacer so Date stays on row 2
+      _afRefreshFxRateVis();
+      // Reorder grid: row 1 = Type | From | To | FX,  row 2 = Major | Minor | Date | Amount
+      el('afFromAccountWrap').style.order    = '2';
+      el('afToAccountField').style.order     = '3';
+      el('afFxRateWrap').style.order         = '4';
+      el('afTransferFxSpacer').style.order   = '4';
+      el('afMajorField').style.order         = '5';
+      el('afMinorField').style.order         = '6';
+      el('afDateField').style.order          = '7';
+      el('afAmountField').style.order        = '8';
+      el('afTagsField').style.order          = '9';
+      el('afNotesField').style.order         = '10';
     } else {
       el('afFxRateWrap').style.display       = 'none';
       el('afTransferFxSpacer').style.display = 'none';
+      _orderIds.forEach(id => { const f = el(id); if (f) f.style.order = ''; });
     }
 
-    // Categorisation fields only apply to money-in and money-out
-    ['afMajorField', 'afMinorField', 'afCounterpartyField', 'afCountryField'].forEach(id => {
+    ['afCounterpartyField', 'afCountryField'].forEach(id => {
       const f = el(id);
       if (f) f.style.display = isTransfer ? 'none' : '';
     });
-
-    // Notes spans full width for transfer (no Tags neighbour), half for money-in/out
-    const notesField = el('afNotesField');
-    if (notesField) {
-      if (isTransfer) {
-        notesField.classList.remove('form-grid-span-2');
-        notesField.classList.add('form-grid-full');
-      } else {
-        notesField.classList.remove('form-grid-full');
-        notesField.classList.add('form-grid-span-2');
-      }
-    }
   });
 
   el('afMajor')?.addEventListener('change', () => {
     const type   = el('afType').value;
     const major  = el('afMajor').value;
     el('afMinor').innerHTML = _catMinorOpts(type, major);
+    _afRefreshFromAccountOpts();  // clear any previous category hint
   });
+
+  el('afMinor')?.addEventListener('change', _afRefreshFromAccountOpts);
 
   el('afFromAccount')?.addEventListener('change', () => {
     if (el('afType').value === 'money-transfer') _afRefreshToAccountOpts();
@@ -375,7 +405,7 @@ function attachAddFormEvents() {
   el('afFxRate')?.addEventListener('input', _afUpdateFxPreview);
   el('afAmount')?.addEventListener('input', _afUpdateFxPreview);
 
-  el('afSubmit')?.addEventListener('click', saveTransaction);
+  el('afSubmit')?.addEventListener('click', _saveTransaction);
   el('afReset')?.addEventListener('click', () => {
     ['afDate','afAmount','afCounterparty','afCountry','afTags','afNotes','afFxRate']
       .forEach(id => { if (el(id)) el(id).value = id === 'afDate' ? nowLocalISO() : ''; });
@@ -393,24 +423,43 @@ function attachAddFormEvents() {
     ['afMajorField', 'afMinorField', 'afCounterpartyField', 'afCountryField'].forEach(id => {
       const f = el(id); if (f) f.style.display = '';
     });
+    ['afFromAccountWrap','afToAccountField','afFxRateWrap','afTransferFxSpacer',
+     'afMajorField','afMinorField','afDateField','afAmountField','afTagsField','afNotesField'
+    ].forEach(id => { const f = el(id); if (f) f.style.order = ''; });
     const fromLabelEl = el('afFromAccountLabel');
     if (fromLabelEl) fromLabelEl.textContent = 'From account *';
-    const notesField = el('afNotesField');
-    if (notesField) { notesField.classList.remove('form-grid-full'); notesField.classList.add('form-grid-span-2'); }
     el('afError').textContent       = '';
   });
 }
 
+function _afRefreshFromAccountOpts() {
+  const type   = el('afType')?.value  || '';
+  const major  = el('afMajor')?.value || '';
+  const minor  = el('afMinor')?.value || '';
+  const fromEl = el('afFromAccount');
+  if (!fromEl) return;
+  const prevVal    = fromEl.value;
+  const activeAccs = state.accounts.filter(a => a.is_active === true);
+  const cat        = _getCat(type, major, minor);
+  const srcTypes   = cat?.source_account_types || '';
+  fromEl.innerHTML = `<option value="">— select —</option>${_acctOptsWithHints(activeAccs, srcTypes, prevVal)}`;
+  if (prevVal) fromEl.value = prevVal;
+  if (type === 'money-transfer') _afRefreshToAccountOpts();
+}
+
 function _afRefreshToAccountOpts() {
-  const fromId    = el('afFromAccount')?.value || '';
-  const toAccEl   = el('afToAccount');
+  const fromId  = el('afFromAccount')?.value || '';
+  const toAccEl = el('afToAccount');
   if (!toAccEl) return;
-  const activeAccs = state.accounts.filter(a => a.is_active === true || a.is_active === 'TRUE' || a.is_active === 'true');
+  const type    = el('afType')?.value  || '';
+  const major   = el('afMajor')?.value || '';
+  const minor   = el('afMinor')?.value || '';
+  const cat     = _getCat(type, major, minor);
+  const dstTypes   = cat?.destination_account_types || '';
+  const activeAccs = state.accounts.filter(a => a.is_active === true);
   const prevVal    = toAccEl.value;
-  const opts = activeAccs.filter(a => a.id !== fromId)
-    .map(a => `<option value="${esc(a.id)}">${esc(a.name)} (${esc(a.currency)})</option>`)
-    .join('');
-  toAccEl.innerHTML = `<option value="">— select —</option>${opts}`;
+  const eligible   = activeAccs.filter(a => a.id !== fromId);
+  toAccEl.innerHTML = `<option value="">— select —</option>${_acctOptsWithHints(eligible, dstTypes, prevVal)}`;
   if (prevVal && prevVal !== fromId) toAccEl.value = prevVal;
 }
 
@@ -467,9 +516,7 @@ function _afUpdateFxPreview() {
 // Rule 5     — money-out from a loan account (with exemption for interest/charges).
 // Rule 6     — FX rate required for cross-currency money-transfer.
 
-const ASSET_ACCOUNT_TYPES = new Set(['current', 'savings', 'cash', 'investment']);
-
-function checkBalanceRules(transaction_type, fromAccount, amount) {
+function _checkBalanceRules(transaction_type, fromAccount, amount) {
   if (!fromAccount) return null;
   const isMoneyOut      = transaction_type === 'money-out';
   const isTransfer      = transaction_type === 'money-transfer';
@@ -479,7 +526,7 @@ function checkBalanceRules(transaction_type, fromAccount, amount) {
   const fmt = n => Number(n).toFixed(2);
 
   // Rules 1 & 3 — asset accounts
-  if (ASSET_ACCOUNT_TYPES.has(fromAccount.type)) {
+  if ((state.accountSchema?.asset_types || []).includes(fromAccount.type)) {
     const balance = Number(fromAccount.current_balance);
     if (balance < amount) {
       return (
@@ -528,7 +575,7 @@ function checkBalanceRules(transaction_type, fromAccount, amount) {
 // Rule 5 — block money-out from a loan account.
 // Exemption: major_category === 'Debt & finance' AND minor_category === 'Interest & charges'.
 // Returns null on pass, or the error string on block.
-function checkRule5(transaction_type, fromAccount, major_category, minor_category) {
+function _checkRule5(transaction_type, fromAccount, major_category, minor_category) {
   if (transaction_type !== 'money-out') return null;
   if (!fromAccount) return null;
   const loanTypes = state.accountSchema?.loan_types || [];
@@ -542,7 +589,7 @@ function checkRule5(transaction_type, fromAccount, major_category, minor_categor
 
 // Rule 6 — FX rate required for cross-currency money-transfer.
 // Returns null on pass, or the error string on block.
-function checkRule6(transaction_type, fromAccount, toAccount, fx_rate) {
+function _checkRule6(transaction_type, fromAccount, toAccount, fx_rate) {
   if (transaction_type !== 'money-transfer') return null;
   if (!fromAccount || !toAccount) return null;
   const fromCcy = fromAccount.currency;
@@ -556,7 +603,7 @@ function checkRule6(transaction_type, fromAccount, toAccount, fx_rate) {
   );
 }
 
-async function saveTransaction() {
+async function _saveTransaction() {
   const btn   = el('afSubmit');
   const errEl = el('afError');
   errEl.textContent = '';
@@ -586,13 +633,13 @@ async function saveTransaction() {
 
   const fromAcc       = state.accountMap[from_account];
   const toAcc         = state.accountMap[to_account];
-  const balanceError  = checkBalanceRules(transaction_type, fromAcc, parseFloat(amount));
+  const balanceError  = _checkBalanceRules(transaction_type, fromAcc, parseFloat(amount));
   if (balanceError) { errEl.textContent = balanceError; return; }
 
-  const rule5Error    = checkRule5(transaction_type, fromAcc, major_category, minor_category);
+  const rule5Error    = _checkRule5(transaction_type, fromAcc, major_category, minor_category);
   if (rule5Error) { errEl.textContent = rule5Error; return; }
 
-  const rule6Error    = checkRule6(transaction_type, fromAcc, toAcc, fx_rate);
+  const rule6Error    = _checkRule6(transaction_type, fromAcc, toAcc, fx_rate);
   if (rule6Error) { errEl.textContent = rule6Error; return; }
 
   btn.disabled = true; btn.textContent = 'Saving…';
@@ -624,17 +671,18 @@ async function saveTransaction() {
 
 // ── Transaction edit / delete ─────────────────────────────────────────────────
 
-function renderTxEditRow(tx) {
+function _renderTxEditRow(tx) {
   const r = tx._row;
   const activeAccounts = state.accounts.filter(
-    a => a.is_active === true || a.is_active === 'TRUE' || a.is_active === 'true'
+    a => a.is_active === true
   );
-  const fromAccountOpts = activeAccounts.map(a =>
-    `<option value="${esc(a.id)}" ${tx.from_account === a.id ? 'selected' : ''}>${esc(a.name)} (${esc(a.currency)})</option>`
-  ).join('');
-  const toAccountOpts = activeAccounts.map(a =>
-    `<option value="${esc(a.id)}" ${tx.to_account === a.id ? 'selected' : ''}>${esc(a.name)} (${esc(a.currency)})</option>`
-  ).join('');
+  const _editCat        = _getCat(tx.transaction_type, tx.major_category, tx.minor_category);
+  const fromAccountOpts = _acctOptsWithHints(activeAccounts, _editCat?.source_account_types || '', tx.from_account);
+  const toAccountOpts   = _acctOptsWithHints(
+    activeAccounts.filter(a => a.id !== tx.from_account),
+    _editCat?.destination_account_types || '',
+    tx.to_account
+  );
   const typeOpts = _txTypes().map(t =>
     `<option value="${esc(t.value)}" ${tx.transaction_type === t.value ? 'selected' : ''}>${esc(t.label)}</option>`
   ).join('');
@@ -653,7 +701,7 @@ function renderTxEditRow(tx) {
   const fromCcy    = state.accountMap[tx.from_account]?.currency;
   const toCcy      = state.accountMap[tx.to_account]?.currency;
   const isXfer     = tx.transaction_type === 'money-transfer';
-  const categStyle = isXfer ? 'display:none' : '';
+  const xferOnlyHide = isXfer ? 'display:none' : '';  // counterparty + country only
   const isCrossCcy = isXfer && fromCcy && toCcy && fromCcy !== toCcy;
   const toWrapStyle  = isXfer    ? '' : 'display:none';
   const fxWrapStyle  = isCrossCcy ? '' : 'display:none';
@@ -681,25 +729,25 @@ function renderTxEditRow(tx) {
           <label>Amount</label>
           <input type="number" id="txEditAmount-${r}" min="0.01" step="0.01" value="${esc(String(tx.amount || ''))}">
         </div>
-        <div class="field" id="txEditMajorField-${r}" style="${categStyle}">
+        <div class="field" id="txEditMajorField-${r}">
           <label>Major category</label>
           <select id="txEditMajor-${r}">
             <option value="">— select —</option>
             ${majorOpts}
           </select>
         </div>
-        <div class="field" id="txEditMinorField-${r}" style="${categStyle}">
+        <div class="field" id="txEditMinorField-${r}">
           <label>Minor category</label>
           <select id="txEditMinor-${r}">
             <option value="">— select —</option>
             ${minorOpts}
           </select>
         </div>
-        <div class="field" id="txEditCounterpartyField-${r}" style="${categStyle}">
+        <div class="field" id="txEditCounterpartyField-${r}" style="${xferOnlyHide}">
           <label>Counterparty</label>
           <input type="text" id="txEditCounterparty-${r}" value="${esc(tx.counterparty || '')}">
         </div>
-        <div class="field" id="txEditCountryField-${r}" style="${categStyle}">
+        <div class="field" id="txEditCountryField-${r}" style="${xferOnlyHide}">
           <label>Country</label>
           <input type="text" id="txEditCountry-${r}" value="${esc(tx.country || '')}">
         </div>
@@ -734,7 +782,7 @@ function renderTxEditRow(tx) {
   </tr>`;
 }
 
-function renderTxDeleteRow(tx) {
+function _renderTxDeleteRow(tx) {
   const fromName = state.accountMap[tx.from_account]?.name || '—';
   const toName   = tx.to_account ? state.accountMap[tx.to_account]?.name : null;
   const accLabel = toName ? `${fromName} → ${toName}` : fromName;
@@ -749,7 +797,7 @@ function renderTxDeleteRow(tx) {
   </tr>`;
 }
 
-function attachTxEditCascadeEvents(r) {
+function _attachTxEditCascadeEvents(r) {
   const _txEditUpdateFxPreview = (row) => {
     const prvEl   = el(`txEditFxPreview-${row}`);
     if (!prvEl) return;
@@ -792,7 +840,7 @@ function attachTxEditCascadeEvents(r) {
     if (!isCrossCcy && el(`txEditFxRate-${row}`)) el(`txEditFxRate-${row}`).value = '';
 
     // Categorisation fields only apply to money-in and money-out
-    ['txEditMajorField', 'txEditMinorField', 'txEditCounterpartyField', 'txEditCountryField'].forEach(prefix => {
+    ['txEditCounterpartyField', 'txEditCountryField'].forEach(prefix => {
       const f = el(`${prefix}-${row}`);
       if (f) f.style.display = isXfer ? 'none' : '';
     });
@@ -813,7 +861,33 @@ function attachTxEditCascadeEvents(r) {
     const type   = el(`txEditType-${r}`).value;
     const major  = el(`txEditMajor-${r}`).value;
     el(`txEditMinor-${r}`).innerHTML = _catMinorOpts(type, major);
+    _txEditRefreshAccountOpts(r);  // clear hint when major changes
   });
+
+  el(`txEditMinor-${r}`)?.addEventListener('change', () => _txEditRefreshAccountOpts(r));
+
+  const _txEditRefreshAccountOpts = (row) => {
+    const type     = el(`txEditType-${row}`)?.value  || '';
+    const major    = el(`txEditMajor-${row}`)?.value || '';
+    const minor    = el(`txEditMinor-${row}`)?.value || '';
+    const cat      = _getCat(type, major, minor);
+    const srcTypes = cat?.source_account_types      || '';
+    const dstTypes = cat?.destination_account_types || '';
+    const actives  = state.accounts.filter(a => a.is_active === true);
+    const fromEl   = el(`txEditFromAccount-${row}`);
+    const toEl     = el(`txEditToAccount-${row}`);
+    if (fromEl) {
+      const prev = fromEl.value;
+      fromEl.innerHTML = `<option value="">— select —</option>${_acctOptsWithHints(actives, srcTypes, prev)}`;
+      if (prev) fromEl.value = prev;
+    }
+    if (toEl) {
+      const fromId = fromEl?.value || '';
+      const prev   = toEl.value;
+      toEl.innerHTML = `<option value="">— none —</option>${_acctOptsWithHints(actives.filter(a => a.id !== fromId), dstTypes, prev)}`;
+      if (prev && prev !== fromId) toEl.value = prev;
+    }
+  };
 
   el(`txEditFromAccount-${r}`)?.addEventListener('change', () => _txEditRefreshFieldVis(r));
   el(`txEditToAccount-${r}`)?.addEventListener('change', () => _txEditRefreshFieldVis(r));
@@ -823,7 +897,7 @@ function attachTxEditCascadeEvents(r) {
   _txEditRefreshFieldVis(r);
 }
 
-async function saveEdit(rowNum) {
+async function _saveEdit(rowNum) {
   const r     = rowNum;
   const errEl = el(`txEditError-${r}`);
   errEl.textContent = '';
@@ -867,16 +941,16 @@ async function saveEdit(rowNum) {
     if (oldTx.transaction_type === 'money-out')      fromPostRevBal += oldAmt; // reversal restores the debit
     if (oldTx.transaction_type === 'money-transfer') fromPostRevBal += oldAmt; // reversal restores the debit
   }
-  // Proxy object with post-reversal balance — passed to checkBalanceRules instead of fromAccEdit.
+  // Proxy object with post-reversal balance — passed to _checkBalanceRules instead of fromAccEdit.
   const fromAccPR = fromAccEdit ? { ...fromAccEdit, current_balance: fromPostRevBal } : fromAccEdit;
 
-  const balanceErrorEdit = checkBalanceRules(transaction_type, fromAccPR, parseFloat(amount));
+  const balanceErrorEdit = _checkBalanceRules(transaction_type, fromAccPR, parseFloat(amount));
   if (balanceErrorEdit) { errEl.textContent = balanceErrorEdit; return; }
 
-  const rule5ErrorEdit = checkRule5(transaction_type, fromAccEdit, major_category, minor_category);
+  const rule5ErrorEdit = _checkRule5(transaction_type, fromAccEdit, major_category, minor_category);
   if (rule5ErrorEdit) { errEl.textContent = rule5ErrorEdit; return; }
 
-  const rule6ErrorEdit = checkRule6(transaction_type, fromAccEdit, toAccEdit, fx_rate);
+  const rule6ErrorEdit = _checkRule6(transaction_type, fromAccEdit, toAccEdit, fx_rate);
   if (rule6ErrorEdit) { errEl.textContent = rule6ErrorEdit; return; }
 
   // to_account credit-card check (transfer edits only)
@@ -939,7 +1013,7 @@ async function saveEdit(rowNum) {
   }
 }
 
-async function confirmDelete(rowNum) {
+async function _confirmDelete(rowNum) {
   showLoading();
   try {
     const res = await ExpenseAPI.deleteTransaction({ row_num: rowNum });
@@ -963,7 +1037,7 @@ async function confirmDelete(rowNum) {
 
 // ── Filter bar ────────────────────────────────────────────────────────────────
 
-function renderFilterBar() {
+function _renderFilterBar() {
   const f        = state.filters;
   const allTypes = _txTypes();
   const allAccs  = state.accounts;
@@ -1047,7 +1121,7 @@ function renderFilterBar() {
   </div>`;
 }
 
-function attachFilterEvents() {
+function _attachFilterEvents() {
   el('filterToggle')?.addEventListener('click', () => { filterOpen = !filterOpen; renderTransactions(); });
 
   document.querySelectorAll('[data-filter-type]').forEach(cb => {

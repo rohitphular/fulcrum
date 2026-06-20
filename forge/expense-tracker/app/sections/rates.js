@@ -58,7 +58,7 @@ function _renderAddForm() {
       </div>
     </div>
     <div class="form-actions">
-      <button class="btn btn-primary" id="rateSaveNew">Save currency</button>
+      <button class="btn btn-primary" id="rateSaveNew">Save</button>
       <button class="btn btn-secondary" id="rateCancelNew">Cancel</button>
     </div>
     <div class="pin-error" id="rateAddError"></div>
@@ -195,11 +195,11 @@ async function _saveNewRate() {
       renderRates();
     } else {
       errEl.textContent = 'Failed: ' + (res.error || 'unknown');
-      saveBtn.style.opacity = ''; saveBtn.style.pointerEvents = ''; saveBtn.textContent = 'Save currency';
+      saveBtn.style.opacity = ''; saveBtn.style.pointerEvents = ''; saveBtn.textContent = 'Save';
     }
   } catch (_) {
     errEl.textContent = 'Connection error.';
-    saveBtn.style.opacity = ''; saveBtn.style.pointerEvents = ''; saveBtn.textContent = 'Save currency';
+    saveBtn.style.opacity = ''; saveBtn.style.pointerEvents = ''; saveBtn.textContent = 'Save';
   } finally {
     hideLoading();
   }
