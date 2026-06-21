@@ -94,28 +94,34 @@ function _renderAddForm() {
         <div class="field-hint">Comma-separated merchant or payer names shown as hints.</div>
       </div>
       <div class="field form-grid-full">
+        <div class="cat-section-divider">Source Account</div>
+      </div>
+      <div class="field form-grid-full">
         <label>Source account types</label>
         <div class="field-hint" style="margin-bottom:6px">Typical account types for the <em>from account</em> (funding account for money-out; source for transfer; leave blank for money-in).</div>
         ${_renderAcctTypeCheckboxes('catNewSrc', '')}
       </div>
-      <div class="field">
+      <div class="field form-grid-full">
         <label class="checkbox-label">
           <input type="checkbox" id="catNewSrcMandatory"> Source account mandatory
         </label>
         <div class="field-hint">When checked, a source account must be selected on the transaction.</div>
       </div>
       <div class="field form-grid-full">
+        <div class="cat-section-divider">Target Account</div>
+      </div>
+      <div class="field form-grid-full">
         <label>Target account types</label>
         <div class="field-hint" style="margin-bottom:6px">Typical account types for the <em>to account</em> (receiving account for money-in; target for transfer; debt repayment target).</div>
         ${_renderAcctTypeCheckboxes('catNewTgt', '')}
       </div>
-      <div class="field">
+      <div class="field form-grid-full">
         <label class="checkbox-label">
           <input type="checkbox" id="catNewTgtMandatory"> Target account mandatory
         </label>
         <div class="field-hint">When checked, a target account must be selected on the transaction.</div>
       </div>
-      <div class="field">
+      <div class="field form-grid-full">
         <label class="checkbox-label">
           <input type="checkbox" id="catNewIsActive" checked> Active
         </label>
@@ -185,42 +191,69 @@ function _renderCatTable(cats) {
 // ── View row ──────────────────────────────────────────────────────────────────
 
 function _renderCatViewRow(cat) {
-  const detail = (label, value) => value !== undefined && value !== null && value !== ''
-    ? `<div class="tx-detail-field"><span class="tx-detail-label">${label}</span><span class="tx-detail-value">${esc(String(value))}</span></div>`
-    : '';
-
-  const acctBadges = str => String(str || '').split(',').map(s => s.trim()).filter(Boolean)
-    .map(t => `<span class="cat-view-badge">${esc(ACCT_TYPE_LABELS[t] || t)}</span>`).join(' ');
-
-  const boolBadge = v => v
-    ? `<span class="badge badge-in" style="font-size:10px">yes</span>`
-    : `<span class="badge" style="background:var(--muted);color:var(--bg);font-size:10px">no</span>`;
-
-  const statusBadge = cat.is_active === true
-    ? `<span class="badge badge-in" style="font-size:10px">active</span>`
-    : `<span class="badge" style="background:var(--muted);color:var(--bg);font-size:10px">archived</span>`;
-
-  const srcTypes = String(cat.source_account_types || '').trim();
-  const tgtTypes = String(cat.target_account_types || '').trim();
-
   return `<tr>
-    <td colspan="4">
-      <div class="tx-view-row">
-        <div class="tx-detail-grid">
-          ${detail('Type', cat.transaction_type)}
-          ${detail('Major', cat.major_category)}
-          ${detail('Minor', cat.minor_category)}
-          <div class="tx-detail-field"><span class="tx-detail-label">Status</span><span class="tx-detail-value">${statusBadge}</span></div>
-          ${detail('Description', cat.description)}
-          ${detail('Tag keywords', cat.tag_keywords)}
-          ${detail('Counterparty examples', cat.counterparty_examples)}
-          ${detail('Sort order', cat.sort_order || 0)}
-          <div class="tx-detail-field"><span class="tx-detail-label">Source account types</span><span class="tx-detail-value">${srcTypes ? acctBadges(srcTypes) : '<span style="color:var(--muted)">—</span>'}</span></div>
-          <div class="tx-detail-field"><span class="tx-detail-label">Source account mandatory</span><span class="tx-detail-value">${boolBadge(cat.source_account_mandatory)}</span></div>
-          <div class="tx-detail-field"><span class="tx-detail-label">Target account types</span><span class="tx-detail-value">${tgtTypes ? acctBadges(tgtTypes) : '<span style="color:var(--muted)">—</span>'}</span></div>
-          <div class="tx-detail-field"><span class="tx-detail-label">Target account mandatory</span><span class="tx-detail-value">${boolBadge(cat.target_account_mandatory)}</span></div>
+    <td colspan="4" style="padding:0">
+      <div class="card cat-view-form" style="margin:6px 0">
+        <div class="form-grid form-grid-4">
+          <div class="field">
+            <label>Type</label>
+            <input disabled value="${esc(cat.transaction_type)}">
+          </div>
+          <div class="field">
+            <label>Major</label>
+            <input disabled value="${esc(cat.major_category)}">
+          </div>
+          <div class="field form-grid-span-2">
+            <label>Minor</label>
+            <input disabled value="${esc(cat.minor_category)}">
+          </div>
+          <div class="field form-grid-span-3">
+            <label>Description</label>
+            <input disabled value="${esc(String(cat.description || ''))}">
+          </div>
+          <div class="field">
+            <label>Sort order</label>
+            <input type="number" disabled value="${esc(String(cat.sort_order ?? 0))}">
+          </div>
+          <div class="field form-grid-span-2">
+            <label>Tag keywords</label>
+            <input disabled value="${esc(String(cat.tag_keywords || ''))}">
+          </div>
+          <div class="field form-grid-span-2">
+            <label>Counterparty examples</label>
+            <input disabled value="${esc(String(cat.counterparty_examples || ''))}">
+          </div>
+          <div class="field form-grid-full">
+            <div class="cat-section-divider">Source Account</div>
+          </div>
+          <div class="field form-grid-full">
+            <label>Source account types</label>
+            ${_renderAcctTypeCheckboxes('', cat.source_account_types || '', true)}
+          </div>
+          <div class="field form-grid-full">
+            <label class="checkbox-label">
+              <input type="checkbox" ${cat.source_account_mandatory === true ? 'checked' : ''} disabled> Source account mandatory
+            </label>
+          </div>
+          <div class="field form-grid-full">
+            <div class="cat-section-divider">Target Account</div>
+          </div>
+          <div class="field form-grid-full">
+            <label>Target account types</label>
+            ${_renderAcctTypeCheckboxes('', cat.target_account_types || '', true)}
+          </div>
+          <div class="field form-grid-full">
+            <label class="checkbox-label">
+              <input type="checkbox" ${cat.target_account_mandatory === true ? 'checked' : ''} disabled> Target account mandatory
+            </label>
+          </div>
+          <div class="field form-grid-full">
+            <label class="checkbox-label">
+              <input type="checkbox" ${cat.is_active === true ? 'checked' : ''} disabled> Active
+            </label>
+          </div>
         </div>
-        <div class="row-actions" style="margin-top:10px">
+        <div class="form-actions">
           <button class="btn-link" data-action="cat-cancel-view">Close</button>
         </div>
       </div>
@@ -269,24 +302,30 @@ function _renderCatEditRow(cat) {
             <input id="catEditCounterparty-${r}" value="${esc(String(cat.counterparty_examples || ''))}" placeholder="Tesco, Sainsbury's, …">
           </div>
           <div class="field form-grid-full">
+            <div class="cat-section-divider">Source Account</div>
+          </div>
+          <div class="field form-grid-full">
             <label>Source account types</label>
             ${_renderAcctTypeCheckboxes(`catEditSrc-${r}`, cat.source_account_types || '')}
           </div>
-          <div class="field">
+          <div class="field form-grid-full">
             <label class="checkbox-label">
               <input type="checkbox" id="catEditSrcMandatory-${r}" ${cat.source_account_mandatory === true ? 'checked' : ''}> Source account mandatory
             </label>
           </div>
           <div class="field form-grid-full">
+            <div class="cat-section-divider">Target Account</div>
+          </div>
+          <div class="field form-grid-full">
             <label>Target account types</label>
             ${_renderAcctTypeCheckboxes(`catEditTgt-${r}`, cat.target_account_types || '')}
           </div>
-          <div class="field">
+          <div class="field form-grid-full">
             <label class="checkbox-label">
               <input type="checkbox" id="catEditTgtMandatory-${r}" ${cat.target_account_mandatory === true ? 'checked' : ''}> Target account mandatory
             </label>
           </div>
-          <div class="field">
+          <div class="field form-grid-full">
             <label class="checkbox-label">
               <input type="checkbox" id="catEditIsActive-${r}" ${cat.is_active === true ? 'checked' : ''}> Active
             </label>
@@ -303,23 +342,25 @@ function _renderCatEditRow(cat) {
 
 // ── Account type multi-select ─────────────────────────────────────────────────
 
-function _renderAcctTypeCheckboxes(containerId, currentValue) {
+function _renderAcctTypeCheckboxes(containerId, currentValue, disabled = false) {
   const selected = new Set(
     String(currentValue || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
   );
+  const dis = disabled ? ' disabled' : '';
 
   const renderGroup = (label, types) =>
     `<div class="acct-type-group">
       <span class="acct-type-group-label">${label}</span>
       ${types.map(t =>
         `<label class="acct-type-check">
-          <input type="checkbox" data-acct-type="${esc(t)}" ${selected.has(t) ? 'checked' : ''}> ${esc(ACCT_TYPE_LABELS[t] || t)}
+          <input type="checkbox" data-acct-type="${esc(t)}" ${selected.has(t) ? 'checked' : ''}${dis}> ${esc(ACCT_TYPE_LABELS[t] || t)}
         </label>`
       ).join('')}
     </div>`;
 
   const { assetTypes, creditTypes, loanTypes } = _acctTypeGroups();
-  return `<div class="account-type-checkboxes" id="${esc(containerId)}">
+  const idAttr = containerId ? ` id="${esc(containerId)}"` : '';
+  return `<div class="account-type-checkboxes"${idAttr}>
     ${renderGroup('Assets', assetTypes)}
     ${renderGroup('Credit', creditTypes)}
     ${renderGroup('Loans',  loanTypes)}

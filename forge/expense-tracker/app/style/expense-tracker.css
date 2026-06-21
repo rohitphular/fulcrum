@@ -564,20 +564,27 @@ td.td-truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; wh
   font-family: var(--mono); font-size: 12px; color: var(--muted);
 }
 /* ── category view row ── */
-.cat-view-detail {
-  display: flex; align-items: baseline; gap: 8px;
-  margin-top: 5px; font-size: 13px;
-}
-.cat-view-label {
-  font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
-  color: var(--muted); min-width: 80px; white-space: nowrap; flex-shrink: 0;
-}
 .cat-view-badge {
   display: inline-block; padding: 1px 7px;
   font-size: 11px; border-radius: 10px;
   background: var(--panel); border: 1px solid var(--hair-strong);
   color: var(--ink); margin: 1px 2px 1px 0;
 }
+
+/* ── category form section divider ── */
+.cat-section-divider {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--muted);
+  font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+}
+.cat-section-divider::before,
+.cat-section-divider::after { content: ''; flex: 1; height: 1px; background: var(--hair); }
+
+/* ── category view form (readonly) ── */
+.cat-view-form input:disabled,
+.cat-view-form select:disabled,
+.cat-view-form textarea:disabled { opacity: .7; cursor: default; background: var(--canvas); }
+.cat-view-form input[type=checkbox]:disabled { cursor: default; opacity: .7; }
 td.td-keywords { max-width: 220px; }
 .cat-edit-select {
   font-family: var(--mono);
