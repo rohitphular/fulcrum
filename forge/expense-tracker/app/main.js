@@ -7,6 +7,8 @@ import { showSection } from './core/nav.js';
 import { renderDashboard } from './sections/dashboard.js';
 import { renderTransactions } from './sections/transactions.js';
 import { renderAccounts } from './sections/accounts.js';
+import { renderCategories } from './sections/categories.js';
+import { renderRates } from './sections/rates.js';
 import { showPinGate, hidePinGate, fetchGeo, submitPin, readSession, clearSession } from './core/auth.js';
 import { loadAccountSchema, loadTransactionSchema, loadCategorySchema } from './core/schema.js';
 
@@ -28,7 +30,13 @@ function setTheme(theme) {
   localStorage.setItem('et_theme', theme);
   const btn = el('themeToggle');
   if (btn) btn.textContent = theme === 'dark' ? '☀' : '☽';
-  if (state.transactions.length) renderDashboard();
+  if (!state.transactions.length) return;
+  const active = sessionStorage.getItem('et_section') || 'dashboard';
+  if (active === 'dashboard')    renderDashboard();
+  if (active === 'transactions') renderTransactions();
+  if (active === 'accounts')     renderAccounts();
+  if (active === 'categories')   renderCategories();
+  if (active === 'rates')        renderRates();
 }
 
 // ── Data loading ──────────────────────────────────────────────────────────────

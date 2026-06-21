@@ -984,13 +984,13 @@ async function _saveEdit(rowNum) {
   const rule6ErrorEdit = _checkRule6(transaction_type, fromAccEdit, toAccEdit, fx_rate);
   if (rule6ErrorEdit) { errEl.textContent = rule6ErrorEdit; return; }
 
-  // to_account credit-card check (transfer edits only)
+  // target_account credit-card check (transfer edits only)
   if (
     transaction_type === 'money-transfer' &&
     toAccEdit && toAccEdit.type === 'credit_card' &&
     Number(toAccEdit.credit_card_limit) > 0
   ) {
-    // How much will be credited to to_account in Phase 2?
+    // How much will be credited to target_account in Phase 2?
     const newFxRate   = fx_rate ? parseFloat(fx_rate) : 0;
     const newCredited = newFxRate > 0 ? parseFloat(amount) * newFxRate : parseFloat(amount);
 
@@ -1074,7 +1074,6 @@ function _renderFilterBar() {
   const allAccs  = state.accounts;
   const allMajor = [...new Set(state.categories.map(c => c.major_category))];
   const allMinor = [...new Set(state.categories.map(c => c.minor_category))];
-  const methods  = ['card','cash','bank','UPI','other'];
 
   const activeChips = [
     ...f.types.map(t    => ({ label: _txTypeMap()[t] || t, key: 'types',    val: t })),
@@ -1082,7 +1081,6 @@ function _renderFilterBar() {
     ...f.major.map(m    => ({ label: m,                   key: 'major',    val: m })),
     ...f.minor.map(m    => ({ label: m,                   key: 'minor',    val: m })),
     ...(f.country ? [{ label: 'Country: '+f.country, key: 'country', val: '' }] : []),
-    ...(f.method  ? [{ label: 'Method: ' +f.method,  key: 'method',  val: '' }] : []),
     ...(f.tag     ? [{ label: 'Tag: '    +f.tag,      key: 'tag',     val: '' }] : []),
     ...(f.search  ? [{ label: 'Search: ' +f.search,  key: 'search',  val: '' }] : []),
   ];
@@ -1128,13 +1126,6 @@ function _renderFilterBar() {
         <input type="text" id="filterCountry" value="${esc(f.country)}" placeholder="e.g. UK">
       </div>
       <div class="filter-row">
-        <label>Method</label>
-        <select id="filterMethod">
-          <option value="">All</option>
-          ${methods.map(m => `<option value="${esc(m)}" ${f.method === m ? 'selected' : ''}>${esc(m)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="filter-row">
         <label>Tag</label>
         <input type="text" id="filterTag" value="${esc(f.tag)}" placeholder="any tag">
       </div>
@@ -1176,7 +1167,6 @@ function _attachFilterEvents() {
   bindSelect('filterAccount', 'accounts');
   bindSelect('filterMajor',   'major');
   bindSelect('filterMinor',   'minor');
-  bindSelect('filterMethod',  'method');
   bindText('filterCountry',   'country');
   bindText('filterTag',       'tag');
   bindText('filterSearch',    'search');

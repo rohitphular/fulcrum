@@ -248,7 +248,7 @@ function renderAccountChart(filtered) {
 
   const byAccount = {};
   filtered.filter(tx => tx.transaction_type === 'money-out').forEach(tx => {
-    const key = state.accountMap[tx.from_account]?.name || '—';
+    const key = state.accountMap[tx.source_account]?.name || '—';
     byAccount[key] = (byAccount[key] || 0) + toBase(tx.amount, tx.currency, tx.fx_rate);
   });
   const sorted = Object.entries(byAccount).sort((a, b) => b[1] - a[1]);

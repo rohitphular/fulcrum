@@ -27,6 +27,6 @@ export const fmtBase    = (amount, from, rowFxRate) => _fmtBase(amount, from, ro
 export const fmtNative  = (amount, currency)        => _fmtNative(amount, currency, state.rates);
 
 const ET_COLS = ['id', 'transaction_date_utc', 'transaction_type', 'amount', 'currency',
-  'from_account', 'to_account', 'major_category', 'minor_category',
+  'source_account', 'target_account', 'major_category', 'minor_category',
   'counterparty', 'notes', 'tags', 'transfer_id', 'fx_rate', 'country', 'payment_method'];
 export const exportData = (format, rows)            => _exportData(format, rows, 'expenses', ET_COLS);

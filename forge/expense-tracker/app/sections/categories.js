@@ -3,11 +3,21 @@ import { el, esc } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { ExpenseAPI } from '../core/api.js';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Constants — fallbacks used before schema loads ────────────────────────────
 
-const ASSET_TYPES   = ['current', 'savings', 'cash', 'investment'];
-const CREDIT_TYPES  = ['credit_card', 'overdraft'];
-const LOAN_TYPES    = ['mortgage', 'auto_loan', 'heloc', 'personal_loan', 'student_loan', 'medical_loan', 'debt_consolidation'];
+const _ASSET_FALLBACK  = ['current', 'savings', 'cash', 'investment'];
+const _CREDIT_FALLBACK = ['credit_card', 'overdraft'];
+const _LOAN_FALLBACK   = ['mortgage', 'auto_loan', 'heloc', 'personal_loan', 'student_loan', 'medical_loan', 'debt_consolidation'];
+
+function _acctTypeGroups() {
+  const sch        = state.accountSchema;
+  const assetTypes = sch?.asset_types     || _ASSET_FALLBACK;
+  const loanTypes  = sch?.loan_types      || _LOAN_FALLBACK;
+  const liabTypes  = sch?.liability_types || [..._CREDIT_FALLBACK, ..._LOAN_FALLBACK];
+  const loanSet    = new Set(loanTypes);
+  const creditTypes = liabTypes.filter(t => !loanSet.has(t));
+  return { assetTypes, creditTypes, loanTypes };
+}
 
 const ACCT_TYPE_LABELS = {
   current: 'Current', savings: 'Savings', cash: 'Cash', investment: 'Investment',
@@ -272,10 +282,11 @@ function _renderAcctTypeCheckboxes(containerId, currentValue) {
       ).join('')}
     </div>`;
 
+  const { assetTypes, creditTypes, loanTypes } = _acctTypeGroups();
   return `<div class="account-type-checkboxes" id="${esc(containerId)}">
-    ${renderGroup('Assets', ASSET_TYPES)}
-    ${renderGroup('Credit', CREDIT_TYPES)}
-    ${renderGroup('Loans', LOAN_TYPES)}
+    ${renderGroup('Assets', assetTypes)}
+    ${renderGroup('Credit', creditTypes)}
+    ${renderGroup('Loans',  loanTypes)}
   </div>`;
 }
 
