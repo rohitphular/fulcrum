@@ -81,6 +81,20 @@ function _balanceCell(a) {
 
     return html;
   }
+  if (a.type === 'investment') {
+    const curVal = Number(a.investment_current_value);
+    if (curVal > 0) {
+      const invested = Math.abs(bal);
+      const gain     = curVal - invested;
+      const gainPct  = invested !== 0 ? gain / invested * 100 : 0;
+      const gainCol  = gain >= 0 ? 'var(--teal)' : 'var(--ember)';
+      const gainSign = gain >= 0 ? '+' : '−';
+      const asOf     = a.investment_as_of_date ? ` · as of ${esc(a.investment_as_of_date)}` : '';
+      return `<span class="acc-bal-mono">${sym}${_fmtBal(curVal)}</span>
+        <div class="acc-bal-detail">invested ${sym}${_fmtBal(invested)}${asOf}</div>
+        <div class="acc-bal-detail" style="color:${gainCol}">${gainSign}${sym}${_fmtBal(Math.abs(gain))} (${gainSign}${Math.abs(gainPct).toFixed(1)}%)</div>`;
+    }
+  }
   const cls = bal < 0 ? 'negative acc-bal-mono' : 'acc-bal-mono';
   return `<span class="${cls}">${bal < 0 ? '−' : ''}${sym}${_fmtBal(bal)}</span>`;
 }
@@ -105,7 +119,12 @@ function _renderNetWorth() {
 
   const totalAssets = state.accounts
     .filter(a => !_isLiability(a))
-    .reduce((s, a) => s + toBase(a.current_balance, a.currency, null), 0);
+    .reduce((s, a) => {
+      const bal = (a.type === 'investment' && Number(a.investment_current_value) > 0)
+        ? Number(a.investment_current_value)
+        : parseFloat(a.current_balance || 0);
+      return s + toBase(bal, a.currency, null);
+    }, 0);
   const totalLiab = state.accounts
     .filter(a => _isLiability(a))
     .reduce((s, a) => s + Math.abs(toBase(a.current_balance, a.currency, null)), 0);
@@ -222,6 +241,15 @@ function _renderAddForm() {
         <div class="field">
           <label for="accNewInvMaturity">Maturity date</label>
           <input type="date" id="accNewInvMaturity">
+        </div>
+        <div class="field">
+          <label for="accNewInvCurrentVal">Current value</label>
+          <input type="number" id="accNewInvCurrentVal" step="0.01" min="0" placeholder="0.00">
+          <div class="field-hint">Market value today — update manually when you check your portfolio.</div>
+        </div>
+        <div class="field">
+          <label for="accNewInvAsOfDate">Value as of</label>
+          <input type="date" id="accNewInvAsOfDate">
         </div>
       </div>
     </div>
@@ -476,9 +504,11 @@ function _renderEditRow(a) {
         </div>` : ''}
 
         ${isInv ? `<div class="form-grid" style="gap:10px 12px">
-          ${f(`accEditInvPlat-${r}`,    'Platform / Broker',  inp(`accEditInvPlat-${r}`, a.investment_platform || ''))}
-          ${f(`accEditInvRisk-${r}`,    'Risk level',          sel(`accEditInvRisk-${r}`, [['','— select —'],['low','Low'],['medium','Medium'],['high','High']], a.investment_risk_level || ''))}
-          ${f(`accEditInvMaturity-${r}`,'Maturity date',        date(`accEditInvMaturity-${r}`, a.savings_maturity_date || ''))}
+          ${f(`accEditInvPlat-${r}`,       'Platform / Broker',  inp(`accEditInvPlat-${r}`, a.investment_platform || ''))}
+          ${f(`accEditInvRisk-${r}`,       'Risk level',          sel(`accEditInvRisk-${r}`, [['','— select —'],['low','Low'],['medium','Medium'],['high','High']], a.investment_risk_level || ''))}
+          ${f(`accEditInvMaturity-${r}`,   'Maturity date',       date(`accEditInvMaturity-${r}`, a.savings_maturity_date || ''))}
+          ${f(`accEditInvCurrentVal-${r}`, 'Current value',       num(`accEditInvCurrentVal-${r}`, a.investment_current_value || ''))}
+          ${f(`accEditInvAsOfDate-${r}`,   'Value as of',         date(`accEditInvAsOfDate-${r}`, a.investment_as_of_date || ''))}
         </div>` : ''}
 
         ${isLoan ? `<div class="form-grid" style="gap:10px 12px">
@@ -629,6 +659,8 @@ async function _saveNew() {
     const risk = _v('accNewInvRisk');            if (risk) payload.investment_risk_level = risk;
     const mat  = _v('accNewInvMaturity');        if (mat)  payload.savings_maturity_date = mat;
     const sub  = _v('accNewSubType');            if (sub)  payload.sub_type = sub;
+    const cv   = _n('accNewInvCurrentVal');      if (cv  !== undefined) payload.investment_current_value = cv;
+    const aod  = _v('accNewInvAsOfDate');        if (aod) payload.investment_as_of_date = aod;
   }
 
   if (_loanSet().has(type)) {
@@ -714,9 +746,11 @@ async function _saveEdit(rowNum) {
   }
 
   if (type === 'investment') {
-    const plat    = el(`accEditInvPlat-${r}`)?.value.trim();    payload.investment_platform   = plat || '';
-    const risk    = _v(`accEditInvRisk-${r}`);                   if (risk)                 payload.investment_risk_level = risk;
-    const maturity= _v(`accEditInvMaturity-${r}`);               if (maturity)             payload.savings_maturity_date = maturity;
+    const plat = el(`accEditInvPlat-${r}`)?.value.trim();    payload.investment_platform   = plat || '';
+    const risk = _v(`accEditInvRisk-${r}`);                  if (risk)    payload.investment_risk_level    = risk;
+    const mat  = _v(`accEditInvMaturity-${r}`);              if (mat)     payload.savings_maturity_date    = mat;
+    const cv   = _n(`accEditInvCurrentVal-${r}`);            if (cv !== undefined) payload.investment_current_value = cv;
+    const aod  = _v(`accEditInvAsOfDate-${r}`);              if (aod)     payload.investment_as_of_date    = aod;
   }
 
   if (_loanSet().has(type)) {

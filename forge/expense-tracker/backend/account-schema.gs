@@ -35,7 +35,7 @@ const MORTGAGE_SUB_TYPES = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Schema — 37 fields in column-position order
+// Schema — 39 fields in column-position order
 // ─────────────────────────────────────────────────────────────────────────────
 const ACCOUNT_SCHEMA = {
 
@@ -223,7 +223,7 @@ const ACCOUNT_SCHEMA = {
     default_value: '',
   },
 
-  // ── Investment (columns 16–17) ────────────────────────────────────────────
+  // ── Investment (columns 16–19) ────────────────────────────────────────────
   investment_platform: {
     sheet_column_name: 'investment_platform',
     sheet_column_position: 16,
@@ -242,6 +242,30 @@ const ACCOUNT_SCHEMA = {
     ui_label: 'Risk Level',
     type: 'enum',
     enum_values: ['low', 'medium', 'high'],
+    group: 'investment',
+    applies_to: ['investment'],
+    required_for: [],
+    editable: true,
+    default_value: '',
+  },
+  investment_current_value: {
+    sheet_column_name: 'investment_current_value',
+    sheet_column_position: 38,
+    ui_label: 'Current Value',
+    type: 'number',
+    enum_values: null,
+    group: 'investment',
+    applies_to: ['investment'],
+    required_for: [],
+    editable: true,
+    default_value: '',
+  },
+  investment_as_of_date: {
+    sheet_column_name: 'investment_as_of_date',
+    sheet_column_position: 39,
+    ui_label: 'Value as of Date',
+    type: 'date',
+    enum_values: null,
     group: 'investment',
     applies_to: ['investment'],
     required_for: [],

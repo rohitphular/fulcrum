@@ -82,9 +82,11 @@ function createAccount(body) {
 
   // Investment
   if (type === 'investment') {
-    setCol('savings_maturity_date', body.savings_maturity_date !== undefined ? body.savings_maturity_date : '');
-    setCol('investment_platform',   String(body.investment_platform   || '').trim());
-    setCol('investment_risk_level', String(body.investment_risk_level || '').trim());
+    setCol('savings_maturity_date',    body.savings_maturity_date    !== undefined ? body.savings_maturity_date    : '');
+    setCol('investment_platform',      String(body.investment_platform      || '').trim());
+    setCol('investment_risk_level',    String(body.investment_risk_level    || '').trim());
+    setCol('investment_current_value', body.investment_current_value !== undefined ? Number(body.investment_current_value) || '' : '');
+    setCol('investment_as_of_date',    body.investment_as_of_date    !== undefined ? String(body.investment_as_of_date).trim() : '');
   }
 
   // Loans
@@ -158,9 +160,11 @@ function updateAccount(body) {
 
   // Investment
   if (currentType === 'investment') {
-    if (body.savings_maturity_date  !== undefined) writeField('savings_maturity_date',  body.savings_maturity_date);
-    if (body.investment_platform    !== undefined) writeField('investment_platform',    String(body.investment_platform  || '').trim());
-    if (body.investment_risk_level  !== undefined) writeField('investment_risk_level',  String(body.investment_risk_level || '').trim());
+    if (body.savings_maturity_date    !== undefined) writeField('savings_maturity_date',    body.savings_maturity_date);
+    if (body.investment_platform      !== undefined) writeField('investment_platform',      String(body.investment_platform      || '').trim());
+    if (body.investment_risk_level    !== undefined) writeField('investment_risk_level',    String(body.investment_risk_level    || '').trim());
+    if (body.investment_current_value !== undefined) writeField('investment_current_value', Number(body.investment_current_value) || '');
+    if (body.investment_as_of_date    !== undefined) writeField('investment_as_of_date',    String(body.investment_as_of_date    || '').trim());
   }
 
   // Loans
