@@ -95,13 +95,25 @@ function _renderAddForm() {
       </div>
       <div class="field form-grid-full">
         <label>Source account types</label>
-        <div class="field-hint" style="margin-bottom:6px">Typical account types for the <em>from account</em> (receiving account for money-in; funding account for money-out; source for transfer).</div>
+        <div class="field-hint" style="margin-bottom:6px">Typical account types for the <em>from account</em> (funding account for money-out; source for transfer; leave blank for money-in).</div>
         ${_renderAcctTypeCheckboxes('catNewSrc', '')}
       </div>
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="catNewSrcMandatory"> Source account mandatory
+        </label>
+        <div class="field-hint">When checked, a source account must be selected on the transaction.</div>
+      </div>
       <div class="field form-grid-full">
-        <label>Destination account types</label>
-        <div class="field-hint" style="margin-bottom:6px">Typical account types for the <em>to account</em> (transfers only; leave blank for money-in / money-out).</div>
-        ${_renderAcctTypeCheckboxes('catNewDst', '')}
+        <label>Target account types</label>
+        <div class="field-hint" style="margin-bottom:6px">Typical account types for the <em>to account</em> (receiving account for money-in; target for transfer; debt repayment target).</div>
+        ${_renderAcctTypeCheckboxes('catNewTgt', '')}
+      </div>
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="catNewTgtMandatory"> Target account mandatory
+        </label>
+        <div class="field-hint">When checked, a target account must be selected on the transaction.</div>
       </div>
       <div class="field">
         <label class="checkbox-label">
@@ -173,32 +185,46 @@ function _renderCatTable(cats) {
 // ── View row ──────────────────────────────────────────────────────────────────
 
 function _renderCatViewRow(cat) {
-  const detail = (label, value) => value
-    ? `<div class="cat-view-detail"><span class="cat-view-label">${label}</span><span>${esc(String(value))}</span></div>`
+  const detail = (label, value) => value !== undefined && value !== null && value !== ''
+    ? `<div class="tx-detail-field"><span class="tx-detail-label">${label}</span><span class="tx-detail-value">${esc(String(value))}</span></div>`
     : '';
 
   const acctBadges = str => String(str || '').split(',').map(s => s.trim()).filter(Boolean)
-    .map(t => `<span class="cat-view-badge">${esc(t)}</span>`).join('');
+    .map(t => `<span class="cat-view-badge">${esc(ACCT_TYPE_LABELS[t] || t)}</span>`).join(' ');
+
+  const boolBadge = v => v
+    ? `<span class="badge badge-in" style="font-size:10px">yes</span>`
+    : `<span class="badge" style="background:var(--muted);color:var(--bg);font-size:10px">no</span>`;
 
   const statusBadge = cat.is_active === true
     ? `<span class="badge badge-in" style="font-size:10px">active</span>`
     : `<span class="badge" style="background:var(--muted);color:var(--bg);font-size:10px">archived</span>`;
 
+  const srcTypes = String(cat.source_account_types || '').trim();
+  const tgtTypes = String(cat.target_account_types || '').trim();
+
   return `<tr>
-    <td>${_catTypeBadge(cat.transaction_type)}</td>
-    <td><strong>${esc(cat.major_category)}</strong></td>
-    <td>
-      <div style="margin-bottom:6px"><strong>${esc(cat.minor_category)}</strong> ${statusBadge}</div>
-      ${detail('Description', cat.description)}
-      ${detail('Keywords', cat.tag_keywords)}
-      ${detail('Counterparty', cat.counterparty_examples)}
-      ${cat.source_account_types ? `<div class="cat-view-detail"><span class="cat-view-label">Source types</span><span>${acctBadges(cat.source_account_types)}</span></div>` : ''}
-      ${cat.destination_account_types ? `<div class="cat-view-detail"><span class="cat-view-label">Dest. types</span><span>${acctBadges(cat.destination_account_types)}</span></div>` : ''}
-      ${cat.sort_order ? detail('Sort order', cat.sort_order) : ''}
+    <td colspan="4">
+      <div class="tx-view-row">
+        <div class="tx-detail-grid">
+          ${detail('Type', cat.transaction_type)}
+          ${detail('Major', cat.major_category)}
+          ${detail('Minor', cat.minor_category)}
+          <div class="tx-detail-field"><span class="tx-detail-label">Status</span><span class="tx-detail-value">${statusBadge}</span></div>
+          ${detail('Description', cat.description)}
+          ${detail('Tag keywords', cat.tag_keywords)}
+          ${detail('Counterparty examples', cat.counterparty_examples)}
+          ${detail('Sort order', cat.sort_order || 0)}
+          <div class="tx-detail-field"><span class="tx-detail-label">Source account types</span><span class="tx-detail-value">${srcTypes ? acctBadges(srcTypes) : '<span style="color:var(--muted)">—</span>'}</span></div>
+          <div class="tx-detail-field"><span class="tx-detail-label">Source account mandatory</span><span class="tx-detail-value">${boolBadge(cat.source_account_mandatory)}</span></div>
+          <div class="tx-detail-field"><span class="tx-detail-label">Target account types</span><span class="tx-detail-value">${tgtTypes ? acctBadges(tgtTypes) : '<span style="color:var(--muted)">—</span>'}</span></div>
+          <div class="tx-detail-field"><span class="tx-detail-label">Target account mandatory</span><span class="tx-detail-value">${boolBadge(cat.target_account_mandatory)}</span></div>
+        </div>
+        <div class="row-actions" style="margin-top:10px">
+          <button class="btn-link" data-action="cat-cancel-view">Close</button>
+        </div>
+      </div>
     </td>
-    <td><div class="row-actions">
-      <button class="btn-link" data-action="cat-cancel-view">Close</button>
-    </div></td>
   </tr>`;
 }
 
@@ -246,9 +272,19 @@ function _renderCatEditRow(cat) {
             <label>Source account types</label>
             ${_renderAcctTypeCheckboxes(`catEditSrc-${r}`, cat.source_account_types || '')}
           </div>
+          <div class="field">
+            <label class="checkbox-label">
+              <input type="checkbox" id="catEditSrcMandatory-${r}" ${cat.source_account_mandatory === true ? 'checked' : ''}> Source account mandatory
+            </label>
+          </div>
           <div class="field form-grid-full">
-            <label>Destination account types</label>
-            ${_renderAcctTypeCheckboxes(`catEditDst-${r}`, cat.destination_account_types || '')}
+            <label>Target account types</label>
+            ${_renderAcctTypeCheckboxes(`catEditTgt-${r}`, cat.target_account_types || '')}
+          </div>
+          <div class="field">
+            <label class="checkbox-label">
+              <input type="checkbox" id="catEditTgtMandatory-${r}" ${cat.target_account_mandatory === true ? 'checked' : ''}> Target account mandatory
+            </label>
           </div>
           <div class="field">
             <label class="checkbox-label">
@@ -353,11 +389,13 @@ async function _saveNewCategory() {
   const description            = el('catNewDesc')?.value.trim();
   const tag_keywords           = el('catNewKeywords')?.value.trim();
   const counterparty_examples  = el('catNewCounterparty')?.value.trim();
-  const source_account_types   = _getCheckedAccountTypes('catNewSrc');
-  const destination_account_types = _getCheckedAccountTypes('catNewDst');
-  const sort_order             = Number(el('catNewSortOrder')?.value) || 0;
-  const is_active              = el('catNewIsActive')?.checked !== false;
-  const errEl                  = el('catAddError');
+  const source_account_types        = _getCheckedAccountTypes('catNewSrc');
+  const target_account_types        = _getCheckedAccountTypes('catNewTgt');
+  const source_account_mandatory    = el('catNewSrcMandatory')?.checked === true;
+  const target_account_mandatory    = el('catNewTgtMandatory')?.checked === true;
+  const sort_order                  = Number(el('catNewSortOrder')?.value) || 0;
+  const is_active                   = el('catNewIsActive')?.checked !== false;
+  const errEl                       = el('catAddError');
 
   if (!major_category) { if (errEl) errEl.textContent = 'Major category is required.'; return; }
   if (!minor_category) { if (errEl) errEl.textContent = 'Minor category is required.'; return; }
@@ -370,7 +408,8 @@ async function _saveNewCategory() {
     const res = await ExpenseAPI.createCategory({
       transaction_type, major_category, minor_category, description,
       is_active, tag_keywords, counterparty_examples,
-      source_account_types, destination_account_types, sort_order,
+      source_account_types, target_account_types,
+      source_account_mandatory, target_account_mandatory, sort_order,
     });
     if (res.ok) {
       showMsg('Category added.');
@@ -396,10 +435,12 @@ async function _saveCatEdit(rowNum) {
   const description            = el(`catEditDesc-${rowNum}`)?.value.trim();
   const tag_keywords           = el(`catEditKeywords-${rowNum}`)?.value.trim();
   const counterparty_examples  = el(`catEditCounterparty-${rowNum}`)?.value.trim();
-  const source_account_types   = _getCheckedAccountTypes(`catEditSrc-${rowNum}`);
-  const destination_account_types = _getCheckedAccountTypes(`catEditDst-${rowNum}`);
-  const sort_order             = Number(el(`catEditSortOrder-${rowNum}`)?.value) || 0;
-  const is_active              = el(`catEditIsActive-${rowNum}`)?.checked !== false;
+  const source_account_types        = _getCheckedAccountTypes(`catEditSrc-${rowNum}`);
+  const target_account_types        = _getCheckedAccountTypes(`catEditTgt-${rowNum}`);
+  const source_account_mandatory    = el(`catEditSrcMandatory-${rowNum}`)?.checked === true;
+  const target_account_mandatory    = el(`catEditTgtMandatory-${rowNum}`)?.checked === true;
+  const sort_order                  = Number(el(`catEditSortOrder-${rowNum}`)?.value) || 0;
+  const is_active                   = el(`catEditIsActive-${rowNum}`)?.checked !== false;
 
   if (!major_category || !minor_category) {
     showMsg('Major and minor category are required.', 'warn');
@@ -411,7 +452,8 @@ async function _saveCatEdit(rowNum) {
     const res = await ExpenseAPI.updateCategory({
       row_num: rowNum, transaction_type, major_category, minor_category, description,
       is_active, tag_keywords, counterparty_examples,
-      source_account_types, destination_account_types, sort_order,
+      source_account_types, target_account_types,
+      source_account_mandatory, target_account_mandatory, sort_order,
     });
     if (res.ok) {
       showMsg('Category updated.');

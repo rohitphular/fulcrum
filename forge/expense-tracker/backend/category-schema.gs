@@ -86,7 +86,7 @@ const CATEGORY_SCHEMA = {
   },
 
   // ── Account hints (columns 8–11) ─────────────────────────────────────────
-  // source_account_types / destination_account_types: comma-separated account
+  // source_account_types / target_account_types: comma-separated account
   // type values used to filter the respective account dropdowns.
   // source_account_mandatory / target_account_mandatory: when true the field
   // is enabled and required; when false the field is visible but disabled
@@ -101,10 +101,10 @@ const CATEGORY_SCHEMA = {
     editable: true,
     default_value: '',
   },
-  destination_account_types: {
-    sheet_column_name: 'destination_account_types',
+  target_account_types: {
+    sheet_column_name: 'target_account_types',
     sheet_column_position: 9,
-    ui_label: 'Destination account types',
+    ui_label: 'Target account types',
     type: 'multi-select',
     enum_values: null, // resolved at runtime: VALID_ACCOUNT_TYPES
     group: 'account_hints',

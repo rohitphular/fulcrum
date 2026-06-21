@@ -13,7 +13,7 @@
 //   [5] tag_keywords          — comma-separated, stored lowercase
 //   [6] counterparty_examples — comma-separated merchant / payer names
 //   [7] source_account_types  — comma-separated valid account type values
-//   [8] destination_account_types — comma-separated valid account type values
+//   [8] target_account_types      — comma-separated valid account type values
 //   [9] source_account_mandatory  — boolean; true = field enabled + required
 //  [10] target_account_mandatory  — boolean; true = field enabled + required
 //  [11] sort_order            — integer, 0 = default alphabetical

@@ -56,8 +56,8 @@ function _validateCategoryAccountTypeHints(body) {
   if (cat.target_account_mandatory) {
     if (!body.target_account)
       return { ok: false, error: 'missing_target_account' };
-    if (cat.destination_account_types) {
-      const err = _checkAccountTypeHint(body.target_account, cat.destination_account_types, 'target');
+    if (cat.target_account_types) {
+      const err = _checkAccountTypeHint(body.target_account, cat.target_account_types, 'target');
       if (err) return err;
     }
   }
@@ -74,7 +74,7 @@ function _findCategoryHints(type, major, minor) {
     major:        catColIndex('major_category'),
     minor:        catColIndex('minor_category'),
     src:          catColIndex('source_account_types'),
-    dst:          catColIndex('destination_account_types'),
+    dst:          catColIndex('target_account_types'),
     srcMandatory: catColIndex('source_account_mandatory'),
     dstMandatory: catColIndex('target_account_mandatory'),
   };
@@ -83,7 +83,7 @@ function _findCategoryHints(type, major, minor) {
       var toBool = function(v) { return v === true || String(v).toLowerCase() === 'true'; };
       return {
         source_account_types:      String(values[i][ci.src]          || '').trim(),
-        destination_account_types: String(values[i][ci.dst]          || '').trim(),
+        target_account_types:      String(values[i][ci.dst]          || '').trim(),
         source_account_mandatory:  toBool(values[i][ci.srcMandatory]),
         target_account_mandatory:  toBool(values[i][ci.dstMandatory]),
       };

@@ -432,7 +432,7 @@ function _afRefreshToAccountField() {
     const fromId      = el('afFromAccount')?.value || '';
     const prevVal     = toAccEl.value;
     const activeAccs  = state.accounts.filter(a => a.is_active === true);
-    const dstTypes    = cat?.destination_account_types || '';
+    const dstTypes    = cat?.target_account_types || '';
     const eligible    = activeAccs.filter(a => a.id !== fromId);
     toAccEl.innerHTML = `<option value="">— select —</option>${_acctOptsWithHints(eligible, dstTypes, prevVal)}`;
     if (prevVal && prevVal !== fromId) toAccEl.value = prevVal;
@@ -657,7 +657,7 @@ function _renderTxEditRow(tx) {
   const fromAccountOpts = _acctOptsWithHints(activeAccounts, _editCat?.source_account_types || '', tx.source_account);
   const toAccountOpts   = _acctOptsWithHints(
     activeAccounts.filter(a => a.id !== tx.source_account),
-    _editCat?.destination_account_types || '',
+    _editCat?.target_account_types || '',
     tx.target_account
   );
   const typeOpts = _txTypes().map(t =>
@@ -889,7 +889,7 @@ function _attachTxEditCascadeEvents(r) {
     const minor    = el(`txEditMinor-${row}`)?.value || '';
     const cat      = _getCat(type, major, minor);
     const srcTypes = cat?.source_account_types      || '';
-    const dstTypes = cat?.destination_account_types || '';
+    const dstTypes = cat?.target_account_types || '';
     const srcMand  = cat ? Boolean(cat.source_account_mandatory) : type !== 'money-in';
     const actives  = state.accounts.filter(a => a.is_active === true);
     const fromEl   = el(`txEditFromAccount-${row}`);

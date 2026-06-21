@@ -35,7 +35,7 @@ function migrateCategoryMandatoryFlags() {
   var ciSrcM = catColIndex('source_account_mandatory');
   var ciTgtM = catColIndex('target_account_mandatory');
   var ciSrcT = catColIndex('source_account_types');
-  var ciDstT = catColIndex('destination_account_types');
+  var ciDstT = catColIndex('target_account_types');
 
   for (var i = 1; i < values.length; i++) {
     var row  = values[i];
@@ -53,7 +53,7 @@ function migrateCategoryMandatoryFlags() {
     } else if (type === 'money-transfer') {
       newSrcM = true;  newTgtM = true;
     } else if (type === 'money-out') {
-      // money-out with a destination type = two-account (loan repayment etc.)
+      // money-out with a target type = two-account (loan repayment etc.)
       var dstTypes = String(row[ciDstT] || '').trim();
       newSrcM = true; newTgtM = dstTypes !== '';
     } else {
@@ -93,7 +93,7 @@ function createCategory(body) {
   setCol('tag_keywords',            normaliseKeywords(body.tag_keywords || ''));
   setCol('counterparty_examples',   normaliseCandidates(body.counterparty_examples   || ''));
   setCol('source_account_types',      normaliseAccountTypes(body.source_account_types      || ''));
-  setCol('destination_account_types', normaliseAccountTypes(body.destination_account_types || ''));
+  setCol('target_account_types', normaliseAccountTypes(body.target_account_types || ''));
   setCol('source_account_mandatory',  body.source_account_mandatory === true || body.source_account_mandatory === 'true');
   setCol('target_account_mandatory',  body.target_account_mandatory === true || body.target_account_mandatory === 'true');
   setCol('sort_order',                Number(body.sort_order) || 0);
@@ -126,7 +126,7 @@ function updateCategory(body) {
   writeField('tag_keywords',            normaliseKeywords(body.tag_keywords || ''));
   writeField('counterparty_examples',   normaliseCandidates(body.counterparty_examples   || ''));
   writeField('source_account_types',      normaliseAccountTypes(body.source_account_types      || ''));
-  writeField('destination_account_types', normaliseAccountTypes(body.destination_account_types || ''));
+  writeField('target_account_types', normaliseAccountTypes(body.target_account_types || ''));
   writeField('source_account_mandatory',  body.source_account_mandatory === true || body.source_account_mandatory === 'true');
   writeField('target_account_mandatory',  body.target_account_mandatory === true || body.target_account_mandatory === 'true');
   writeField('sort_order',                Number(body.sort_order) || 0);
