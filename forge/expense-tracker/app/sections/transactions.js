@@ -1,5 +1,5 @@
 import { state, VALID_TX_TYPES } from '../core/state.js';
-import { el, esc, fmtDateTime, fmtNative, fmtBase, nowLocalISO, toDateInputVal, exportData, getSymbol } from '../core/utils.js';
+import { el, esc, fmtDateTime, fmtDateTimeCompact, fmtNative, fmtBase, nowLocalISO, toDateInputVal, exportData, getSymbol } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { filteredTx } from '../core/daterange.js';
 import { ExpenseAPI } from '../core/api.js';
@@ -119,6 +119,7 @@ function _renderTxTable(validRows, warnRows) {
   };
 
   const rows = paged.map(tx => {
+    if (state.txViewRow   === tx._row) return _renderTxViewRow(tx);
     if (state.txDeleteRow === tx._row) return _renderTxDeleteRow(tx);
     if (state.txEditRow   === tx._row) return _renderTxEditRow(tx);
 
@@ -127,19 +128,24 @@ function _renderTxTable(validRows, warnRows) {
     const missingRate = !state.rateMap[tx.currency];
     const rowRate     = tx.fx_rate && parseFloat(tx.fx_rate) > 0;
 
+    const fromName  = state.accountMap[tx.source_account]?.name || '—';
+    const toName    = tx.target_account ? state.accountMap[tx.target_account]?.name : null;
+    const acctLabel = toName ? `${fromName} → ${toName}` : fromName;
+    const catLabel  = [tx.major_category, tx.minor_category].filter(Boolean).join(' → ') || '—';
+    const nativeAmt = fmtNative(tx.amount, tx.currency);
+    const baseAmt   = fmtBase(tx.amount, tx.currency, tx.fx_rate);
+    const amtCell   = tx.currency !== state.quoteCurrency
+      ? `${esc(nativeAmt)} <span class="td-base-amt">/ ${esc(baseAmt)}</span>`
+      : esc(nativeAmt);
+
     return `<tr>
-      <td class="td-mono">${esc(fmtDateTime(tx.transaction_date_utc))}</td>
+      <td class="td-mono td-nowrap">${esc(fmtDateTimeCompact(tx.transaction_date_utc))}</td>
       <td><span class="badge ${badgeCls}">${typeLabel}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}</td>
-      <td>${tx.target_account
-        ? `${esc(state.accountMap[tx.source_account]?.name || '—')} → ${esc(state.accountMap[tx.target_account]?.name || '—')}`
-        : esc(state.accountMap[tx.source_account]?.name || '—')
-      }</td>
-      <td class="td-mono">${esc(fmtNative(tx.amount, tx.currency))}${missingRate ? ' <span class="badge badge-warn" title="Currency not in rates tab">?</span>' : ''}</td>
-      <td class="td-mono">${esc(fmtBase(tx.amount, tx.currency, tx.fx_rate))}${rowRate ? ' <span title="Row-level FX rate used" style="color:var(--muted);font-size:10px">†</span>' : ''}</td>
-      <td>${esc(tx.major_category || '—')} ${tx.minor_category ? '→ ' + esc(tx.minor_category) : ''}</td>
-      <td>${esc(tx.counterparty || '—')}</td>
-      <td class="td-muted">${esc(tx.country || '—')}</td>
+      <td class="td-truncate" title="${esc(acctLabel)}">${esc(acctLabel)}</td>
+      <td class="td-mono td-nowrap">${amtCell}${missingRate ? ' <span class="badge badge-warn" title="Currency not in rates tab">?</span>' : ''}${rowRate ? ' <span title="Row-level FX rate" style="color:var(--muted);font-size:10px">†</span>' : ''}</td>
+      <td class="td-truncate" title="${esc(catLabel)}">${esc(catLabel)}</td>
       <td><div class="row-actions">
+        <button class="btn-link" data-action="tx-view" data-row="${tx._row}">View</button>
         <button class="btn-link" data-action="tx-edit" data-row="${tx._row}">Edit</button>
         <button class="btn-link danger" data-action="tx-delete" data-row="${tx._row}">Delete</button>
       </div></td>
@@ -149,16 +155,19 @@ function _renderTxTable(validRows, warnRows) {
   const warnRowsHtml = warnRows.length ? `
     <tbody id="warnTable" class="hidden">
       ${warnRows.map(tx => `<tr>
-        <td colspan="9"><span class="badge badge-warn">⚠ malformed</span> id=${esc(String(tx.id||'?'))} type=${esc(tx.transaction_type||'?')} date=${esc(String(tx.transaction_date_utc||'?'))}</td>
+        <td colspan="6"><span class="badge badge-warn">⚠ malformed</span> id=${esc(String(tx.id||'?'))} type=${esc(tx.transaction_type||'?')} date=${esc(String(tx.transaction_date_utc||'?'))}</td>
       </tr>`).join('')}
     </tbody>` : '';
 
-  const pagination = pages > 1 ? `
+  const pagination = `
     <div class="pagination">
       <button class="btn btn-secondary btn-sm" id="prevPage" ${state.txPage <= 1 ? 'disabled' : ''}>← Prev</button>
       <span>Page ${state.txPage} of ${pages} (${total} rows)</span>
+      <select id="txPerPage" class="per-page-select">
+        ${[10, 25, 50].map(n => `<option value="${n}" ${state.txPerPage === n ? 'selected' : ''}>${n} / page</option>`).join('')}
+      </select>
       <button class="btn btn-secondary btn-sm" id="nextPage" ${state.txPage >= pages ? 'disabled' : ''}>Next →</button>
-    </div>` : `<div class="pagination">${total} rows</div>`;
+    </div>`;
 
   const html = `
     <div class="table-wrap">
@@ -168,11 +177,8 @@ function _renderTxTable(validRows, warnRows) {
           ${thSort('transaction_type','Type')}
           ${thSort('source_account','Account')}
           <th>Amount</th>
-          <th>≈ ${esc(state.quoteCurrency)}</th>
           ${thSort('major_category','Category')}
-          ${thSort('counterparty','Counterparty')}
-          <th>Country</th>
-          <th style="width:100px">Actions</th>
+          <th style="width:130px">Actions</th>
         </tr></thead>
         <tbody>${rows}</tbody>
         ${warnRowsHtml}
@@ -193,16 +199,19 @@ function _renderTxTable(validRows, warnRows) {
     });
     el('prevPage')?.addEventListener('click', () => { state.txPage--; renderTransactions(); });
     el('nextPage')?.addEventListener('click', () => { state.txPage++; renderTransactions(); });
+    el('txPerPage')?.addEventListener('change', e => { state.txPerPage = Number(e.target.value); state.txPage = 1; renderTransactions(); });
 
     el('transactionsContent')?.querySelector('.table-wrap')?.addEventListener('click', e => {
       const btn    = e.target.closest('[data-action]');
       if (!btn) return;
       const action = btn.dataset.action;
       const row    = btn.dataset.row ? Number(btn.dataset.row) : null;
-      if (action === 'tx-edit')           { state.txEditRow = row; state.txDeleteRow = null; renderTransactions(); }
+      if (action === 'tx-view')           { state.txViewRow = row; state.txEditRow = null; state.txDeleteRow = null; renderTransactions(); }
+      if (action === 'tx-cancel-view')    { state.txViewRow = null; renderTransactions(); }
+      if (action === 'tx-edit')           { state.txEditRow = row; state.txDeleteRow = null; state.txViewRow = null; renderTransactions(); }
       if (action === 'tx-cancel-edit')    { state.txEditRow = null; renderTransactions(); }
       if (action === 'tx-save-edit')      { _saveEdit(row); }
-      if (action === 'tx-delete')         { state.txDeleteRow = row; state.txEditRow = null; renderTransactions(); }
+      if (action === 'tx-delete')         { state.txDeleteRow = row; state.txEditRow = null; state.txViewRow = null; renderTransactions(); }
       if (action === 'tx-cancel-delete')  { state.txDeleteRow = null; renderTransactions(); }
       if (action === 'tx-confirm-delete') { _confirmDelete(row); }
     });
@@ -675,7 +684,7 @@ function _renderTxEditRow(tx) {
   const fxDirText  = isCrossCcy ? `Rate: units of ${esc(toCcy)} per 1 ${esc(fromCcy)}` : '';
 
   return `<tr class="tx-edit-row">
-    <td colspan="9">
+    <td colspan="6">
       <div class="form-grid form-grid-6" style="padding:6px 0 4px">
         <!-- Row 1: Type | Major category | Minor category -->
         <div class="field form-grid-span-2">
@@ -755,12 +764,44 @@ function _renderTxEditRow(tx) {
   </tr>`;
 }
 
+function _renderTxViewRow(tx) {
+  const badgeCls  = tx.transaction_type === 'money-in' ? 'badge-in' : tx.transaction_type === 'money-out' ? 'badge-out' : 'badge-transfer';
+  const typeLabel = _txTypeMap()[tx.transaction_type] || tx.transaction_type;
+  const fromName  = state.accountMap[tx.source_account]?.name || '—';
+  const toName    = tx.target_account ? (state.accountMap[tx.target_account]?.name || '—') : 'External';
+
+  const f = (label, value) =>
+    `<div class="tx-detail-field"><div class="tx-detail-label">${label}</div><div class="tx-detail-value">${value}</div></div>`;
+
+  return `<tr class="tx-view-row">
+    <td colspan="6">
+      <div class="tx-detail-grid">
+        ${f('Date & time',      esc(fmtDateTime(tx.transaction_date_utc)))}
+        ${f('Type',             `<span class="badge ${badgeCls}">${esc(typeLabel)}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}`)}
+        ${f('Source account',   esc(fromName))}
+        ${f('Target account',   esc(toName))}
+        ${f('Amount',           esc(fmtNative(tx.amount, tx.currency)))}
+        ${f('≈ ' + state.quoteCurrency, esc(fmtBase(tx.amount, tx.currency, tx.fx_rate)))}
+        ${f('Category',         esc([tx.major_category, tx.minor_category].filter(Boolean).join(' → ') || '—'))}
+        ${f('Counterparty',     esc(tx.counterparty || '—'))}
+        ${f('Country',          esc(tx.country || '—'))}
+        ${f('Tags',             esc(String(tx.tags || '').replace(/;/g, ', ') || '—'))}
+        ${f('Notes',            esc(tx.notes || '—'))}
+        ${tx.fx_rate && parseFloat(tx.fx_rate) > 0 ? f('FX rate', esc(String(tx.fx_rate))) : ''}
+      </div>
+      <div style="margin-top:10px">
+        <button class="btn btn-secondary btn-sm" data-action="tx-cancel-view">Close</button>
+      </div>
+    </td>
+  </tr>`;
+}
+
 function _renderTxDeleteRow(tx) {
   const fromName = state.accountMap[tx.source_account]?.name || '—';
   const toName   = tx.target_account ? state.accountMap[tx.target_account]?.name : null;
   const accLabel = toName ? `${fromName} → ${toName}` : fromName;
   return `<tr>
-    <td colspan="9">
+    <td colspan="6">
       <span class="confirm-text">Delete <strong>${esc(fmtDateTime(tx.transaction_date_utc))}</strong> — ${esc(accLabel)} — ${esc(fmtNative(tx.amount, tx.currency))}? Account balance will be adjusted.</span>
       <span style="display:inline-flex;gap:8px;margin-left:16px">
         <button class="btn-link danger" data-action="tx-confirm-delete" data-row="${tx._row}">Yes, delete</button>
