@@ -145,7 +145,7 @@ function _renderTxTable(validRows, warnRows) {
       <td class="td-mono td-nowrap">${amtCell}${missingRate ? ' <span class="badge badge-warn" title="Currency not in rates tab">?</span>' : ''}${rowRate ? ' <span title="Row-level FX rate" style="color:var(--muted);font-size:10px">†</span>' : ''}</td>
       <td class="td-truncate" title="${esc(catLabel)}">${esc(catLabel)}</td>
       <td><div class="row-actions">
-        <button class="btn-link" data-action="tx-view" data-row="${tx._row}">View</button>
+        <button class="btn-link muted" data-action="tx-view" data-row="${tx._row}">View</button>
         <button class="btn-link" data-action="tx-edit" data-row="${tx._row}">Edit</button>
         <button class="btn-link danger" data-action="tx-delete" data-row="${tx._row}">Delete</button>
       </div></td>
