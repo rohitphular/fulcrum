@@ -9,6 +9,7 @@ import { renderTransactions } from './sections/transactions.js';
 import { renderAccounts } from './sections/accounts.js';
 import { renderCategories } from './sections/categories.js';
 import { renderRates } from './sections/rates.js';
+import { renderAdvisor } from './sections/advisor.js';
 import { showPinGate, hidePinGate, fetchGeo, submitPin, readSession, clearSession } from './core/auth.js';
 import { loadAccountSchema, loadTransactionSchema, loadCategorySchema } from './core/schema.js';
 
@@ -37,6 +38,7 @@ function setTheme(theme) {
   if (active === 'accounts')     renderAccounts();
   if (active === 'categories')   renderCategories();
   if (active === 'rates')        renderRates();
+  if (active === 'advisor')      renderAdvisor();
 }
 
 // ── Data loading ──────────────────────────────────────────────────────────────

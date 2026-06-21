@@ -53,4 +53,6 @@ export const state = {
   txEditRow:    null,
   txDeleteRow:  null,
   txViewRow:    null,
+
+  advisorMessages: [],
 };

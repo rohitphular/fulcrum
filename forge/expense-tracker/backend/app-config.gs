@@ -16,6 +16,8 @@ const MAX_FAILURES       = 3;
 // RATES_COLUMNS removed — use getRateSheetColumns() from rate-schema.gs
 // ACCOUNT_COLUMNS removed — use getAccountSheetColumns() from account-schema.gs
 
+const ADVISOR_SHEET = 'advisor_chat';
+
 const AUDIT_COLUMNS = [
   'ip', 'city', 'country', 'user_agent',
   'first_seen', 'last_seen',

@@ -5,8 +5,9 @@ import { renderTransactions } from '../sections/transactions.js';
 import { renderAccounts } from '../sections/accounts.js';
 import { renderCategories } from '../sections/categories.js';
 import { renderRates } from '../sections/rates.js';
+import { renderAdvisor } from '../sections/advisor.js';
 
-const SECTIONS = ['dashboard', 'transactions', 'accounts', 'categories', 'rates'];
+const SECTIONS = ['dashboard', 'transactions', 'accounts', 'categories', 'rates', 'advisor'];
 
 export function showSection(id) {
   if (!SECTIONS.includes(id)) id = 'dashboard';
@@ -22,4 +23,5 @@ export function showSection(id) {
   if (id === 'accounts')     renderAccounts();
   if (id === 'categories')   renderCategories();
   if (id === 'rates')        renderRates();
+  if (id === 'advisor')      renderAdvisor();
 }

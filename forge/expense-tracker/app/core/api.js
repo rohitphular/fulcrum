@@ -19,4 +19,7 @@ export const ExpenseAPI = {
   createAccount:     f    => SheetsClient.post({ action: 'create_account', ...f }),
   updateAccount:     f    => SheetsClient.post({ action: 'update_account', ...f }),
   deleteAccount:     f    => SheetsClient.post({ action: 'delete_account', ...f }),
+  advisorChat:         f  => SheetsClient.post({ action: 'advisor_chat', ...f }),
+  getAdvisorHistory:   () => SheetsClient.get({ action: 'get_advisor_history' }),
+  clearAdvisorHistory: () => SheetsClient.post({ action: 'clear_advisor_history' }),
 };

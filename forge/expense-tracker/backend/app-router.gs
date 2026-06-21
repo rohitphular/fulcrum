@@ -38,6 +38,7 @@ function doGet(e) {
   if (action === 'get_account_schema')      return json({ ok: true, data: getAccountSchemaForClient() });
   if (action === 'get_transaction_schema')  return json({ ok: true, data: getTransactionSchemaForClient() });
   if (action === 'get_category_schema')     return json({ ok: true, data: getCategorySchemaForClient() });
+  if (action === 'get_advisor_history')     return json({ ok: true, data: getAdvisorHistory() });
 
   return json({ ok: false, error: 'unknown_action' });
 }
@@ -68,6 +69,8 @@ function doPost(e) {
   if (body.action === 'create_account')     return json(createAccount(body));
   if (body.action === 'update_account')     return json(updateAccount(body));
   if (body.action === 'delete_account')     return json(deleteAccount(body));
+  if (body.action === 'advisor_chat')        return json(advisorChat(body));
+  if (body.action === 'clear_advisor_history') return json(clearAdvisorHistory());
 
   return json({ ok: false, error: 'unknown_action' });
 }
