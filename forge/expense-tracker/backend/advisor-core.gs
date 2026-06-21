@@ -175,7 +175,7 @@ function _callClaude(apiKey, systemPrompt, messages) {
     contentType: 'application/json',
     headers: { 'Authorization': 'Bearer ' + apiKey },
     payload: JSON.stringify({
-      model:      'gpt-4o',
+      model:      'gpt-4o-mini',
       max_tokens: 1024,
       messages:   openAiMessages
     }),

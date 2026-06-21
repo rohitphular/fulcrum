@@ -11,13 +11,19 @@ export function renderAdvisor() {
   content.innerHTML = `
     <div class="advisor-wrap">
       <div class="advisor-header">
-        <span class="advisor-title">Financial Advisor</span>
-        <button class="btn btn-ghost advisor-clear-btn" id="advisorClearBtn">Clear history</button>
+        <div class="advisor-header-left">
+          <div class="advisor-avatar">AI</div>
+          <div class="advisor-header-text">
+            <div class="advisor-title">Financial Advisor</div>
+            <div class="advisor-subtitle">Powered by GPT-4o mini</div>
+          </div>
+        </div>
+        <button class="advisor-clear-btn" id="advisorClearBtn">Clear history</button>
       </div>
       <div class="advisor-messages" id="advisorMessages"></div>
       <div class="advisor-input-bar">
-        <textarea class="advisor-input" id="advisorInput" placeholder="Ask your advisor anything…" rows="1"></textarea>
-        <button class="btn btn-primary advisor-send-btn" id="advisorSendBtn">Send</button>
+        <textarea class="advisor-input" id="advisorInput" placeholder="Ask about your finances…" rows="1"></textarea>
+        <button class="advisor-send-btn" id="advisorSendBtn" title="Send">↑</button>
       </div>
     </div>
   `;
@@ -51,16 +57,27 @@ function _renderMessages() {
   const container = el('advisorMessages');
   if (!container) return;
 
-  if (!state.advisorMessages.length) {
-    container.innerHTML = '<div class="advisor-empty">Ask me anything about your finances — spending patterns, budget tips, account health, and more.</div>';
+  const msgs = state.advisorMessages;
+  if (!msgs.length) {
+    container.innerHTML = `
+      <div class="advisor-empty">
+        <div class="advisor-empty-icon">◈</div>
+        <p>Ask me anything about your finances.</p>
+        <p class="advisor-empty-sub">Spending patterns · Budget tips · Savings goals · Account health</p>
+      </div>`;
     return;
   }
 
-  container.innerHTML = state.advisorMessages.map(msg => `
-    <div class="advisor-msg advisor-msg-${esc(msg.role)}">
-      <div class="advisor-msg-bubble">${_formatContent(msg.content)}</div>
-    </div>
-  `).join('');
+  container.innerHTML = msgs.map((msg, i) => {
+    const isFirst = i === 0 || msgs[i - 1].role !== msg.role;
+    const isLast  = i === msgs.length - 1 || msgs[i + 1].role !== msg.role;
+    const label   = msg.role === 'user' ? 'You' : 'Advisor';
+    return `
+      <div class="advisor-msg advisor-msg-${esc(msg.role)}${isFirst ? ' is-first' : ''}${isLast ? ' is-last' : ''}">
+        ${isFirst ? `<div class="advisor-msg-label">${label}</div>` : ''}
+        <div class="advisor-msg-bubble">${_formatContent(msg.content)}</div>
+      </div>`;
+  }).join('');
 
   container.scrollTop = container.scrollHeight;
 }
@@ -86,9 +103,9 @@ async function _sendMessage() {
 
   const container = el('advisorMessages');
   const typingEl = document.createElement('div');
-  typingEl.className = 'advisor-msg advisor-msg-assistant';
+  typingEl.className = 'advisor-msg advisor-msg-assistant is-first is-last';
   typingEl.id = 'advisorTyping';
-  typingEl.innerHTML = '<div class="advisor-msg-bubble advisor-typing"><span></span><span></span><span></span></div>';
+  typingEl.innerHTML = '<div class="advisor-msg-label">Advisor</div><div class="advisor-msg-bubble advisor-typing"><span></span><span></span><span></span></div>';
   container?.appendChild(typingEl);
   if (container) container.scrollTop = container.scrollHeight;
 
