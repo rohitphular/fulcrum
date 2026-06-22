@@ -51,8 +51,27 @@ function extractMeta(source) {
   };
 }
 
+// Constant-time PIN comparison. Belt-and-braces against timing-based PIN
+// inference — for a 6-digit PIN with IP lockout after MAX_FAILURES this is
+// already non-exploitable in practice, but the cost is one tight loop.
 function checkPin(pin) {
-  return pin === PropertiesService.getScriptProperties().getProperty('PIN_SECRET');
+  const stored = PropertiesService.getScriptProperties().getProperty('PIN_SECRET');
+  return _constantTimeEqual(pin, stored);
+}
+
+function _constantTimeEqual(a, b) {
+  const sa = String(a == null ? '' : a);
+  const sb = String(b == null ? '' : b);
+  // Always iterate the longer length so a length-mismatch can't be inferred
+  // from early-return timing.
+  const n  = Math.max(sa.length, sb.length);
+  let diff = sa.length === sb.length ? 0 : 1;
+  for (let i = 0; i < n; i++) {
+    const ca = i < sa.length ? sa.charCodeAt(i) : 0;
+    const cb = i < sb.length ? sb.charCodeAt(i) : 0;
+    diff |= ca ^ cb;
+  }
+  return diff === 0;
 }
 
 function json(obj) {

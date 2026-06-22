@@ -26,7 +26,8 @@ Example: with base = GBP:
 |---|---|
 | Base currency row | Read-only. No Edit button rendered; backend rejects updates to base. |
 | `rate` value | Must be > 0. Zero or negative is rejected. |
-| `symbol` | Optional. If blank, the currency code itself is used as the display prefix. |
+| `symbol` | Optional. If blank, the currency code itself is used as the display prefix. Server-side validation rejects HTML-meaningful characters (`<`, `>`, `&`, `"`, `'`, `` ` ``, `\`) and caps length at 8 chars — symbol strings render into HTML across the frontend (balance cells, dashboard cards, transaction amounts), so they must never carry script payloads. |
+| `currency` code | Server-side validation: 1–8 chars, alphanumeric only (`[A-Za-z0-9]`). Same rationale — the code is interpolated into HTML in `?` warning badges and elsewhere. |
 | Symbol editing | Symbol is not editable through the app — only via direct store edit. (Symbols change rarely; this avoids accidental edits during routine rate updates.) |
 | Upsert semantics | If the currency exists, the row is updated; otherwise a new row is appended. Editing a rate never duplicates the row. |
 | Adding a new currency through the UI | Not supported. Add a row to the store directly (currency + symbol), then edit the rate through the app. |

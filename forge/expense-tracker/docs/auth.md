@@ -42,7 +42,7 @@ The lock is per-IP, not per-PIN. A locked IP cannot guess further PINs.
 
 ## Session
 
-On successful login the server returns a session token. The client stores it for the duration of the browser tab (or until TTL expiry). Every subsequent request attaches the PIN; TOTP is verified only at login.
+On successful login the client persists a session blob to per-tab session storage and attaches the PIN to every subsequent request. TOTP is verified only at login.
 
 | Property | Value |
 |---|---|
@@ -51,6 +51,16 @@ On successful login the server returns a session token. The client stores it for
 | Re-login required | Tab closed; TTL expired; server returns `auth` or `locked` |
 
 Forced logout = clear the session storage.
+
+### PIN-as-bearer-credential — design note
+
+The PIN itself serves as the bearer credential on every request — there is no opaque server-issued session token. This is a deliberate simplification given the single-user threat model and the Apps Script substrate:
+
+- **Server-side**: `checkPin` runs constant-time comparison against `PIN_SECRET` (in Script Properties). Failed attempts are rate-limited per-IP via the audit log; `MAX_FAILURES` consecutive failures lock the IP for every endpoint (not just login).
+- **Client-side**: PIN sits in `sessionStorage` for the tab's lifetime. The only realistic exfiltration path is XSS, which is closed by (a) server-side input validation on currency codes and rate symbols (the only inputs that flow into innerHTML), (b) `showMsg` using `textContent` not `innerHTML`, and (c) the Chart.js CDN script pinned with an SRI hash.
+- **Transport**: HTTPS-only via the GAS web app URL.
+
+A future hardening would issue an opaque session token at login (e.g. `Utilities.getUuid()` stored in PropertiesService) and send that instead of the PIN. That migration would touch every Forge module's auth flow — out of scope for the expense-tracker alone.
 
 ## Errors
 

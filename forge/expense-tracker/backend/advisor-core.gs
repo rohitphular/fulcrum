@@ -123,7 +123,10 @@ function _buildSnapshot() {
       totalOut += amt;
       var key = (tx.major_category || 'Uncategorised') + ' / ' + (tx.minor_category || 'Other');
       catSpend[key] = (catSpend[key] || 0) + amt;
-      var cp = String(tx.counterparty_name || '').trim();
+      // F-22 fix: field is `counterparty`, not `counterparty_name`. The old
+      // name made this branch silently store nothing — the advisor's
+      // topCounterparties payload was always empty.
+      var cp = String(tx.counterparty || '').trim();
       if (cp) cpSpend[cp] = (cpSpend[cp] || 0) + amt;
     } else if (tx.transaction_type === 'money-in') {
       totalIn += amt;
@@ -229,7 +232,8 @@ function _fetchRequestedData(request) {
     if (request.transaction_type && tx.transaction_type !== request.transaction_type) return false;
     if (request.major_category   && tx.major_category   !== request.major_category)  return false;
     if (request.minor_category   && tx.minor_category   !== request.minor_category)  return false;
-    if (request.account_id && tx.source_account_id !== request.account_id && tx.destination_account_id !== request.account_id) return false;
+    // F-22 fix: schema names are `source_account` / `target_account`.
+    if (request.account_id && tx.source_account !== request.account_id && tx.target_account !== request.account_id) return false;
     return true;
   });
 
@@ -243,7 +247,7 @@ function _fetchRequestedData(request) {
       currency:     tx.currency,
       major:        tx.major_category,
       minor:        tx.minor_category,
-      counterparty: tx.counterparty_name,
+      counterparty: tx.counterparty,
       notes:        tx.notes
     };
   });

@@ -25,7 +25,10 @@ export function hideLoading() {
 
 export function showMsg(text, type = 'success') {
   const b = document.getElementById('msgBanner');
-  document.getElementById('msgText').innerHTML = text;
+  // textContent (not innerHTML) — error strings and user-supplied identifiers
+  // (account names, currency codes, etc.) can flow through here, so HTML must
+  // never be interpreted. All call sites pass plain text already.
+  document.getElementById('msgText').textContent = text;
   document.getElementById('msgIco').textContent = type === 'warn' ? '!' : '›';
   b.className = `banner ${type === 'warn' ? 'warn' : 'success'}`;
   clearTimeout(showMsg._t);
