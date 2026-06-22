@@ -8,16 +8,37 @@ import { ExpenseAPI } from '../core/api.js';
 export function renderRates() {
   const content = el('ratesContent');
 
+  const hasActiveRate = !!state.rateDeleteCurrency;
+
+  const cardRows = state.rates.map(r => {
+    const base = r.currency === 'GBP';
+    if (state.rateDeleteCurrency === r.currency) return '';
+    return `<div class="rate-card">
+      <div class="rate-card-top">
+        <div class="rate-card-code">
+          ${esc(r.currency)}${r.symbol ? ` <span class="rate-card-sym">${esc(r.symbol)}</span>` : ''}
+        </div>
+        <div class="rate-card-rate td-mono">${parseFloat(r.rate).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div>
+      </div>
+      <div class="rate-card-updated">${r.updated_at ? esc(fmtDateTime(r.updated_at)) : '—'}</div>
+      ${base ? '' : `<div class="row-actions">
+        <button class="btn-link"        data-action="rate-edit"   data-currency="${esc(r.currency)}">Edit</button>
+        <button class="btn-link danger" data-action="rate-delete" data-currency="${esc(r.currency)}">Delete</button>
+      </div>`}
+    </div>`;
+  }).join('');
+
+  const addOrEditOpen = state.rateAddOpen || !!state.rateEditCurrency;
+
   content.innerHTML = `
     <div class="sec-head">
-      <div class="sec-head-left">
-        <h2>Exchange rates</h2>
-        <p class="sec-sub">Units of currency per 1 GBP. GBP is the base (read-only).</p>
-      </div>
-      <button class="btn btn-primary btn-sm" id="rateAddBtn">${state.rateAddOpen ? '× Close' : '+ Add currency'}</button>
+      <div class="sec-head-left"><h2>Exchange rates</h2></div>
+      <button class="btn btn-primary btn-sm" id="rateAddBtn">${addOrEditOpen ? '× Close' : '+ Add'}</button>
     </div>
-    ${state.rateAddOpen ? _renderAddForm() : ''}
-    <div class="table-wrap">
+    <p class="sec-sub" style="margin:-8px 0 16px">Units of currency per 1 GBP. GBP is the base (read-only).</p>
+    ${state.rateAddOpen    ? _renderAddForm()                                          : ''}
+    ${state.rateEditCurrency ? _renderEditForm(state.rates.find(r => r.currency === state.rateEditCurrency)) : ''}
+    <div class="table-wrap rate-table-wrap${hasActiveRate ? ' rate-has-active' : ''}">
       <table>
         <thead><tr>
           <th style="width:100px">Currency</th>
@@ -30,7 +51,8 @@ export function renderRates() {
           ${state.rates.map(r => _rateRowHtml(r)).join('')}
         </tbody>
       </table>
-    </div>`;
+    </div>
+    <div class="rate-cards">${cardRows}</div>`;
 
   _attachRateEvents();
 }
@@ -65,6 +87,37 @@ function _renderAddForm() {
   </div>`;
 }
 
+// ── Edit form ─────────────────────────────────────────────────────────────────
+
+function _renderEditForm(r) {
+  if (!r) return '';
+  return `
+  <div class="card" style="margin-bottom:20px">
+    <div class="form-grid form-grid-4">
+      <div class="field">
+        <label>Currency code</label>
+        <input type="text" value="${esc(r.currency)}" disabled>
+        <div class="field-hint">Currency code cannot be changed.</div>
+      </div>
+      <div class="field">
+        <label for="rateEditSymbol">Symbol</label>
+        <input type="text" id="rateEditSymbol" value="${esc(r.symbol || '')}" maxlength="8" placeholder="e.g. ¥">
+        <div class="field-hint">Display prefix (optional).</div>
+      </div>
+      <div class="field">
+        <label for="rateEditRate">Rate per £1 *</label>
+        <input type="number" id="rateEditRate" value="${parseFloat(r.rate)}" min="0.0001" step="any">
+        <div class="field-hint">Units of this currency per 1 GBP.</div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="rateSaveEdit">Save</button>
+      <button class="btn btn-secondary" id="rateCancelEdit">Cancel</button>
+    </div>
+    <div class="pin-error" id="rateEditError"></div>
+  </div>`;
+}
+
 // ── Table rows ────────────────────────────────────────────────────────────────
 
 function _rateRowHtml(r) {
@@ -82,19 +135,6 @@ function _rateRowHtml(r) {
     </tr>`;
   }
 
-  if (state.rateEditCurrency === r.currency) {
-    return `<tr>
-      <td class="td-mono"><strong>${esc(r.currency)}</strong></td>
-      <td><input class="rate-edit-input" style="width:56px" id="rateSymEdit-${esc(r.currency)}" type="text" maxlength="8" value="${esc(r.symbol || '')}"></td>
-      <td><input class="rate-edit-input" style="width:100px" id="rateValEdit-${esc(r.currency)}" type="number" min="0.0001" step="any" value="${parseFloat(r.rate)}"></td>
-      <td class="td-muted td-mono">${r.updated_at ? esc(fmtDateTime(r.updated_at)) : '—'}</td>
-      <td><div class="row-actions">
-        <button class="btn-link" data-action="rate-save-edit" data-currency="${esc(r.currency)}">Save</button>
-        <button class="btn-link muted" data-action="rate-cancel-edit">Cancel</button>
-      </div></td>
-    </tr>`;
-  }
-
   return `<tr>
     <td class="td-mono"><strong>${esc(r.currency)}</strong></td>
     <td>${esc(r.symbol || '—')}</td>
@@ -102,7 +142,7 @@ function _rateRowHtml(r) {
     <td class="td-muted td-mono">${r.updated_at ? esc(fmtDateTime(r.updated_at)) : '—'}</td>
     <td><div class="row-actions">
       ${base ? '' : `
-        <button class="btn-link" data-action="rate-edit" data-currency="${esc(r.currency)}">Edit</button>
+        <button class="btn-link"        data-action="rate-edit"   data-currency="${esc(r.currency)}">Edit</button>
         <button class="btn-link danger" data-action="rate-delete" data-currency="${esc(r.currency)}">Delete</button>
       `}
     </div></td>
@@ -113,21 +153,32 @@ function _rateRowHtml(r) {
 
 function _attachRateEvents() {
   el('rateAddBtn')?.addEventListener('click', () => {
-    state.rateAddOpen = !state.rateAddOpen;
+    if (state.rateAddOpen || state.rateEditCurrency) {
+      state.rateAddOpen      = false;
+      state.rateEditCurrency = null;
+    } else {
+      state.rateAddOpen = true;
+    }
     renderRates();
   });
 
+  // Add form
   el('rateSaveNew')?.addEventListener('click', _saveNewRate);
   el('rateCancelNew')?.addEventListener('click', () => { state.rateAddOpen = false; renderRates(); });
-
   el('rateNewRate')?.addEventListener('keydown', e => {
     if (e.key === 'Enter')  el('rateSaveNew')?.click();
     if (e.key === 'Escape') el('rateCancelNew')?.click();
   });
 
-  const tableWrap = el('ratesContent')?.querySelector('.table-wrap');
+  // Edit form
+  el('rateSaveEdit')?.addEventListener('click', () => _saveEdit(state.rateEditCurrency));
+  el('rateCancelEdit')?.addEventListener('click', () => { state.rateEditCurrency = null; renderRates(); });
+  el('rateEditRate')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  _saveEdit(state.rateEditCurrency);
+    if (e.key === 'Escape') { state.rateEditCurrency = null; renderRates(); }
+  });
 
-  tableWrap?.addEventListener('click', async e => {
+  const handleRateAction = async e => {
     const btn      = e.target.closest('[data-action]');
     if (!btn) return;
     const action   = btn.dataset.action;
@@ -135,37 +186,27 @@ function _attachRateEvents() {
 
     if (action === 'rate-edit') {
       state.rateEditCurrency   = currency;
+      state.rateAddOpen        = false;
       state.rateDeleteCurrency = null;
       renderRates();
-      el(`rateValEdit-${currency}`)?.focus();
+      el('rateEditRate')?.focus();
     }
-
-    if (action === 'rate-cancel-edit') {
-      state.rateEditCurrency = null;
-      renderRates();
-    }
-
-    if (action === 'rate-save-edit')     await _saveEdit(currency);
-
     if (action === 'rate-delete') {
       state.rateDeleteCurrency = currency;
       state.rateEditCurrency   = null;
       renderRates();
     }
-
     if (action === 'rate-cancel-delete') {
       state.rateDeleteCurrency = null;
       renderRates();
     }
-
     if (action === 'rate-confirm-delete') await _confirmDelete(currency);
-  });
+  };
 
-  tableWrap?.addEventListener('keydown', e => {
-    if (!state.rateEditCurrency) return;
-    if (e.key === 'Enter')  _saveEdit(state.rateEditCurrency);
-    if (e.key === 'Escape') { state.rateEditCurrency = null; renderRates(); }
-  });
+  const tableWrap = el('ratesContent')?.querySelector('.rate-table-wrap');
+  const cardsWrap = el('ratesContent')?.querySelector('.rate-cards');
+  tableWrap?.addEventListener('click', handleRateAction);
+  cardsWrap?.addEventListener('click', handleRateAction);
 }
 
 // ── Save new ──────────────────────────────────────────────────────────────────
@@ -208,11 +249,17 @@ async function _saveNewRate() {
 // ── Save edit ─────────────────────────────────────────────────────────────────
 
 async function _saveEdit(currency) {
-  const rateVal   = parseFloat(el(`rateValEdit-${currency}`)?.value || '');
-  const symbolVal = (el(`rateSymEdit-${currency}`)?.value || '').trim();
+  const rateVal   = parseFloat(el('rateEditRate')?.value || '');
+  const symbolVal = (el('rateEditSymbol')?.value || '').trim();
+  const errEl     = el('rateEditError');
 
-  if (!rateVal || rateVal <= 0) { showMsg('Rate must be a positive number.', 'warn'); return; }
+  if (!rateVal || rateVal <= 0) {
+    if (errEl) errEl.textContent = 'Rate must be a positive number.';
+    return;
+  }
 
+  const saveBtn = el('rateSaveEdit');
+  if (saveBtn) { saveBtn.style.opacity = '.4'; saveBtn.style.pointerEvents = 'none'; saveBtn.textContent = 'Saving…'; }
   showLoading();
   try {
     const res = await ExpenseAPI.upsertRate({ currency, rate: rateVal, symbol: symbolVal });
@@ -224,10 +271,12 @@ async function _saveEdit(currency) {
       showMsg('Rate updated.');
       renderRates();
     } else {
-      showMsg('Failed: ' + (res.error || 'unknown'), 'warn');
+      if (errEl) errEl.textContent = 'Failed: ' + (res.error || 'unknown');
+      if (saveBtn) { saveBtn.style.opacity = ''; saveBtn.style.pointerEvents = ''; saveBtn.textContent = 'Save'; }
     }
   } catch (_) {
-    showMsg('Connection error.', 'warn');
+    if (errEl) errEl.textContent = 'Connection error.';
+    if (saveBtn) { saveBtn.style.opacity = ''; saveBtn.style.pointerEvents = ''; saveBtn.textContent = 'Save'; }
   } finally {
     hideLoading();
   }

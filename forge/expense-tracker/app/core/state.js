@@ -47,6 +47,7 @@ export const state = {
   categorySchema:     null,  // { types, account_types }
 
   accAddOpen:   false,
+  accViewRow:   null,
   accEditRow:   null,
   accDeleteRow: null,
 

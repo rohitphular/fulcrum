@@ -118,10 +118,12 @@ function _renderTxTable(validRows, warnRows) {
     return `<th class="${cls}" data-sort="${esc(col)}">${esc(label)}</th>`;
   };
 
-  const rows = paged.map(tx => {
-    if (state.txViewRow   === tx._row) return _renderTxViewRow(tx);
-    if (state.txDeleteRow === tx._row) return _renderTxDeleteRow(tx);
-    if (state.txEditRow   === tx._row) return _renderTxEditRow(tx);
+  const hasActiveRow = state.txViewRow !== null || state.txDeleteRow !== null || state.txEditRow !== null;
+
+  const rowData = paged.map(tx => {
+    if (state.txViewRow   === tx._row) return { tr: _renderTxViewRow(tx),   card: '' };
+    if (state.txDeleteRow === tx._row) return { tr: _renderTxDeleteRow(tx), card: '' };
+    if (state.txEditRow   === tx._row) return { tr: _renderTxEditRow(tx),   card: '' };
 
     const badgeCls  = tx.transaction_type === 'money-in' ? 'badge-in' : tx.transaction_type === 'money-out' ? 'badge-out' : 'badge-transfer';
     const typeLabel = _txTypeMap()[tx.transaction_type] || tx.transaction_type;
@@ -138,19 +140,42 @@ function _renderTxTable(validRows, warnRows) {
       ? `${esc(nativeAmt)} <span class="td-base-amt">/ ${esc(baseAmt)}</span>`
       : esc(nativeAmt);
 
-    return `<tr>
-      <td class="td-mono td-nowrap">${esc(fmtDateTimeCompact(tx.transaction_date_utc))}</td>
-      <td><span class="badge ${badgeCls}">${typeLabel}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}</td>
-      <td class="td-truncate" title="${esc(acctLabel)}">${esc(acctLabel)}</td>
-      <td class="td-mono td-nowrap">${amtCell}${missingRate ? ' <span class="badge badge-warn" title="Currency not in rates tab">?</span>' : ''}${rowRate ? ' <span title="Row-level FX rate" style="color:var(--muted);font-size:10px">†</span>' : ''}</td>
-      <td class="td-truncate" title="${esc(catLabel)}">${esc(catLabel)}</td>
-      <td><div class="row-actions">
-        <button class="btn-link muted" data-action="tx-view" data-row="${tx._row}">View</button>
-        <button class="btn-link" data-action="tx-edit" data-row="${tx._row}">Edit</button>
-        <button class="btn-link danger" data-action="tx-delete" data-row="${tx._row}">Delete</button>
-      </div></td>
-    </tr>`;
-  }).join('');
+    return {
+      tr: `<tr>
+        <td class="td-mono td-nowrap">${esc(fmtDateTimeCompact(tx.transaction_date_utc))}</td>
+        <td><span class="badge ${badgeCls}">${typeLabel}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}</td>
+        <td class="td-truncate" title="${esc(acctLabel)}">${esc(acctLabel)}</td>
+        <td class="td-mono td-nowrap">${amtCell}${missingRate ? ' <span class="badge badge-warn" title="Currency not in rates tab">?</span>' : ''}${rowRate ? ' <span title="Row-level FX rate" style="color:var(--muted);font-size:10px">†</span>' : ''}</td>
+        <td class="td-truncate" title="${esc(catLabel)}">${esc(catLabel)}</td>
+        <td><div class="row-actions">
+          <button class="btn-link muted" data-action="tx-view" data-row="${tx._row}">View</button>
+          <button class="btn-link" data-action="tx-edit" data-row="${tx._row}">Edit</button>
+          <button class="btn-link danger" data-action="tx-delete" data-row="${tx._row}">Delete</button>
+        </div></td>
+      </tr>`,
+      card: `<div class="tx-card">
+        <div class="tx-card-top">
+          <div class="tx-card-meta">
+            <span class="tx-card-date">${esc(fmtDateTimeCompact(tx.transaction_date_utc))}</span>
+            <span class="badge ${badgeCls}">${typeLabel}</span>
+          </div>
+          <div class="tx-card-amt td-mono">${esc(nativeAmt)}</div>
+        </div>
+        <div class="tx-card-detail">
+          <div class="tx-card-account">${esc(acctLabel)}</div>
+          ${catLabel !== '—' ? `<div class="tx-card-cat">${esc(catLabel)}</div>` : ''}
+        </div>
+        <div class="row-actions">
+          <button class="btn-link muted" data-action="tx-view" data-row="${tx._row}">View</button>
+          <button class="btn-link" data-action="tx-edit" data-row="${tx._row}">Edit</button>
+          <button class="btn-link danger" data-action="tx-delete" data-row="${tx._row}">Delete</button>
+        </div>
+      </div>`
+    };
+  });
+
+  const rows     = rowData.map(d => d.tr).join('');
+  const cardRows = rowData.map(d => d.card).join('');
 
   const warnRowsHtml = warnRows.length ? `
     <tbody id="warnTable" class="hidden">
@@ -170,7 +195,7 @@ function _renderTxTable(validRows, warnRows) {
     </div>`;
 
   const html = `
-    <div class="table-wrap">
+    <div class="table-wrap tx-table-wrap${hasActiveRow ? ' tx-has-active' : ''}">
       <table>
         <thead><tr>
           ${thSort('transaction_date_utc','Date')}
@@ -184,6 +209,7 @@ function _renderTxTable(validRows, warnRows) {
         ${warnRowsHtml}
       </table>
     </div>
+    <div class="tx-cards">${cardRows}</div>
     ${pagination}
   `;
 
@@ -201,7 +227,7 @@ function _renderTxTable(validRows, warnRows) {
     el('nextPage')?.addEventListener('click', () => { state.txPage++; renderTransactions(); });
     el('txPerPage')?.addEventListener('change', e => { state.txPerPage = Number(e.target.value); state.txPage = 1; renderTransactions(); });
 
-    el('transactionsContent')?.querySelector('.table-wrap')?.addEventListener('click', e => {
+    const handleTxAction = (e) => {
       const btn    = e.target.closest('[data-action]');
       if (!btn) return;
       const action = btn.dataset.action;
@@ -214,7 +240,9 @@ function _renderTxTable(validRows, warnRows) {
       if (action === 'tx-delete')         { state.txDeleteRow = row; state.txEditRow = null; state.txViewRow = null; renderTransactions(); }
       if (action === 'tx-cancel-delete')  { state.txDeleteRow = null; renderTransactions(); }
       if (action === 'tx-confirm-delete') { _confirmDelete(row); }
-    });
+    };
+    el('transactionsContent')?.querySelector('.tx-table-wrap')?.addEventListener('click', handleTxAction);
+    el('transactionsContent')?.querySelector('.tx-cards')?.addEventListener('click', handleTxAction);
 
     if (state.txEditRow !== null) _attachTxEditCascadeEvents(state.txEditRow);
   }, 0);
