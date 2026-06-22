@@ -20,6 +20,17 @@
 
   --grotesk: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono:    'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+
+  /* Type scale */
+  --text-2xs:  10px;    /* field labels, eyebrows, table headers, badges */
+  --text-xs:   11px;    /* field hints, sub-labels, metadata captions */
+  --text-sm:   12px;    /* secondary metadata, dates, pagination */
+  --text-base: 13.5px;  /* body text, buttons, table cells, tabs */
+  --text-md:   14px;    /* form inputs, card content */
+  --text-lg:   15px;    /* emphasis, card sub-headings */
+  --text-xl:   18px;    /* section headings (h2) */
+  --text-2xl:  20px;    /* page headings (h1) */
+  --text-3xl:  22px;    /* summary card values */
 }
 
 [data-theme="dark"] {
