@@ -6,7 +6,8 @@ Build, commit, and deploy pipeline. One script runs the full flow: stage + commi
 
 | File | Purpose |
 |---|---|
-| `app-deployment.sh` | One-shot pipeline — git stage/commit/push, then clasp push + deploy |
+| `envs.json` | Single source of truth for both envs' Script ID + Deployment ID + /exec URL. Edited by hand when setting up a new env. |
+| `app-deployment.sh` | One-shot pipeline — takes the env as a required first argument. Rewrites `backend/.clasp.json` and `app/config.js` based on `envs.json`, then git stage/commit/push → clasp push → clasp deploy. |
 
 ## Prerequisites
 
@@ -16,56 +17,85 @@ Build, commit, and deploy pipeline. One script runs the full flow: stage + commi
 | `clasp login` done | One-time OAuth — see `backend/README.md` |
 | Git remote configured | `git push -u origin <branch>` works on this checkout |
 
-## The pipeline
+## Environments
 
-```bash
-bash cicd/app-deployment.sh "expense-tracker: <change description>"
-```
+Two environments are wired up in `cicd/envs.json`:
 
-`set -euo pipefail` — any step failing aborts the rest.
+| Env | When to use |
+|---|---|
+| `dev` | A separate Sheet + Apps Script project for testing risky changes (T-04 deletion FK guard, schema migrations, etc.) without touching real personal-finance data |
+| `prod` | The live Sheet + Apps Script project that holds real data |
 
-### What it does
+Each env's IDs (Script ID, Deployment ID, /exec URL) live in `cicd/envs.json`. There's no separate "active env" file — the active environment is whichever one `backend/.clasp.json`'s `scriptId` currently matches in `envs.json`. `app-deployment.sh` rewrites that scriptId (plus `app/config.js`) on every run based on the env you pass it, so `envs.json` is the single source of truth.
 
-1. `git add .` from `expense-tracker/` + `git add ../_shared/` for shared forge modules
-2. `git commit -m "<msg>"` — skipped if there's nothing staged
-3. `git push -u origin HEAD`
-4. `cd backend/ && clasp push --force` — syncs all `.gs` modules to the GAS project **draft**
-5. `clasp deploy --deploymentId <pinned> --description "<msg>"` — snapshots the draft as a new live version
+## The pipeline (mandatory env)
 
-The deployment ID is pinned inside the script:
-
-```
-AKfycbxWTOuXeCkH4tsDvrmCjkjxlhIZqLyIhxfvXR51ymWRc1FGAOYkLt0rkeGjTfQmWAv2RA
-```
-
-The live `/exec` URL is bound to that ID and does **not** change between deploys. Pushing without deploying never affects users — see `backend/README.md` for the push-vs-deploy distinction.
-
-## Alternative entry points
-
-**Forge multi-app menu** — pick `expense-tracker` interactively:
+The canonical entry point is the Forge launcher:
 
 ```bash
 bash forge/deploy.sh
 ```
 
-**Backend-only, no git** — push GAS changes without a commit:
+It asks two questions and runs everything:
+
+1. **Select an app** — the menu lists every app under `forge/` that has a `cicd/app-deployment.sh`
+2. **Select environment** — `dev` or `prod`, mandatory; no default
+3. **Commit message** (optional — defaults to `expense-tracker: code pushed`)
+
+There is no separate "switch env first" step. `app-deployment.sh` rewrites `backend/.clasp.json` and `app/config.js` from `envs.json` every time it runs, so the env you pick is the env that gets deployed — no drift possible.
+
+### What runs under the hood
+
+For the chosen app and env, the launcher invokes:
+
+```
+cicd/app-deployment.sh <env> "<commit message>"
+```
+
+which then:
+
+1. Validates the env arg (`dev` or `prod`) and that all three IDs for that env are set in `envs.json` (refuses on any TODO)
+2. Rewrites `backend/.clasp.json` `scriptId` and regenerates `app/config.js` from the env's `envs.json` block
+3. (prod only) Prompts for a `y` confirmation — belt-and-braces even though the env was just chosen in the menu
+4. `git add .` from the app dir + `git add ../_shared/` for shared forge modules
+5. `git commit -m "<msg>"` — skipped if there's nothing staged
+6. `git push -u origin HEAD`
+7. `cd backend/ && clasp push --force` — syncs all `.gs` modules to the chosen env's GAS **draft**
+8. `clasp deploy --deploymentId <env's id> --description "<msg>"` — snapshots the draft as a new live version on the chosen env
+
+Each env's `/exec` URL is bound to that env's deployment ID and does **not** change between deploys. Pushing without deploying never affects users — see `backend/README.md` for the push-vs-deploy distinction.
+
+### Calling app-deployment.sh directly
+
+You can skip the launcher menu if you already know what you want:
+
+```bash
+bash cicd/app-deployment.sh dev  "expense-tracker: try new feature"
+bash cicd/app-deployment.sh prod "expense-tracker: ship new feature"
+```
+
+The env arg is **required** here too. Calling it without an env (e.g. the old `bash cicd/app-deployment.sh "msg"`) is now an error.
+
+## Alternative entry points
+
+**Backend-only, no git** — push GAS changes without making a commit. Hand-edit `backend/.clasp.json` so `scriptId` matches the target env's value in `envs.json`, then:
 
 ```bash
 cd backend/
 clasp push --force
-clasp deploy \
-  --deploymentId "AKfycbxWTOuXeCkH4tsDvrmCjkjxlhIZqLyIhxfvXR51ymWRc1FGAOYkLt0rkeGjTfQmWAv2RA" \
-  --description "your description"
+clasp deploy --deploymentId "<paste from envs.json>" --description "your description"
 ```
 
-**Frontend-only** — HTML/CSS/JS changes don't need a deploy. Browser refresh picks them up. If hosted on GitHub Pages, just push the branch GitHub Pages serves.
+A normal `bash forge/deploy.sh` run will reset `.clasp.json` to whatever env you pick, so this hand-edit only lasts until the next deploy.
 
-## First-time setup
+**Frontend-only** — HTML/CSS/JS changes don't need a deploy at all. Browser refresh picks them up. If you're hosting the app on GitHub Pages, just push the branch GitHub Pages serves; clasp doesn't get involved.
 
-Before the pipeline can run end-to-end you need a GAS project, a Sheet, secrets, and a Deployment ID. Do this once per fork:
+## First-time setup (per environment)
 
-1. **Sheet** — create a new Google Sheet (any name). Tabs (`transactions`, `categories`, `accounts`, `rates`, `audit_access`) auto-create on first request.
-2. **Apps Script** — open Extensions → Apps Script in the Sheet. Paste every `.gs` file from `backend/`. Enable the manifest in **Project Settings → Show "appsscript.json" manifest file in editor**, then paste:
+You do this once for `dev`, then again for `prod` (or only one of them if you don't want both).
+
+1. **Sheet** — create a new Google Sheet (any name; e.g. `Expense Tracker — DEV` or `Expense Tracker — PROD`). Tabs (`transactions`, `categories`, `accounts`, `rates`, `audit_access`) auto-create on first request.
+2. **Apps Script** — open Extensions → Apps Script in the Sheet. Note the **Script ID** from Project Settings → IDs. Enable the manifest in **Project Settings → Show "appsscript.json" manifest file in editor**, then paste:
    ```json
    {
      "timeZone": "Europe/London",
@@ -74,14 +104,35 @@ Before the pipeline can run end-to-end you need a GAS project, a Sheet, secrets,
      "webapp": { "executeAs": "USER_DEPLOYING", "access": "ANYONE_ANONYMOUS" }
    }
    ```
+   (You'll push the `.gs` source via clasp shortly — no need to paste it manually.)
 3. **Secrets** — **Project Settings → Script Properties → Add property**:
-   - `PIN_SECRET` — your numeric PIN
+   - `PIN_SECRET` — your numeric PIN. **Use a different PIN for prod than dev** so a leaked dev PIN can't unlock prod.
    - `TOTP_SECRET` — Base32 secret. Generate locally: `python3 -c "import base64, os; print(base64.b32encode(os.urandom(20)).decode())"`. Add the same secret to an authenticator app (Time-based).
-4. **Deploy** — **Deploy → New deployment → Web app**, Execute as = `Me`, Access = `Anyone`. Copy the `/exec` URL.
-5. **Config** — set `SCRIPT_URL` in `app/config.js` to the `/exec` URL you copied.
-6. **Pin the Deployment ID** — replace the `--deploymentId` value inside `cicd/app-deployment.sh` with the ID from your `/exec` URL (the long segment between `/s/` and `/exec`).
+   - `TOTP_ENABLED` — `false` for dev (faster iteration), `true` for prod (real second factor).
+4. **Record the Script ID** in `cicd/envs.json` under the matching env. Leave `deployment_id` and `script_url` as TODO for now.
+5. **Push the code for the first time** — `app-deployment.sh` refuses while `envs.json` has TODO values, so for this one-off bootstrap, hand-edit `backend/.clasp.json` to set `scriptId` to the new env's value, then:
+   ```bash
+   cd backend/
+   clasp push --force               # uploads the .gs source to that env's project
+   cd ..
+   ```
+6. **Deploy** — in the Apps Script editor: **Deploy → New deployment → Web app**, Execute as = `Me`, Access = `Anyone`. Copy the `/exec` URL.
+7. **Record the deployment** in `cicd/envs.json`:
+   - `deployment_id` — the long segment between `/s/` and `/exec` in the URL
+   - `script_url` — the full `/exec` URL
+8. **First proper deploy** — now that all three IDs are set, deploy via the normal pipeline (this regenerates `app/config.js` and bumps the GAS draft + deployment):
+   ```bash
+   bash cicd/app-deployment.sh dev "expense-tracker: bootstrap"     # or prod
+   ```
+9. **Open the app, log in with the env's PIN + TOTP, and verify** the Sheet receives the request.
 
-After step 6, all subsequent changes ship via `bash cicd/app-deployment.sh "..."`.
+From this point on, deployments to that env are one command:
+
+```bash
+bash forge/deploy.sh                                                # interactive
+# or directly:
+bash cicd/app-deployment.sh dev "expense-tracker: <change description>"
+```
 
 ## Safety notes
 
