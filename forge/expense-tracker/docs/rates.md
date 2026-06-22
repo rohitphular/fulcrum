@@ -30,7 +30,8 @@ Example: with base = GBP:
 | Symbol editing | Symbol is not editable through the app — only via direct store edit. (Symbols change rarely; this avoids accidental edits during routine rate updates.) |
 | Upsert semantics | If the currency exists, the row is updated; otherwise a new row is appended. Editing a rate never duplicates the row. |
 | Adding a new currency through the UI | Not supported. Add a row to the store directly (currency + symbol), then edit the rate through the app. |
-| Missing rate | When a transaction's currency is not in the rates table, conversions fall back to `amount × 1` and the UI shows a `?` badge on the affected row. |
+| Deletion FK-guarded | Refuses with `{ ok: false, error: 'currency_in_use_by_accounts', referenced_count: N }` when any account holds the currency, or `currency_in_use_by_transactions` when any transaction is recorded in it. An account's currency cannot be changed after creation, so the recovery path is to delete the affected accounts/transactions first. Without this guard, deletion silently broke net-worth and per-account totals (`toBase` falls back to 1:1 on a missing rate). |
+| Missing rate | When a transaction's currency is not in the rates table, conversions fall back to `amount × 1` and the UI shows a `?` badge on the affected row. After the FK guard, this should only occur if the underlying store was edited directly. |
 
 ## Conversion function
 

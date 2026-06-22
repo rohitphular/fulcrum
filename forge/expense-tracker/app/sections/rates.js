@@ -124,6 +124,36 @@ function _rateRowHtml(r) {
   const base = r.currency === 'GBP';
 
   if (state.rateDeleteCurrency === r.currency) {
+    // Blocked state — backend refused because accounts or transactions still
+    // use this currency. Currency on an account is immutable, so the recovery
+    // path is to delete those accounts/transactions first.
+    if (state.rateDeleteBlocked) {
+      const blocked = state.rateDeleteBlocked;
+      const n       = blocked.referenced_count || 0;
+      let body, hint;
+      if (blocked.error === 'currency_in_use_by_accounts') {
+        const names = state.accounts
+          .filter(a => a.currency === r.currency)
+          .map(a => `<strong>${esc(a.name)}</strong>`);
+        const namesStr = names.length ? names.join(', ') : `${n} account${n === 1 ? '' : 's'}`;
+        body = `Cannot delete <strong>${esc(r.currency)}</strong> — used by: ${namesStr}.`;
+        hint = 'Delete those accounts first (an account\'s currency cannot be changed).';
+      } else {
+        const noun = n === 1 ? 'transaction is' : 'transactions are';
+        body = `Cannot delete <strong>${esc(r.currency)}</strong> — <strong>${n}</strong> ${noun} recorded in this currency.`;
+        hint = 'Delete or reassign those transactions first.';
+      }
+      return `<tr>
+        <td class="td-mono"><strong>${esc(r.currency)}</strong></td>
+        <td colspan="3">
+          <span class="confirm-text">${body}</span>
+          <div style="color:var(--muted);font-size:var(--text-sm);margin-top:4px">${hint}</div>
+        </td>
+        <td><div class="row-actions">
+          <button class="btn-link muted" data-action="rate-cancel-delete">Cancel</button>
+        </div></td>
+      </tr>`;
+    }
     return `<tr>
       <td class="td-mono"><strong>${esc(r.currency)}</strong></td>
       <td colspan="2"><span class="confirm-text">Delete <strong>${esc(r.currency)}</strong>?</span></td>
@@ -188,16 +218,19 @@ function _attachRateEvents() {
       state.rateEditCurrency   = currency;
       state.rateAddOpen        = false;
       state.rateDeleteCurrency = null;
+      state.rateDeleteBlocked  = null;
       renderRates();
       el('rateEditRate')?.focus();
     }
     if (action === 'rate-delete') {
       state.rateDeleteCurrency = currency;
+      state.rateDeleteBlocked  = null;
       state.rateEditCurrency   = null;
       renderRates();
     }
     if (action === 'rate-cancel-delete') {
       state.rateDeleteCurrency = null;
+      state.rateDeleteBlocked  = null;
       renderRates();
     }
     if (action === 'rate-confirm-delete') await _confirmDelete(currency);
@@ -292,7 +325,15 @@ async function _confirmDelete(currency) {
       state.rates          = state.rates.filter(r => r.currency !== currency);
       delete state.rateMap[currency];
       state.rateDeleteCurrency = null;
+      state.rateDeleteBlocked  = null;
       showMsg('Currency removed.');
+      renderRates();
+    } else if (res.error === 'currency_in_use_by_accounts' || res.error === 'currency_in_use_by_transactions') {
+      // T-05: keep the row in delete-confirm state, switch to blocked variant.
+      state.rateDeleteBlocked = {
+        error: res.error,
+        referenced_count: res.referenced_count || 0,
+      };
       renderRates();
     } else {
       showMsg('Failed: ' + (res.error || 'unknown'), 'warn');

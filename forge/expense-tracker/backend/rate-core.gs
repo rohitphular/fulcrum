@@ -63,6 +63,27 @@ function deleteRate(body) {
   if (!body.currency)          return { ok: false, error: 'missing_currency' };
   if (body.currency === 'GBP') return { ok: false, error: 'base_currency_readonly' };
 
+  // T-05 FK checks: refuse if any account or transaction is in this currency.
+  // Without the guards, deletion silently breaks net-worth math (toBase falls
+  // back to 1:1 on a missing rate) and per-account totals — the user keeps
+  // trusting wrong numbers.
+  const accCount = _countAccountsWithCurrency(body.currency);
+  if (accCount > 0) {
+    return {
+      ok: false,
+      error: 'currency_in_use_by_accounts',
+      referenced_count: accCount,
+    };
+  }
+  const txCount = _countTransactionsWithCurrency(body.currency);
+  if (txCount > 0) {
+    return {
+      ok: false,
+      error: 'currency_in_use_by_transactions',
+      referenced_count: txCount,
+    };
+  }
+
   const sheet  = getOrCreateSheet(RATES_SHEET, getRateSheetColumns());
   const values = sheet.getDataRange().getValues();
   const ci     = rateColIndex('currency');
@@ -73,4 +94,26 @@ function deleteRate(body) {
     return { ok: true };
   }
   return { ok: false, error: 'not_found' };
+}
+
+function _countAccountsWithCurrency(currency) {
+  const sheet  = getOrCreateSheet(ACCOUNTS_SHEET, getAccountSheetColumns());
+  const values = sheet.getDataRange().getValues();
+  const ci     = acctColIndex('currency');
+  let count = 0;
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][ci] || '') === String(currency)) count++;
+  }
+  return count;
+}
+
+function _countTransactionsWithCurrency(currency) {
+  const sheet  = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
+  const values = sheet.getDataRange().getValues();
+  const ci     = txColIndex('currency');
+  let count = 0;
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][ci] || '') === String(currency)) count++;
+  }
+  return count;
 }

@@ -41,6 +41,7 @@ export const state = {
   rateAddOpen:        false,
   rateEditCurrency:   null,
   rateDeleteCurrency: null,
+  rateDeleteBlocked:  null,   // { error, referenced_count } when delete is refused — paired with rateDeleteCurrency
 
   accountSchema:      null,  // { types, liability_types, loan_types, investment_sub_types, mortgage_sub_types }
   transactionSchema:  null,  // { types, categorisation_fields, transfer_fields }
