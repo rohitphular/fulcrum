@@ -4,8 +4,7 @@ import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { filteredTx } from '../core/daterange.js';
 import { ExpenseAPI } from '../core/api.js';
 
-let addFormOpen = false;
-let filterOpen  = false;
+let filterOpen = false;
 
 // ── Category dropdown helpers — respect is_active (greyed-out when archived) ──
 
@@ -83,8 +82,18 @@ export function renderTransactions() {
   const validRows = rows.filter(tx =>  tx.id && tx.transaction_date_utc && VALID_TX_TYPES.includes(tx.transaction_type));
   const warnRows  = rows.filter(tx => !tx.id || !tx.transaction_date_utc || !VALID_TX_TYPES.includes(tx.transaction_type));
 
+  const viewTx      = state.txViewRow !== null ? validRows.find(tx => tx._row === state.txViewRow) : null;
+  const editTx      = state.txEditRow !== null ? validRows.find(tx => tx._row === state.txEditRow) : null;
+  const anyFormOpen = state.txAddOpen || viewTx !== null || editTx !== null;
+
   txEl.innerHTML = `
-    ${_renderAddForm()}
+    <div class="sec-head">
+      <div class="sec-head-left"><h2>Transactions</h2></div>
+      <button class="btn btn-primary btn-sm" id="txAddBtn">${anyFormOpen ? '× Close' : '+ Add'}</button>
+    </div>
+    ${state.txAddOpen ? _renderAddForm() : ''}
+    ${viewTx ? _renderTxForm(viewTx, 'view') : ''}
+    ${editTx ? _renderTxForm(editTx, 'edit') : ''}
     ${_renderFilterBar()}
     ${warnRows.length ? `<div class="warning-count" id="warnToggle">⚠ ${warnRows.length} row${warnRows.length > 1 ? 's' : ''} have warnings — click to expand</div>` : ''}
     <div class="table-controls">
@@ -94,8 +103,21 @@ export function renderTransactions() {
     ${_renderTxTable(validRows, warnRows)}
   `;
 
+  el('txAddBtn')?.addEventListener('click', () => {
+    if (anyFormOpen) {
+      state.txAddOpen = false;
+      state.txViewRow = null;
+      state.txEditRow = null;
+    } else {
+      state.txAddOpen = true;
+    }
+    renderTransactions();
+  });
+
   _attachFilterEvents();
-  _attachAddFormEvents();
+  if (state.txAddOpen) _attachAddFormEvents();
+  if (editTx) _attachTxEditCascadeEvents();
+  _attachEvents();
 
   el('exportCsv')?.addEventListener('click', () => exportData('csv', rows));
   el('exportJson')?.addEventListener('click', () => exportData('json', rows));
@@ -118,12 +140,11 @@ function _renderTxTable(validRows, warnRows) {
     return `<th class="${cls}" data-sort="${esc(col)}">${esc(label)}</th>`;
   };
 
-  const hasActiveRow = state.txViewRow !== null || state.txDeleteRow !== null || state.txEditRow !== null;
+  // Only force table visible on mobile for inline delete confirmation
+  const hasDeleteRow = state.txDeleteRow !== null;
 
   const rowData = paged.map(tx => {
-    if (state.txViewRow   === tx._row) return { tr: _renderTxViewRow(tx),   card: '' };
     if (state.txDeleteRow === tx._row) return { tr: _renderTxDeleteRow(tx), card: '' };
-    if (state.txEditRow   === tx._row) return { tr: _renderTxEditRow(tx),   card: '' };
 
     const badgeCls  = tx.transaction_type === 'money-in' ? 'badge-in' : tx.transaction_type === 'money-out' ? 'badge-out' : 'badge-transfer';
     const typeLabel = _txTypeMap()[tx.transaction_type] || tx.transaction_type;
@@ -145,7 +166,7 @@ function _renderTxTable(validRows, warnRows) {
         <td class="td-mono td-nowrap">${esc(fmtDateTimeCompact(tx.transaction_date_utc))}</td>
         <td><span class="badge ${badgeCls}">${typeLabel}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}</td>
         <td class="td-truncate" title="${esc(acctLabel)}">${esc(acctLabel)}</td>
-        <td class="td-mono td-nowrap">${amtCell}${missingRate ? ' <span class="badge badge-warn" title="Currency not in rates tab">?</span>' : ''}${rowRate ? ' <span title="Row-level FX rate" style="color:var(--muted);font-size:10px">†</span>' : ''}</td>
+        <td class="td-mono td-nowrap">${amtCell}${missingRate ? ' <span class="badge badge-warn" title="Currency not in rates tab">?</span>' : ''}${rowRate ? ' <span title="Row-level FX rate" style="color:var(--muted);font-size:var(--text-2xs)">†</span>' : ''}</td>
         <td class="td-truncate" title="${esc(catLabel)}">${esc(catLabel)}</td>
         <td><div class="row-actions">
           <button class="btn-link muted" data-action="tx-view" data-row="${tx._row}">View</button>
@@ -174,8 +195,8 @@ function _renderTxTable(validRows, warnRows) {
     };
   });
 
-  const rows     = rowData.map(d => d.tr).join('');
-  const cardRows = rowData.map(d => d.card).join('');
+  const tableRows = rowData.map(d => d.tr).join('');
+  const cardRows  = rowData.map(d => d.card).join('');
 
   const warnRowsHtml = warnRows.length ? `
     <tbody id="warnTable" class="hidden">
@@ -194,8 +215,8 @@ function _renderTxTable(validRows, warnRows) {
       <button class="btn btn-secondary btn-sm" id="nextPage" ${state.txPage >= pages ? 'disabled' : ''}>Next →</button>
     </div>`;
 
-  const html = `
-    <div class="table-wrap tx-table-wrap${hasActiveRow ? ' tx-has-active' : ''}">
+  return `
+    <div class="table-wrap tx-table-wrap${hasDeleteRow ? ' tx-has-active' : ''}">
       <table>
         <thead><tr>
           ${thSort('transaction_date_utc','Date')}
@@ -205,49 +226,49 @@ function _renderTxTable(validRows, warnRows) {
           ${thSort('major_category','Category')}
           <th style="width:130px">Actions</th>
         </tr></thead>
-        <tbody>${rows}</tbody>
+        <tbody>${tableRows}</tbody>
         ${warnRowsHtml}
       </table>
     </div>
     <div class="tx-cards">${cardRows}</div>
     ${pagination}
   `;
+}
 
-  setTimeout(() => {
-    el('transactionsContent')?.querySelectorAll('th[data-sort]').forEach(th => {
-      th.addEventListener('click', () => {
-        const col = th.dataset.sort;
-        state.txSort.dir = state.txSort.col === col && state.txSort.dir === 'asc' ? 'desc' : (state.txSort.col === col ? 'asc' : 'desc');
-        state.txSort.col = col;
-        state.txPage = 1;
-        renderTransactions();
-      });
+function _attachEvents() {
+  const content = el('transactionsContent');
+  if (!content) return;
+
+  content.querySelectorAll('th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.sort;
+      state.txSort.dir = state.txSort.col === col && state.txSort.dir === 'asc' ? 'desc' : (state.txSort.col === col ? 'asc' : 'desc');
+      state.txSort.col = col;
+      state.txPage = 1;
+      renderTransactions();
     });
-    el('prevPage')?.addEventListener('click', () => { state.txPage--; renderTransactions(); });
-    el('nextPage')?.addEventListener('click', () => { state.txPage++; renderTransactions(); });
-    el('txPerPage')?.addEventListener('change', e => { state.txPerPage = Number(e.target.value); state.txPage = 1; renderTransactions(); });
+  });
 
-    const handleTxAction = (e) => {
-      const btn    = e.target.closest('[data-action]');
-      if (!btn) return;
-      const action = btn.dataset.action;
-      const row    = btn.dataset.row ? Number(btn.dataset.row) : null;
-      if (action === 'tx-view')           { state.txViewRow = row; state.txEditRow = null; state.txDeleteRow = null; renderTransactions(); }
-      if (action === 'tx-cancel-view')    { state.txViewRow = null; renderTransactions(); }
-      if (action === 'tx-edit')           { state.txEditRow = row; state.txDeleteRow = null; state.txViewRow = null; renderTransactions(); }
-      if (action === 'tx-cancel-edit')    { state.txEditRow = null; renderTransactions(); }
-      if (action === 'tx-save-edit')      { _saveEdit(row); }
-      if (action === 'tx-delete')         { state.txDeleteRow = row; state.txEditRow = null; state.txViewRow = null; renderTransactions(); }
-      if (action === 'tx-cancel-delete')  { state.txDeleteRow = null; renderTransactions(); }
-      if (action === 'tx-confirm-delete') { _confirmDelete(row); }
-    };
-    el('transactionsContent')?.querySelector('.tx-table-wrap')?.addEventListener('click', handleTxAction);
-    el('transactionsContent')?.querySelector('.tx-cards')?.addEventListener('click', handleTxAction);
+  el('prevPage')?.addEventListener('click', () => { state.txPage--; renderTransactions(); });
+  el('nextPage')?.addEventListener('click', () => { state.txPage++; renderTransactions(); });
+  el('txPerPage')?.addEventListener('change', e => { state.txPerPage = Number(e.target.value); state.txPage = 1; renderTransactions(); });
 
-    if (state.txEditRow !== null) _attachTxEditCascadeEvents(state.txEditRow);
-  }, 0);
+  const handleTxAction = (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const row    = btn.dataset.row ? Number(btn.dataset.row) : null;
+    if (action === 'tx-view')           { state.txViewRow = row; state.txEditRow = null; state.txDeleteRow = null; state.txAddOpen = false; renderTransactions(); }
+    if (action === 'tx-cancel-view')    { state.txViewRow = null; renderTransactions(); }
+    if (action === 'tx-edit')           { state.txEditRow = row; state.txDeleteRow = null; state.txViewRow = null; state.txAddOpen = false; renderTransactions(); }
+    if (action === 'tx-cancel-edit')    { state.txEditRow = null; renderTransactions(); }
+    if (action === 'tx-save-edit')      { _saveEdit(); }
+    if (action === 'tx-delete')         { state.txDeleteRow = row; state.txEditRow = null; state.txViewRow = null; renderTransactions(); }
+    if (action === 'tx-cancel-delete')  { state.txDeleteRow = null; renderTransactions(); }
+    if (action === 'tx-confirm-delete') { _confirmDelete(row); }
+  };
 
-  return html;
+  content.addEventListener('click', handleTxAction);
 }
 
 function _sortTx(rows) {
@@ -271,93 +292,84 @@ function _sortTx(rows) {
 
 function _renderAddForm() {
   return `
-  <div class="add-form-wrap">
-    <button class="add-form-toggle" id="addFormToggle">
-      Add transaction
-      <span class="plus-icon">${addFormOpen ? '×' : '+'}</span>
-    </button>
-    <div class="add-form-body ${addFormOpen ? '' : 'hidden'}" id="addFormBody">
-      <div class="form-grid form-grid-6">
-        <!-- Row 1: Type | Major category | Minor category -->
-        <div class="field form-grid-span-2">
-          <label for="afType">Type *</label>
-          <select id="afType">
-            <option value="">— select —</option>
-            ${_txTypes().map(t => `<option value="${esc(t.value)}">${esc(t.label)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="field form-grid-span-2" id="afMajorField">
-          <label for="afMajor">Major category *</label>
-          <select id="afMajor" disabled><option value="">— select type first —</option></select>
-        </div>
-        <div class="field form-grid-span-2" id="afMinorField">
-          <label for="afMinor">Minor category *</label>
-          <select id="afMinor" disabled><option value="">— select major first —</option></select>
-        </div>
-        <!-- Row 2: Source account | Target account | Country -->
-        <div class="field form-grid-span-2" id="afFromAccountWrap">
-          <label for="afFromAccount">Source account</label>
-          <select id="afFromAccount" disabled>
-            <option value="">— select type first —</option>
-          </select>
-        </div>
-        <div class="field form-grid-span-2" id="afToAccountWrap">
-          <label for="afToAccount">Target account</label>
-          <select id="afToAccount" disabled>
-            <option value="">External</option>
-          </select>
-        </div>
-        <div class="field form-grid-span-2" id="afCountryField">
-          <label for="afCountry">Country</label>
-          <input type="text" id="afCountry" placeholder="UK">
-        </div>
-        <!-- FX rate: full width, shown only when source and target are cross-currency -->
-        <div class="field form-grid-full" id="afFxRateWrap" style="display:none">
-          <label for="afFxRate">FX rate</label>
-          <input type="number" id="afFxRate" min="0.0001" step="any" placeholder="e.g. 105" style="max-width:240px">
-          <div id="afFxDirection" class="field-hint"></div>
-          <div id="afFxPreview"   class="field-hint" style="color:var(--teal)"></div>
-        </div>
-        <!-- Row 3: Date & time | Amount | Counterparty -->
-        <div class="field form-grid-span-2" id="afDateField">
-          <label for="afDate">Date &amp; time *</label>
-          <input type="datetime-local" id="afDate" value="${nowLocalISO()}">
-        </div>
-        <div class="field form-grid-span-2" id="afAmountField">
-          <label for="afAmount">Amount *</label>
-          <input type="number" id="afAmount" min="0.01" step="0.01" placeholder="0.00">
-        </div>
-        <div class="field form-grid-span-2" id="afCounterpartyField">
-          <label for="afCounterparty">Counterparty</label>
-          <input type="text" id="afCounterparty" placeholder="Tesco, employer, …">
-        </div>
-        <!-- Row 4: Tags 50% | Notes 50% -->
-        <div class="field form-grid-span-3" id="afTagsField">
-          <label for="afTags">Tags</label>
-          <input type="text" id="afTags" placeholder="reimbursable, work">
-        </div>
-        <div class="field form-grid-span-3" id="afNotesField">
-          <label for="afNotes">Notes</label>
-          <input type="text" id="afNotes" placeholder="free text">
-        </div>
+  <div class="card" style="margin-bottom:20px">
+    <div class="form-grid form-grid-6">
+      <!-- Row 1: Type | Major category | Minor category -->
+      <div class="field form-grid-span-2">
+        <label for="afType">Type *</label>
+        <select id="afType">
+          <option value="">— select —</option>
+          ${_txTypes().map(t => `<option value="${esc(t.value)}">${esc(t.label)}</option>`).join('')}
+        </select>
       </div>
-      <div class="form-actions">
-        <button class="btn btn-primary" id="afSubmit">Save</button>
-        <button class="btn btn-secondary" id="afReset">Clear</button>
+      <div class="field form-grid-span-2" id="afMajorField">
+        <label for="afMajor">Major category *</label>
+        <select id="afMajor" disabled><option value="">— select type first —</option></select>
       </div>
-      <div class="pin-error" id="afError"></div>
+      <div class="field form-grid-span-2" id="afMinorField">
+        <label for="afMinor">Minor category *</label>
+        <select id="afMinor" disabled><option value="">— select major first —</option></select>
+      </div>
+      <!-- Row 2: Source account | Target account | Country -->
+      <div class="field form-grid-span-2" id="afFromAccountWrap">
+        <label for="afFromAccount">Source account</label>
+        <select id="afFromAccount" disabled>
+          <option value="">— select type first —</option>
+        </select>
+      </div>
+      <div class="field form-grid-span-2" id="afToAccountWrap">
+        <label for="afToAccount">Target account</label>
+        <select id="afToAccount" disabled>
+          <option value="">External</option>
+        </select>
+      </div>
+      <div class="field form-grid-span-2" id="afCountryField">
+        <label for="afCountry">Country</label>
+        <input type="text" id="afCountry" placeholder="UK">
+      </div>
+      <!-- FX rate: full width, shown only when source and target are cross-currency -->
+      <div class="field form-grid-full" id="afFxRateWrap" style="display:none">
+        <label for="afFxRate">FX rate</label>
+        <input type="number" id="afFxRate" min="0.0001" step="any" placeholder="e.g. 105" style="max-width:240px">
+        <div id="afFxDirection" class="field-hint"></div>
+        <div id="afFxPreview"   class="field-hint" style="color:var(--teal)"></div>
+      </div>
+      <!-- Row 3: Date & time | Amount | Counterparty -->
+      <div class="field form-grid-span-2" id="afDateField">
+        <label for="afDate">Date &amp; time *</label>
+        <input type="datetime-local" id="afDate" value="${nowLocalISO()}">
+      </div>
+      <div class="field form-grid-span-2" id="afAmountField">
+        <label for="afAmount">Amount *</label>
+        <input type="number" id="afAmount" min="0.01" step="0.01" placeholder="0.00">
+      </div>
+      <div class="field form-grid-span-2" id="afCounterpartyField">
+        <label for="afCounterparty">Counterparty</label>
+        <input type="text" id="afCounterparty" placeholder="Tesco, employer, …">
+      </div>
+      <!-- Row 4: Tags 50% | Notes 50% -->
+      <div class="field form-grid-span-3" id="afTagsField">
+        <label for="afTags">Tags</label>
+        <input type="text" id="afTags" placeholder="reimbursable, work">
+      </div>
+      <div class="field form-grid-span-3" id="afNotesField">
+        <label for="afNotes">Notes</label>
+        <input type="text" id="afNotes" placeholder="free text">
+      </div>
     </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="afSubmit">Save</button>
+      <button class="btn btn-secondary" id="afReset">Clear</button>
+    </div>
+    <div class="pin-error" id="afError"></div>
   </div>`;
 }
 
 function _attachAddFormEvents() {
-  el('addFormToggle')?.addEventListener('click', () => { addFormOpen = !addFormOpen; renderTransactions(); });
-
   el('afType')?.addEventListener('change', () => {
     const type       = el('afType').value;
     const majorEl    = el('afMajor');
     const minorEl    = el('afMinor');
-    const isTransfer = type === 'money-transfer';
 
     majorEl.innerHTML = '<option value="">— select type first —</option>';
     minorEl.innerHTML = '<option value="">— select major first —</option>';
@@ -543,8 +555,8 @@ function _checkBalanceRules(transaction_type, sourceAccount, amount) {
     const creditLimit = Number(sourceAccount.credit_card_limit) || 0;
     if (creditLimit <= 0) return null; // no limit set — skip check
 
-    const balance        = Number(sourceAccount.current_balance); // negative: amount owed stored as negative
-    const availableCredit = creditLimit + balance;                // e.g. limit=1000, balance=−600 → available=400
+    const balance         = Number(sourceAccount.current_balance); // negative: amount owed stored as negative
+    const availableCredit = creditLimit + balance;                 // e.g. limit=1000, balance=−600 → available=400
 
     if (amount > availableCredit) {
       const owed = Math.abs(balance);
@@ -660,7 +672,7 @@ async function _saveTransaction() {
     });
     if (res.ok) {
       showMsg('Transaction saved.');
-      addFormOpen = false;
+      state.txAddOpen = false;
       document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
       errEl.textContent = 'Error: ' + (res.error || 'unknown');
@@ -674,13 +686,43 @@ async function _saveTransaction() {
   }
 }
 
-// ── Transaction edit / delete ─────────────────────────────────────────────────
+// ── Transaction view / edit card ──────────────────────────────────────────────
 
-function _renderTxEditRow(tx) {
-  const r = tx._row;
-  const activeAccounts = state.accounts.filter(
-    a => a.is_active === true
-  );
+function _renderTxForm(tx, mode) {
+  const badgeCls  = tx.transaction_type === 'money-in' ? 'badge-in' : tx.transaction_type === 'money-out' ? 'badge-out' : 'badge-transfer';
+  const typeLabel = _txTypeMap()[tx.transaction_type] || tx.transaction_type;
+  const fromName  = state.accountMap[tx.source_account]?.name || '—';
+  const toName    = tx.target_account ? (state.accountMap[tx.target_account]?.name || '—') : 'External';
+
+  if (mode === 'view') {
+    const f = (label, value) =>
+      `<div class="tx-detail-field"><div class="tx-detail-label">${label}</div><div class="tx-detail-value">${value}</div></div>`;
+
+    return `
+    <div class="card" style="margin-bottom:16px">
+      <div class="tx-detail-grid">
+        ${f('Date & time',      esc(fmtDateTime(tx.transaction_date_utc)))}
+        ${f('Type',             `<span class="badge ${badgeCls}">${esc(typeLabel)}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}`)}
+        ${f('Source account',   esc(fromName))}
+        ${f('Target account',   esc(toName))}
+        ${f('Amount',           esc(fmtNative(tx.amount, tx.currency)))}
+        ${f('≈ ' + state.quoteCurrency, esc(fmtBase(tx.amount, tx.currency, tx.fx_rate)))}
+        ${f('Category',         esc([tx.major_category, tx.minor_category].filter(Boolean).join(' → ') || '—'))}
+        ${f('Counterparty',     esc(tx.counterparty || '—'))}
+        ${f('Country',          esc(tx.country || '—'))}
+        ${f('Tags',             esc(String(tx.tags || '').replace(/;/g, ', ') || '—'))}
+        ${f('Notes',            esc(tx.notes || '—'))}
+        ${tx.fx_rate && parseFloat(tx.fx_rate) > 0 ? f('FX rate', esc(String(tx.fx_rate))) : ''}
+      </div>
+      <div class="form-actions" style="margin-top:12px">
+        <button class="btn btn-secondary btn-sm" data-action="tx-cancel-view">Close</button>
+        <button class="btn btn-primary btn-sm" data-action="tx-edit" data-row="${tx._row}">Edit</button>
+      </div>
+    </div>`;
+  }
+
+  // Edit mode
+  const activeAccounts  = state.accounts.filter(a => a.is_active === true);
   const _editCat        = _getCat(tx.transaction_type, tx.major_category, tx.minor_category);
   const fromAccountOpts = _acctOptsWithHints(activeAccounts, _editCat?.source_account_types || '', tx.source_account);
   const toAccountOpts   = _acctOptsWithHints(
@@ -711,117 +753,84 @@ function _renderTxEditRow(tx) {
   const fxDisplay  = isCrossCcy ? '' : 'display:none';
   const fxDirText  = isCrossCcy ? `Rate: units of ${esc(toCcy)} per 1 ${esc(fromCcy)}` : '';
 
-  return `<tr class="tx-edit-row">
-    <td colspan="6">
-      <div class="form-grid form-grid-6" style="padding:6px 0 4px">
-        <!-- Row 1: Type | Major category | Minor category -->
-        <div class="field form-grid-span-2">
-          <label>Type</label>
-          <select id="txEditType-${r}">${typeOpts}</select>
-        </div>
-        <div class="field form-grid-span-2" id="txEditMajorField-${r}">
-          <label>Major category</label>
-          <select id="txEditMajor-${r}">
-            <option value="">— select —</option>
-            ${majorOpts}
-          </select>
-        </div>
-        <div class="field form-grid-span-2" id="txEditMinorField-${r}">
-          <label>Minor category</label>
-          <select id="txEditMinor-${r}">
-            <option value="">— select —</option>
-            ${minorOpts}
-          </select>
-        </div>
-        <!-- Row 2: Source account | Target account | Country -->
-        <div class="field form-grid-span-2">
-          <label>Source account</label>
-          <select id="txEditFromAccount-${r}">
-            <option value="">— select —</option>
-            ${fromAccountOpts}
-          </select>
-        </div>
-        <div class="field form-grid-span-2" id="txEditToAccountWrap-${r}">
-          <label>Target account</label>
-          <select id="txEditToAccount-${r}" ${tgtMand ? '' : 'disabled'}>
-            ${tgtMand
-              ? `<option value="">— select —</option>${toAccountOpts}`
-              : `<option value="">External</option>`}
-          </select>
-        </div>
-        <div class="field form-grid-span-2" id="txEditCountryField-${r}">
-          <label>Country</label>
-          <input type="text" id="txEditCountry-${r}" value="${esc(tx.country || '')}">
-        </div>
-        <!-- FX rate: full width, shown only when cross-currency -->
-        <div class="field form-grid-full" id="txEditFxRateWrap-${r}" style="${fxDisplay}">
-          <label>FX rate</label>
-          <input type="number" id="txEditFxRate-${r}" min="0.0001" step="any" value="${esc(String(tx.fx_rate || ''))}" style="max-width:240px">
-          <div id="txEditFxDirection-${r}" class="field-hint">${fxDirText}</div>
-          <div id="txEditFxPreview-${r}" class="field-hint" style="color:var(--teal)"></div>
-        </div>
-        <!-- Row 3: Date & time | Amount | Counterparty -->
-        <div class="field form-grid-span-2">
-          <label>Date &amp; time</label>
-          <input type="datetime-local" id="txEditDate-${r}" value="${esc(dateVal)}">
-        </div>
-        <div class="field form-grid-span-2">
-          <label>Amount</label>
-          <input type="number" id="txEditAmount-${r}" min="0.01" step="0.01" value="${esc(String(tx.amount || ''))}">
-        </div>
-        <div class="field form-grid-span-2" id="txEditCounterpartyField-${r}">
-          <label>Counterparty</label>
-          <input type="text" id="txEditCounterparty-${r}" value="${esc(tx.counterparty || '')}">
-        </div>
-        <!-- Row 4: Tags 50% | Notes 50% -->
-        <div class="field form-grid-span-3">
-          <label>Tags</label>
-          <input type="text" id="txEditTags-${r}" value="${esc(String(tx.tags || '').replace(/;/g, ', '))}">
-        </div>
-        <div class="field form-grid-span-3">
-          <label>Notes</label>
-          <input type="text" id="txEditNotes-${r}" value="${esc(tx.notes || '')}">
-        </div>
+  return `
+  <div class="card" style="margin-bottom:16px">
+    <div class="form-grid form-grid-6">
+      <!-- Row 1: Type | Major category | Minor category -->
+      <div class="field form-grid-span-2">
+        <label>Type</label>
+        <select id="txEditType">${typeOpts}</select>
       </div>
-      <div class="form-actions" style="margin-top:6px">
-        <button class="btn btn-primary btn-sm" data-action="tx-save-edit" data-row="${r}">Save</button>
-        <button class="btn btn-secondary btn-sm" data-action="tx-cancel-edit">Cancel</button>
+      <div class="field form-grid-span-2" id="txEditMajorField">
+        <label>Major category</label>
+        <select id="txEditMajor">
+          <option value="">— select —</option>
+          ${majorOpts}
+        </select>
       </div>
-      <div class="pin-error" id="txEditError-${r}"></div>
-    </td>
-  </tr>`;
-}
-
-function _renderTxViewRow(tx) {
-  const badgeCls  = tx.transaction_type === 'money-in' ? 'badge-in' : tx.transaction_type === 'money-out' ? 'badge-out' : 'badge-transfer';
-  const typeLabel = _txTypeMap()[tx.transaction_type] || tx.transaction_type;
-  const fromName  = state.accountMap[tx.source_account]?.name || '—';
-  const toName    = tx.target_account ? (state.accountMap[tx.target_account]?.name || '—') : 'External';
-
-  const f = (label, value) =>
-    `<div class="tx-detail-field"><div class="tx-detail-label">${label}</div><div class="tx-detail-value">${value}</div></div>`;
-
-  return `<tr class="tx-view-row">
-    <td colspan="6">
-      <div class="tx-detail-grid">
-        ${f('Date & time',      esc(fmtDateTime(tx.transaction_date_utc)))}
-        ${f('Type',             `<span class="badge ${badgeCls}">${esc(typeLabel)}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}`)}
-        ${f('Source account',   esc(fromName))}
-        ${f('Target account',   esc(toName))}
-        ${f('Amount',           esc(fmtNative(tx.amount, tx.currency)))}
-        ${f('≈ ' + state.quoteCurrency, esc(fmtBase(tx.amount, tx.currency, tx.fx_rate)))}
-        ${f('Category',         esc([tx.major_category, tx.minor_category].filter(Boolean).join(' → ') || '—'))}
-        ${f('Counterparty',     esc(tx.counterparty || '—'))}
-        ${f('Country',          esc(tx.country || '—'))}
-        ${f('Tags',             esc(String(tx.tags || '').replace(/;/g, ', ') || '—'))}
-        ${f('Notes',            esc(tx.notes || '—'))}
-        ${tx.fx_rate && parseFloat(tx.fx_rate) > 0 ? f('FX rate', esc(String(tx.fx_rate))) : ''}
+      <div class="field form-grid-span-2" id="txEditMinorField">
+        <label>Minor category</label>
+        <select id="txEditMinor">
+          <option value="">— select —</option>
+          ${minorOpts}
+        </select>
       </div>
-      <div style="margin-top:10px">
-        <button class="btn btn-secondary btn-sm" data-action="tx-cancel-view">Close</button>
+      <!-- Row 2: Source account | Target account | Country -->
+      <div class="field form-grid-span-2">
+        <label>Source account</label>
+        <select id="txEditFromAccount">
+          <option value="">— select —</option>
+          ${fromAccountOpts}
+        </select>
       </div>
-    </td>
-  </tr>`;
+      <div class="field form-grid-span-2" id="txEditToAccountWrap">
+        <label>Target account</label>
+        <select id="txEditToAccount" ${tgtMand ? '' : 'disabled'}>
+          ${tgtMand
+            ? `<option value="">— select —</option>${toAccountOpts}`
+            : `<option value="">External</option>`}
+        </select>
+      </div>
+      <div class="field form-grid-span-2">
+        <label>Country</label>
+        <input type="text" id="txEditCountry" value="${esc(tx.country || '')}">
+      </div>
+      <!-- FX rate: full width, shown only when cross-currency -->
+      <div class="field form-grid-full" id="txEditFxRateWrap" style="${fxDisplay}">
+        <label>FX rate</label>
+        <input type="number" id="txEditFxRate" min="0.0001" step="any" value="${esc(String(tx.fx_rate || ''))}" style="max-width:240px">
+        <div id="txEditFxDirection" class="field-hint">${fxDirText}</div>
+        <div id="txEditFxPreview" class="field-hint" style="color:var(--teal)"></div>
+      </div>
+      <!-- Row 3: Date & time | Amount | Counterparty -->
+      <div class="field form-grid-span-2">
+        <label>Date &amp; time</label>
+        <input type="datetime-local" id="txEditDate" value="${esc(dateVal)}">
+      </div>
+      <div class="field form-grid-span-2">
+        <label>Amount</label>
+        <input type="number" id="txEditAmount" min="0.01" step="0.01" value="${esc(String(tx.amount || ''))}">
+      </div>
+      <div class="field form-grid-span-2">
+        <label>Counterparty</label>
+        <input type="text" id="txEditCounterparty" value="${esc(tx.counterparty || '')}">
+      </div>
+      <!-- Row 4: Tags 50% | Notes 50% -->
+      <div class="field form-grid-span-3">
+        <label>Tags</label>
+        <input type="text" id="txEditTags" value="${esc(String(tx.tags || '').replace(/;/g, ', '))}">
+      </div>
+      <div class="field form-grid-span-3">
+        <label>Notes</label>
+        <input type="text" id="txEditNotes" value="${esc(tx.notes || '')}">
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:8px">
+      <button class="btn btn-primary btn-sm" data-action="tx-save-edit">Save</button>
+      <button class="btn btn-secondary btn-sm" data-action="tx-cancel-edit">Cancel</button>
+    </div>
+    <div class="pin-error" id="txEditError"></div>
+  </div>`;
 }
 
 function _renderTxDeleteRow(tx) {
@@ -839,14 +848,14 @@ function _renderTxDeleteRow(tx) {
   </tr>`;
 }
 
-function _attachTxEditCascadeEvents(r) {
-  const _txEditUpdateFxPreview = (row) => {
-    const prvEl   = el(`txEditFxPreview-${row}`);
+function _attachTxEditCascadeEvents() {
+  const _updateFxPreview = () => {
+    const prvEl   = el('txEditFxPreview');
     if (!prvEl) return;
-    const fromAcc = state.accountMap[el(`txEditFromAccount-${row}`)?.value];
-    const toAcc   = state.accountMap[el(`txEditToAccount-${row}`)?.value];
-    const fxRate  = parseFloat(el(`txEditFxRate-${row}`)?.value) || 0;
-    const amount  = parseFloat(el(`txEditAmount-${row}`)?.value) || 0;
+    const fromAcc = state.accountMap[el('txEditFromAccount')?.value];
+    const toAcc   = state.accountMap[el('txEditToAccount')?.value];
+    const fxRate  = parseFloat(el('txEditFxRate')?.value) || 0;
+    const amount  = parseFloat(el('txEditAmount')?.value) || 0;
     if (fromAcc && toAcc && fromAcc.currency !== toAcc.currency && fxRate > 0 && amount > 0) {
       const credited    = (amount * fxRate).toFixed(2);
       prvEl.textContent = `${amount} ${fromAcc.currency} sent; ${credited} ${toAcc.currency} credited to ${toAcc.name}`;
@@ -855,18 +864,18 @@ function _attachTxEditCascadeEvents(r) {
     }
   };
 
-  const _txEditRefreshFieldVis = (row) => {
-    const type    = el(`txEditType-${row}`)?.value;
-    const major   = el(`txEditMajor-${row}`)?.value || '';
-    const minor   = el(`txEditMinor-${row}`)?.value || '';
+  const _refreshFieldVis = () => {
+    const type    = el('txEditType')?.value;
+    const major   = el('txEditMajor')?.value || '';
+    const minor   = el('txEditMinor')?.value || '';
     const cat     = _getCat(type, major, minor);
-    const fromAcc = state.accountMap[el(`txEditFromAccount-${row}`)?.value];
-    const toAcc   = state.accountMap[el(`txEditToAccount-${row}`)?.value];
+    const fromAcc = state.accountMap[el('txEditFromAccount')?.value];
+    const toAcc   = state.accountMap[el('txEditToAccount')?.value];
     const isXfer     = type === 'money-transfer';
     const tgtMand    = cat ? Boolean(cat.target_account_mandatory) : isXfer;
     const isCrossCcy = tgtMand && fromAcc && toAcc && fromAcc.currency !== toAcc.currency;
 
-    const toEl = el(`txEditToAccount-${row}`);
+    const toEl = el('txEditToAccount');
     if (toEl) {
       if (tgtMand) {
         toEl.disabled = false;
@@ -880,48 +889,32 @@ function _attachTxEditCascadeEvents(r) {
       }
     }
 
-    const fxWrap = el(`txEditFxRateWrap-${row}`);
+    const fxWrap = el('txEditFxRateWrap');
     if (fxWrap) fxWrap.style.display = isCrossCcy ? '' : 'none';
 
-    const dirEl = el(`txEditFxDirection-${row}`);
+    const dirEl = el('txEditFxDirection');
     if (dirEl) {
       dirEl.textContent = isCrossCcy
         ? `Rate: units of ${toAcc.currency} per 1 ${fromAcc.currency}`
         : '';
     }
 
-    if (!isCrossCcy && el(`txEditFxRate-${row}`)) el(`txEditFxRate-${row}`).value = '';
+    if (!isCrossCcy && el('txEditFxRate')) el('txEditFxRate').value = '';
 
-    _txEditUpdateFxPreview(row);
+    _updateFxPreview();
   };
 
-  el(`txEditType-${r}`)?.addEventListener('change', () => {
-    const type = el(`txEditType-${r}`).value;
-    el(`txEditMajor-${r}`).innerHTML = _catMajorOpts(type);
-    el(`txEditMinor-${r}`).innerHTML = `<option value="">— select major first —</option>`;
-    el(`txEditToAccount-${r}`).value = '';
-    _txEditRefreshFieldVis(r);
-  });
-  el(`txEditMajor-${r}`)?.addEventListener('change', () => {
-    const type   = el(`txEditType-${r}`).value;
-    const major  = el(`txEditMajor-${r}`).value;
-    el(`txEditMinor-${r}`).innerHTML = _catMinorOpts(type, major);
-    _txEditRefreshAccountOpts(r);  // clear hint when major changes
-  });
-
-  el(`txEditMinor-${r}`)?.addEventListener('change', () => _txEditRefreshAccountOpts(r));
-
-  const _txEditRefreshAccountOpts = (row) => {
-    const type     = el(`txEditType-${row}`)?.value  || '';
-    const major    = el(`txEditMajor-${row}`)?.value || '';
-    const minor    = el(`txEditMinor-${row}`)?.value || '';
+  const _refreshAccountOpts = () => {
+    const type     = el('txEditType')?.value  || '';
+    const major    = el('txEditMajor')?.value || '';
+    const minor    = el('txEditMinor')?.value || '';
     const cat      = _getCat(type, major, minor);
     const srcTypes = cat?.source_account_types      || '';
     const dstTypes = cat?.target_account_types || '';
     const srcMand  = cat ? Boolean(cat.source_account_mandatory) : type !== 'money-in';
     const actives  = state.accounts.filter(a => a.is_active === true);
-    const fromEl   = el(`txEditFromAccount-${row}`);
-    const toEl     = el(`txEditToAccount-${row}`);
+    const fromEl   = el('txEditFromAccount');
+    const toEl     = el('txEditToAccount');
     if (fromEl) {
       if (!srcMand) {
         fromEl.disabled  = true;
@@ -940,37 +933,51 @@ function _attachTxEditCascadeEvents(r) {
       toEl.innerHTML = `<option value="">— none —</option>${_acctOptsWithHints(actives.filter(a => a.id !== fromId), dstTypes, prev)}`;
       if (prev && prev !== fromId) toEl.value = prev;
     }
-    _txEditRefreshFieldVis(row);
+    _refreshFieldVis();
   };
 
-  el(`txEditFromAccount-${r}`)?.addEventListener('change', () => _txEditRefreshFieldVis(r));
-  el(`txEditToAccount-${r}`)?.addEventListener('change', () => _txEditRefreshFieldVis(r));
-  el(`txEditFxRate-${r}`)?.addEventListener('input', () => _txEditUpdateFxPreview(r));
-  el(`txEditAmount-${r}`)?.addEventListener('input', () => _txEditUpdateFxPreview(r));
+  el('txEditType')?.addEventListener('change', () => {
+    el('txEditMajor').innerHTML = _catMajorOpts(el('txEditType').value);
+    el('txEditMinor').innerHTML = `<option value="">— select major first —</option>`;
+    el('txEditToAccount').value = '';
+    _refreshFieldVis();
+  });
+  el('txEditMajor')?.addEventListener('change', () => {
+    const type  = el('txEditType').value;
+    const major = el('txEditMajor').value;
+    el('txEditMinor').innerHTML = _catMinorOpts(type, major);
+    _refreshAccountOpts();
+  });
+  el('txEditMinor')?.addEventListener('change', _refreshAccountOpts);
+  el('txEditFromAccount')?.addEventListener('change', _refreshFieldVis);
+  el('txEditToAccount')?.addEventListener('change', _refreshFieldVis);
+  el('txEditFxRate')?.addEventListener('input', _updateFxPreview);
+  el('txEditAmount')?.addEventListener('input', _updateFxPreview);
+
   // Initial render: apply source/target disabled state based on category flags
-  _txEditRefreshAccountOpts(r);
+  _refreshAccountOpts();
 }
 
-async function _saveEdit(rowNum) {
-  const r     = rowNum;
-  const errEl = el(`txEditError-${r}`);
+async function _saveEdit() {
+  const errEl = el('txEditError');
   errEl.textContent = '';
 
-  const dateRaw          = el(`txEditDate-${r}`)?.value;
-  const transaction_type = el(`txEditType-${r}`)?.value;
-  const source_account   = el(`txEditFromAccount-${r}`)?.value;
-  const target_account   = el(`txEditToAccount-${r}`)?.value  || '';
-  const fx_rate          = el(`txEditFxRate-${r}`)?.value     || '';
-  const amount           = el(`txEditAmount-${r}`)?.value;
+  const rowNum           = state.txEditRow;
+  const dateRaw          = el('txEditDate')?.value;
+  const transaction_type = el('txEditType')?.value;
+  const source_account   = el('txEditFromAccount')?.value;
+  const target_account   = el('txEditToAccount')?.value  || '';
+  const fx_rate          = el('txEditFxRate')?.value     || '';
+  const amount           = el('txEditAmount')?.value;
   const currency         = transaction_type === 'money-in'
     ? (state.accountMap[target_account]?.currency || '')
     : (state.accountMap[source_account]?.currency || '');
-  const major_category   = el(`txEditMajor-${r}`)?.value;
-  const minor_category   = el(`txEditMinor-${r}`)?.value;
-  const counterparty     = el(`txEditCounterparty-${r}`)?.value.trim();
-  const country          = el(`txEditCountry-${r}`)?.value.trim();
-  const tags             = el(`txEditTags-${r}`)?.value.trim();
-  const notes            = el(`txEditNotes-${r}`)?.value.trim();
+  const major_category   = el('txEditMajor')?.value;
+  const minor_category   = el('txEditMinor')?.value;
+  const counterparty     = el('txEditCounterparty')?.value.trim();
+  const country          = el('txEditCountry')?.value.trim();
+  const tags             = el('txEditTags')?.value.trim();
+  const notes            = el('txEditNotes')?.value.trim();
 
   const isEditTransfer   = transaction_type === 'money-transfer';
   const _editSaveCat     = _getCat(transaction_type, major_category, minor_category);
@@ -1123,7 +1130,7 @@ function _renderFilterBar() {
       <div class="filter-row">
         <label>Type</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${allTypes.map(t => `<label style="display:flex;align-items:center;gap:4px;font-size:12px">
+          ${allTypes.map(t => `<label style="display:flex;align-items:center;gap:4px;font-size:var(--text-sm)">
             <input type="checkbox" data-filter-type="${esc(t.value)}" ${f.types.includes(t.value) ? 'checked' : ''}> ${esc(t.label)}
           </label>`).join('')}
         </div>

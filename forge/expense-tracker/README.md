@@ -1,0 +1,99 @@
+# Expense Tracker
+
+A personal-finance ledger. Tracks money in, money out, and movement between owned accounts — multi-currency, category-driven, with account balances kept accurate automatically.
+
+Part of the **[Fulcrum Forge](../)** family of static web apps backed by Google Apps Script + Google Sheets.
+
+## What it does
+
+- **Capture** — log income, expenses, and transfers via the app, or by typing rows directly into the Google Sheet
+- **Maintain balances** — every transaction adjusts the affected accounts; edits use a two-phase reversal so balances stay exact
+- **Multi-currency** — per-account currency with FX rates against a configurable base currency (default GBP); per-transaction `fx_rate` override for cross-currency transfers
+- **Classify** — two-level category taxonomy (`major → minor`) scoped per transaction type
+- **Analyse** — dashboard with income/expense/net/savings-rate cards, monthly trend, drillable category breakdown, per-account spend
+- **Manage accounts** — 13 account types across Asset and Liability groups with type-specific fields (loan terms, credit limit, overdraft, investment platform, …)
+
+Full capability list and out-of-scope items: **[docs/overview.md](docs/overview.md)**.
+
+## Architecture
+
+```
+Browser  ──HTTPS──>  Google Apps Script Web App  ──Sheets API──>  Google Sheet
+   ▲                       (backend logic)                       (source of truth)
+   │
+   └─ Static SPA: vanilla JS ES modules, no build step, no framework
+```
+
+- **Frontend**: vanilla JS ES modules; loads `index.html` and runs as-is — no bundler.
+- **Backend**: Google Apps Script V8 runtime; ~22 `.gs` modules organised by domain (accounts, transactions, categories, rates, advisor).
+- **Store**: a single Google Sheet with one tab per entity (`transactions`, `accounts`, `categories`, `rates`, `_audit`).
+- **Auth**: PIN + optional TOTP gate with IP-based rate limiting.
+
+## Repository structure
+
+| Folder | Purpose | Read |
+|---|---|---|
+| `app/` | Frontend SPA — sections, state, design system | [app/README.md](app/README.md) |
+| `backend/` | Apps Script source — `.gs` modules grouped by domain | [backend/README.md](backend/README.md) |
+| `cicd/` | Deploy pipeline (`app-deployment.sh`) and first-time setup | [cicd/README.md](cicd/README.md) |
+| `docs/` | Language-agnostic requirements — anyone can rebuild in any stack | [docs/README.md](docs/README.md) |
+| `local-dev/` | Local dev scripts (seed data, sandbox helpers) — not for production |  |
+| `dev-tasks/` | Internal task notes from in-flight development |  |
+
+## Quick start
+
+**First time on a fresh machine:**
+
+1. Install + authenticate the GAS CLI: `npm install -g @google/clasp && clasp login`
+2. Follow first-time setup (Sheet + Apps Script project + secrets + deployment ID): **[cicd/README.md § First-time setup](cicd/README.md#first-time-setup)**
+3. Set `SCRIPT_URL` in `app/config.js` to your deployment's `/exec` URL
+
+**Day-to-day development:**
+
+- Edit frontend (`app/*`) — refresh the browser; no deploy needed
+- Edit backend (`backend/*.gs`) — push and deploy via the pipeline:
+  ```bash
+  bash cicd/app-deployment.sh "expense-tracker: <change description>"
+  ```
+  Pipeline: stage → commit → push → `clasp push` (GAS draft) → `clasp deploy` (live `/exec`). Details: **[cicd/README.md](cicd/README.md)**.
+
+**Where to look when:**
+
+- Designing UI / writing frontend code → [app/README.md](app/README.md)
+- Editing backend logic → [backend/README.md](backend/README.md)
+- Deploying changes → [cicd/README.md](cicd/README.md)
+- Understanding *what* the app does, not *how* → [docs/](docs/)
+
+## Tech reference
+
+| Layer | Choice |
+|---|---|
+| Frontend | Vanilla JavaScript ES modules, no framework, no build step |
+| Charting | Chart.js 4.x via CDN |
+| Backend runtime | Google Apps Script V8 |
+| Store | Google Sheets |
+| Auth | PIN + RFC 6238 TOTP (HMAC-SHA1, ±1 window) |
+| CLI | [`clasp`](https://github.com/google/clasp) for local-to-GAS sync |
+| Design tokens | Shared CSS variables from `forge/_shared/style-tokens.css` |
+
+None of these are load-bearing requirements. The reference choices are documented in `docs/README.md § Building this in any language` along with substitution candidates.
+
+## Documentation map
+
+```
+docs/
+├── README.md             ← index
+├── overview.md           ← domain model, capabilities, scope
+├── data-model.md         ← all entity schemas in one place
+├── auth.md               ← PIN + TOTP + IP rate limit + session
+├── accounts.md           ← types, balance convention, derived fields
+├── transactions.md       ← three types, filters, FX handling
+├── balance-lifecycle.md  ← how current_balance changes (two-phase reversal)
+├── financial-rules.md    ← the six hard-block validation rules
+├── categories.md         ← two-level taxonomy + account-type hints
+├── rates.md              ← FX rates, upsert, conversion function
+├── dashboard.md          ← summary cards, charts, date range
+└── raw-requirement.md    ← original product brief (historical)
+```
+
+All docs are language- and platform-agnostic. They describe *what* the app does, not *how* the reference implementation happens to do it.

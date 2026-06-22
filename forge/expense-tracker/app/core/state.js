@@ -51,6 +51,7 @@ export const state = {
   accEditRow:   null,
   accDeleteRow: null,
 
+  txAddOpen:    false,
   txEditRow:    null,
   txDeleteRow:  null,
   txViewRow:    null,

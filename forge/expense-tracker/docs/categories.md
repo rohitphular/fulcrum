@@ -1,76 +1,73 @@
 # Categories
 
-## Overview
+The two-level taxonomy used to classify income and expense transactions. Every `money-in` and `money-out` requires a `(major, minor)` pair; `money-transfer` does not.
 
-Manages the two-level category taxonomy used to classify transactions. Every transaction requires a **major category** and a **minor category**, both scoped to a transaction type (`money-in`, `money-out`, `money-transfer`). Categories are loaded at app startup and drive the dropdowns in the add/edit transaction form.
+Schema reference: [data-model.md § Category](data-model.md#category).
 
-The category list is seeded automatically on first use — the backend appends a comprehensive default set if the sheet is empty.
+## Capabilities
 
----
+- CRUD on category rows (`type`, `major`, `minor`, `description`, `tag_keywords`, `is_active`, account-type hints)
+- Filter list by transaction type
+- Archive without delete (`is_active = false` hides from transaction forms)
+- Auto-seed a default category list on first run when the store is empty
+- Declare per-category account-type hints that the transaction layer enforces
 
-## Data Model
+## Rules
 
-Sheet: `categories`
-
-| Field | Type | Description |
-|---|---|---|
-| `transaction_type` | string | One of `money-in`, `money-out`, `money-transfer` |
-| `major_category` | string | Top-level grouping (e.g. `Food`, `Housing`, `Salary`) |
-| `minor_category` | string | Sub-classification within the major (e.g. `Groceries`, `Rent`) |
-| `description` | string | Optional free-text explanation of what this category covers |
-| `tag_keywords` | string | Comma-separated hints for future auto-classification (e.g. `tesco, sainsbury, lidl`) |
-
----
-
-## Features
-
-- View all categories, filterable by transaction type
-- Add new major/minor pairs for any transaction type
-- Edit any existing category row inline (type, major, minor, keywords)
-- Delete a category with an inline confirmation step
-- Type filter bar shows a live count of matching categories
-- Categories seed automatically from a built-in list on first load if the sheet is empty
-
----
-
-## User Interactions
-
-| Action | How |
+| Rule | Detail |
 |---|---|
-| Filter by type | Click **All**, **money-in**, **money-out**, or **money-transfer** in the filter bar |
-| Add a category | Click **+ Add category** → fill type, major, minor, keywords → **Save** |
-| Edit a category | Click **Edit** on a row → inline form → **Save** |
-| Delete a category | Click **Delete** → inline confirmation → **Yes, delete** |
-| Cancel any action | Click **Cancel** or **× Close** |
+| `transaction_type` | Required; must be `money-in`, `money-out`, or `money-transfer` |
+| `major_category`, `minor_category` | Both required; non-empty strings |
+| `description`, `tag_keywords` | Optional |
+| `tag_keywords` storage | Lowercased on save; stored as a comma-separated string |
+| Uniqueness | NOT enforced. Duplicate `(type, major, minor)` rows are permitted; the user is responsible for keeping the list clean. |
+| Delete cascade | None. Deleting a category does not modify any existing transactions — their stored `major`/`minor` strings remain. The category simply stops appearing in dropdowns. |
+| Archive | `is_active = false` keeps the row but excludes it from transaction form dropdowns. Archived categories still appear (greyed/disabled) in the dropdowns so historical references stay interpretable. |
 
----
+## Account-type hints (optional per-row)
 
-## Business Rules / Validations
+A category row may carry four extra columns that the transaction layer enforces:
 
-- **Major and minor category are both required.** Saving without either field populated is blocked with an inline error.
-- **Transaction type is required.** Defaults to `money-in` in the add form; always a dropdown, never free text.
-- **Description is optional.** Free text stored as-is; no normalisation applied.
-- **Keywords are optional.** They are stored as a comma-separated string and normalised to lowercase on the backend.
-- **No uniqueness enforcement.** Duplicate major/minor combinations for the same type are not blocked — the user is responsible for keeping the list clean.
-- **Deleting a category does not affect existing transactions.** Transactions that referenced the deleted category retain their stored major/minor values; the category simply no longer appears in the transaction form dropdowns.
-- **Filtering resets any open edit or delete row.** Switching the type filter collapses any in-progress inline action.
-
----
-
-## Backend API
-
-| Action | Trigger | Behaviour |
+| Column | Type | Meaning |
 |---|---|---|
-| `list_categories` (doGet) | App startup | Returns all rows; seeds the default category list if the sheet is empty |
-| `create_category` (doPost) | User saves a new category | Validates type and required fields; appends a new row |
-| `update_category` (doPost) | User saves an inline edit | Validates type and required fields; overwrites cols 1–4 for the target row |
-| `delete_category` (doPost) | User confirms deletion | Deletes the row by sheet row number |
+| `source_account_mandatory` | boolean | If true, transactions of this category MUST specify a source account |
+| `source_account_types` | string | Comma-separated allowed source account types (e.g. `current,savings`) |
+| `target_account_mandatory` | boolean | If true, transactions of this category MUST specify a target account |
+| `target_account_types` | string | Comma-separated allowed target account types |
 
----
+When a category with these hints is used on a transaction:
 
-## Notes
+1. The transaction layer rejects submissions where a mandatory account is missing.
+2. The transaction layer rejects submissions where the chosen account's type is not in the allowed list.
+3. The transaction form pre-filters the account dropdowns to the allowed types so the user cannot easily pick a forbidden combination.
 
-- Categories are consumed by the transactions section to populate the major/minor dropdowns in the add and edit forms. The dropdown is progressive: major populates based on type, minor populates based on major.
-- The `tag_keywords` field is stored but not yet used for auto-classification in the UI — it is reserved for a future auto-suggest feature.
-- After any create, update, or delete, the full category list is re-fetched from the backend to keep `state.categories` in sync.
-- The type filter state (`state.catFilter`) persists within the session — navigating away and back to this section remembers the last selected filter.
+Examples from the default seed:
+- `money-out / Debt & finance / Loan repayment`: target mandatory; target type ∈ {7 loan types}
+- `money-transfer / Card payment / Pay credit card`: source ∈ {current, savings}; target = credit_card
+
+Categories without hints have no account-type constraints.
+
+## Default seed
+
+On the first `list_categories` call, if the store is empty, the server appends a comprehensive default category set covering common income, expense, and transfer scenarios. The seed includes:
+
+- ~25 `money-in` (major, minor) combinations
+- ~70 `money-out` (major, minor) combinations
+- ~15 `money-transfer` (major, minor) combinations
+
+The list is not authoritative — users freely edit, archive, or delete any seeded row, and add their own.
+
+## API surface
+
+| Operation | Behaviour |
+|---|---|
+| `list_categories` | Return all rows; seed defaults if empty |
+| `create_category` | Validate required fields; append a new row |
+| `update_category` | Validate required fields; overwrite the row |
+| `delete_category` | Delete the row by identity (no transaction-side effects) |
+
+## Form behaviour
+
+- Filter bar offers `All` / `money-in` / `money-out` / `money-transfer` with a live count of matching rows.
+- Add / Edit form has fields for: type, major, minor, description, keywords, account-type hints, `is_active`.
+- Switching the filter resets any open Edit / Delete row.
