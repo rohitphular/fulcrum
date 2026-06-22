@@ -15,8 +15,7 @@ Standalone prototype modules built independently. Each module solves one problem
 
 | Module | Status | What it does |
 |---|---|---|
-| `debt-tracker` | Prototype | Multi-currency debt payoff simulator — instalment loans, credit cards, informal debts. Avalanche/snowball strategies, roll-forward projection, burndown timeline. |
-| `expense-tracker` | Prototype | *(in progress)* |
+| `expense-tracker` | Prototype | Multi-currency expense + accounts tracker — transactions, categories, accounts (assets + liabilities), FX rates. Dashboard with income/expense/net summary, category drilldown, per-account spend. |
 
 ---
 

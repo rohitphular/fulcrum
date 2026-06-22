@@ -46,7 +46,7 @@ forge/
 
 ## Naming conventions — MUST follow for every new app
 
-Every app has a short prefix (e.g. `sm` for starter-module, `et` for expense-tracker, `dt` for debt-tracker). Choose a unique 2–3 letter prefix for every new app and apply it consistently:
+Every app has a short prefix (e.g. `sm` for starter-module, `et` for expense-tracker). Choose a unique 2–3 letter prefix for every new app and apply it consistently:
 
 | Thing | Pattern | Example |
 |---|---|---|

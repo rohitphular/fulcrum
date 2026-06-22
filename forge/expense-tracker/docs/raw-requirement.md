@@ -12,8 +12,8 @@
 
 The **Expense Tracker** is a personal income/expense module. It lets you log
 transactions and analyse spending patterns. It is the Forge's financial journal:
-the debt-tracker handles what you *owe*, the expense-tracker handles what you
-*earn and spend*.
+a record of what you *earn and spend*, with multi-currency accounts and
+categorised flows.
 
 **Dual capture model:** You can add transactions directly from the app (preferred
 for mobile use), or type rows straight into the Google Sheet — both paths land in
@@ -26,15 +26,15 @@ truth; the app is both a capture tool and an analysis dashboard.
 
 | Decision | Choice | Reason |
 |---|---|---|
-| Auth | PIN + TOTP (same as debt-tracker) | Consistent Forge security model |
+| Auth | PIN + TOTP | Forge security convention |
 | Hosting | Static file (GitHub Pages or `file://`) | No server, no build step |
 | HTTP layer | `_shared/sheets-client.js` | Shared across all Forge modules |
-| Rates | `rates` sheet tab, editable from app | Same as debt-tracker |
-| Charts | Chart.js 4.x via CDN | Already used in debt-tracker dashboard |
-| Write capability | Yes — add transactions from the app | Consistent with debt-tracker |
+| Rates | `rates` sheet tab, editable from app | Standard Forge rates handling |
+| Charts | Chart.js 4.x via CDN | Lightweight, no build step |
+| Write capability | Yes — add transactions from the app | Capture happens where the user is |
 | Categories | 3-level controlled hierarchy in a `categories` tab | Dependent dropdowns in Sheet; cascade in app form |
 | Accounts | Named accounts in an `accounts` sheet tab | Dropdown in the add-transaction form |
-| Base currency | GBP default, switchable in the header | Same as debt-tracker |
+| Base currency | GBP default, switchable in the header | Forge convention |
 | Pagination | Client-side; 50 rows per page | Transactions can grow large |
 | Export | CSV + JSON of the filtered view | For future database import |
 
@@ -85,7 +85,7 @@ id | date | transaction_type | amount | currency | account | major_category | mi
 | `account` | text | yes | `HDFC Savings` | Must match a name in the `accounts` tab. |
 | `major_category` | text | yes | `Food` | Controlled by `categories` tab (depends on transaction_type). |
 | `minor_category` | text | yes | `Groceries` | Controlled by `categories` tab (depends on major_category). |
-| `counterparty` | text | no | `Tesco` | Payee / payer. Use the lender name for debt-related rows so they reconcile with the debt-tracker. |
+| `counterparty` | text | no | `Tesco` | Payee / payer. Use the lender name for debt-related rows. |
 | `notes` | text | no | `weekly shop` | Free text. |
 | `tags` | text | no | `reimbursable;work` | Semicolon-separated. |
 | `transfer_id` | text | no | `T-2026-06-14-1` | Links the two legs of a transfer. Both rows share the same value. |
@@ -157,7 +157,7 @@ app's add-transaction form (fetched via API).
 
 > **Convention note (document in deployment guide):** A credit-card payment is
 > `money-transfer → Card payment → Pay credit card` when the credit card is
-> tracked as its own account (parallels the debt-tracker model). If credit cards
+> tracked as its own account. If credit cards
 > are not tracked as accounts, log it as `money-out → Debt & finance → Credit card
 > payment`. Pick one convention and stick to it — mixing the two causes double-
 > counting.
@@ -184,9 +184,9 @@ populate the account dropdown in the add-transaction form and the account filter
 currency | rate | symbol | updated_at
 ```
 
-Identical schema to the debt-tracker's `rates` tab. Units of currency per 1 GBP.
-GBP is the base (rate = 1, read-only). Other currencies are editable from the
-Rates tab in the app. Seeded with defaults on first load.
+Standard Forge `rates` schema. Units of currency per 1 GBP. GBP is the base
+(rate = 1, read-only). Other currencies are editable from the Rates tab in the
+app. Seeded with defaults on first load.
 
 **Default seed:**
 
@@ -200,15 +200,14 @@ Rates tab in the app. Seeded with defaults on first load.
 
 ### 4.5 `audit_access`
 
-Identical to debt-tracker. One row per IP: tracks attempts, success/failure counts,
-lockout flag. 3 failed PIN attempts locks the IP; unlock by setting `is_locked`
-to FALSE in the sheet.
+One row per IP: tracks attempts, success/failure counts, lockout flag. 3 failed
+PIN attempts locks the IP; unlock by setting `is_locked` to FALSE in the sheet.
 
 ---
 
 ## 5. Backend API contract
 
-### Auth flow (identical to debt-tracker)
+### Auth flow
 
 1. `GET ?action=verify&totp=XXXXXX` — PIN + TOTP. Returns `{ ok: true }` or
    `{ ok: false, error: "auth" | "totp_invalid" | "locked" }`.
@@ -253,7 +252,7 @@ Sheet entry consistent with the controlled hierarchy.
 
 ## 6. Navigation
 
-Five tabs, consistent with the debt-tracker pattern:
+Five tabs:
 
 | Tab | Contents |
 |---|---|
@@ -300,13 +299,12 @@ below the cards showing total transfer volume and number of transfer pairs.
 3. **Spend by account** — horizontal bar chart, sorted largest first. Clicking an
    account filters the transaction table to that account.
 
-4. **Balance over time (optional / v1.1)** — cumulative net line chart, similar
-   to the debt-tracker balance chart. Requires consistent start_date to be useful;
-   mark as v1.1.
+4. **Balance over time (optional / v1.1)** — cumulative net line chart. Requires
+   consistent start_date to be useful; mark as v1.1.
 
 All charts respect the active date-range and base-currency selection. All charts
 update on filter change. Dark-mode colours read the `data-theme` attribute at
-render time (same pattern as debt-tracker).
+render time.
 
 ### Filters (collapsible filter bar, below header)
 
@@ -376,7 +374,6 @@ dropped. The header area shows a count: "3 rows have warnings — expand to revi
 
 ## 9. Rates tab
 
-Identical to the debt-tracker Rates tab:
 - Quote currency picker (sets the base currency for the whole app, persisted to `localStorage`)
 - Exchange rates table: currency, symbol, rate (units per 1 GBP), last updated, Edit/Save/Cancel inline
 
@@ -420,7 +417,7 @@ Use `_shared/style-tokens.css`. Do **not** hardcode hex values in module CSS.
 
 - Viewport meta tag, `theme-color` meta.
 - Large tap targets (min 44px).
-- Sticky header with tab nav that overflows horizontally (same as debt-tracker).
+- Sticky header with tab nav that overflows horizontally.
 - Collapsible filter bar (hidden by default on mobile).
 - Collapsible add-transaction form (hidden by default on mobile).
 - All charts are responsive (`maintainAspectRatio: false`): 220px height on mobile,
@@ -431,14 +428,14 @@ Use `_shared/style-tokens.css`. Do **not** hardcode hex values in module CSS.
 
 ### Dark mode
 
-Same pattern as debt-tracker: `data-theme` attribute on `<html>`, toggled by a
-`☽ / ☀` button in the header. Charts read the attribute at render time to pick
-the correct palette. Preference persisted to `localStorage` under key `et_theme`.
+`data-theme` attribute on `<html>`, toggled by a `☽ / ☀` button in the header.
+Charts read the attribute at render time to pick the correct palette. Preference
+persisted to `localStorage` under key `et_theme`.
 
 ### Loading indicator
 
-Global 3 px loading bar at the top of the page (same as debt-tracker):
-`showLoading()` / `hideLoading()` wrapped in `try/finally` on every async call.
+Global 3 px loading bar at the top of the page. `showLoading()` / `hideLoading()`
+wrapped in `try/finally` on every async call.
 
 ---
 
@@ -450,8 +447,8 @@ Global 3 px loading bar at the top of the page (same as debt-tracker):
 - **No sensitive data in `localStorage`.**  `sessionStorage` may cache the raw
   transaction payload for the session (avoids re-fetching on tab switch); cleared
   on browser close.
-- **PIN** persisted to `sessionStorage` (same as debt-tracker) so re-fetches
-  within the session don't require re-auth.
+- **PIN** persisted to `sessionStorage` so re-fetches within the session don't
+  require re-auth.
 - **Transfers always excluded** from income/expense totals. If `transfer_id` is
   set, the row is a transfer regardless of `transaction_type`.
 - **Append-only mindset:** each row is an immutable fact keyed by `id`. The app
@@ -506,7 +503,7 @@ to find the highest NNN for that date and increments.
 
 1. **Prerequisites:** Google account, the `_shared/` folder present locally.
 2. **Create the Google Sheet:** create a new Sheet; all tabs are created
-   automatically by the script on first request (same as debt-tracker).
+   automatically by the script on first request.
 3. **Set up Apps Script:** paste `Code.gs`; save; open Project Settings; add
    Script Properties `PIN_SECRET` and `TOTP_SECRET`.
 4. **Deploy as Web App:** Deploy → New deployment → Web app → Execute as Me →
