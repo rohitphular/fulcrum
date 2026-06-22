@@ -1,4 +1,4 @@
-# Expense Tracker — CI/CD
+# Starter Module — CI/CD
 
 Backend deploy pipeline. Pushes `.gs` source to a GAS project draft and promotes it to a new live version on the configured deployment. **Backend-only — git is not part of this script.**
 
@@ -46,8 +46,8 @@ bash forge/deploy.sh
 It asks for app and env, then dispatches. You can also call the script directly:
 
 ```bash
-bash cicd/script-deployment.sh dev  "expense-tracker: <change>"
-bash cicd/script-deployment.sh prod "expense-tracker: <change>"
+bash cicd/script-deployment.sh dev  "starter-module: <change>"
+bash cicd/script-deployment.sh prod "starter-module: <change>"
 ```
 
 ### What `script-deployment.sh` does (5 steps)
@@ -64,7 +64,7 @@ Script exits → trap fires → `.clasp.json` back to `${SCRIPT_ID_PLACEHOLDER}`
 
 Do this once for `dev`, then again for `prod`.
 
-1. **Sheet** — create a Google Sheet (e.g. `Expense Tracker — DEV`). Tabs (`transactions`, `categories`, `accounts`, `rates`, `audit_access`) auto-create on first request.
+1. **Sheet** — create a Google Sheet (e.g. `Fulcrum — Starter Module — DEV`). Tabs (`starter`, `audit_access`) auto-create on first request.
 2. **Apps Script** — in the Sheet: Extensions → Apps Script. Note the **Script ID** in Project Settings → IDs. Enable the manifest in **Project Settings → Show "appsscript.json"**, then paste:
    ```json
    {

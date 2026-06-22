@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 # Forge deployment launcher.
-# Discovers all apps with cicd/app-deployment.sh, asks which app + which
+# Discovers all apps with cicd/script-deployment.sh, asks which app + which
 # environment, then dispatches. Environment is MANDATORY — there is no default.
 set -euo pipefail
 
 FORGE_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Discover apps that have a cicd/app-deployment.sh
+# Discover apps that have a cicd/script-deployment.sh
 APPS=()
 for dir in "$FORGE_DIR"/*/; do
-  if [[ -f "$dir/cicd/app-deployment.sh" ]]; then
+  if [[ -f "$dir/cicd/script-deployment.sh" ]]; then
     APPS+=("$(basename "$dir")")
   fi
 done
 
 if [[ ${#APPS[@]} -eq 0 ]]; then
-  echo "No deployable apps found (looking for cicd/app-deployment.sh in each folder)."
+  echo "No deployable apps found (looking for cicd/script-deployment.sh in each folder)."
   exit 1
 fi
 
@@ -54,9 +54,9 @@ deploy_app() {
   echo "  Deploying: $app → $env"
   echo "══════════════════════════════════════"
   if [[ -n "$msg" ]]; then
-    bash "$FORGE_DIR/$app/cicd/app-deployment.sh" "$env" "$msg"
+    bash "$FORGE_DIR/$app/cicd/script-deployment.sh" "$env" "$msg"
   else
-    bash "$FORGE_DIR/$app/cicd/app-deployment.sh" "$env"
+    bash "$FORGE_DIR/$app/cicd/script-deployment.sh" "$env"
   fi
   echo ""
 }

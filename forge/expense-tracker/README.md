@@ -35,7 +35,7 @@ Browser  ──HTTPS──>  Google Apps Script Web App  ──Sheets API──>
 |---|---|---|
 | `app/` | Frontend SPA — sections, state, design system | [app/README.md](app/README.md) |
 | `backend/` | Apps Script source — `.gs` modules grouped by domain | [backend/README.md](backend/README.md) |
-| `cicd/` | Deploy pipeline (`app-deployment.sh`) and first-time setup | [cicd/README.md](cicd/README.md) |
+| `cicd/` | Deploy pipeline (`script-deployment.sh`) and first-time setup | [cicd/README.md](cicd/README.md) |
 | `docs/` | Language-agnostic requirements — anyone can rebuild in any stack | [docs/README.md](docs/README.md) |
 | `local-dev/` | Local dev scripts (seed data, sandbox helpers) — not for production |  |
 | `dev-tasks/` | Internal task notes from in-flight development |  |
@@ -45,17 +45,19 @@ Browser  ──HTTPS──>  Google Apps Script Web App  ──Sheets API──>
 **First time on a fresh machine:**
 
 1. Install + authenticate the GAS CLI: `npm install -g @google/clasp && clasp login`
-2. Follow first-time setup (Sheet + Apps Script project + secrets + deployment ID): **[cicd/README.md § First-time setup](cicd/README.md#first-time-setup)**
-3. Set `SCRIPT_URL` in `app/config.js` to your deployment's `/exec` URL
+2. Follow first-time setup (Sheet + Apps Script project + secrets + deployment IDs): **[cicd/README.md § First-time setup](cicd/README.md#first-time-setup-per-environment)**
+3. Fill in your dev `/exec` URL in `app/config.js` (and the prod one when you set prod up)
 
 **Day-to-day development:**
 
-- Edit frontend (`app/*`) — refresh the browser; no deploy needed
+- Edit frontend (`app/*`) — refresh the browser; no deploy needed. The runtime hostname detection in `config.js` picks dev locally / prod when hosted.
 - Edit backend (`backend/*.gs`) — push and deploy via the pipeline:
   ```bash
-  bash cicd/app-deployment.sh "expense-tracker: <change description>"
+  bash forge/deploy.sh        # interactive: pick app + env
+  # or directly:
+  bash cicd/script-deployment.sh dev "expense-tracker: <change description>"
   ```
-  Pipeline: stage → commit → push → `clasp push` (GAS draft) → `clasp deploy` (live `/exec`). Details: **[cicd/README.md](cicd/README.md)**.
+  The pipeline is backend-only: `clasp push` (GAS draft) → `clasp deploy` (live `/exec`) → `.clasp.json` placeholder revert. **Git operations are NOT performed by the script** — commit and push manually. Details: **[cicd/README.md](cicd/README.md)**.
 
 **Where to look when:**
 

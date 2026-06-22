@@ -10,4 +10,3 @@
 
 # clasp credentials — never commit OAuth tokens
 .clasprc.json
-**/config.js

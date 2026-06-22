@@ -1,21 +1,14 @@
-# Expense Tracker — Backend
+# Starter Module — Backend
 
 Apps Script backend, edited locally via [clasp](https://github.com/google/clasp). No browser editor required.
 
 ## Folder contents
 
-Source is split into per-domain `.gs` modules. GAS flattens them all into one namespace at runtime.
-
-| Group | Files | Purpose |
-|---|---|---|
-| App | `app-auth.gs`, `app-config.gs`, `app-router.gs`, `app-utils.gs` | Auth, config, HTTP routing, shared helpers |
-| Accounts | `account-core.gs`, `account-schema.gs`, `account-utils.gs`, `account-validation.gs` | Account CRUD, schema, validation |
-| Transactions | `transaction-core.gs`, `transaction-schema.gs`, `transaction-utils.gs`, `transaction-validation.gs` | Transaction CRUD, schema, validation |
-| Categories | `category-core.gs`, `category-schema.gs`, `category-seed.gs`, `category-utils.gs`, `category-validation.gs` | Category CRUD, schema, seed data, validation |
-| Rates | `rate-core.gs`, `rate-schema.gs`, `rate-validation.gs` | FX rate CRUD, schema, validation |
-| Advisor | `advisor-core.gs` | LLM advisor endpoint |
-| Manifest | `appsscript.json` | GAS runtime config — timezone, V8 engine, web app access |
-| clasp link | `.clasp.json` | Links this directory to a GAS project. Committed with `"scriptId": "${SCRIPT_ID_PLACEHOLDER}"`; the real `scriptId` is written by `cicd/script-deployment.sh` at deploy time and reverted on exit. |
+| File | Purpose |
+|---|---|
+| `Code.js` | Backend source — full server-side logic |
+| `appsscript.json` | GAS runtime manifest (timezone, V8 engine, web app access) |
+| `.clasp.json` | Links this directory to a GAS project. Committed with `"scriptId": "${SCRIPT_ID_PLACEHOLDER}"`; the real `scriptId` is written by `cicd/script-deployment.sh` at deploy time and reverted on exit. |
 
 `.clasp.json` holds the Script ID — a public identifier, not a secret. OAuth tokens live in `~/.clasprc.json` and are gitignored.
 
@@ -57,7 +50,7 @@ A push without a deploy means users still see the previous version.
 The canonical deploy path is:
 
 ```bash
-bash forge/deploy.sh        # pick expense-tracker, pick env
+bash forge/deploy.sh        # pick starter-module, pick env
 ```
 
 This dispatches to `cicd/script-deployment.sh` which handles env-scoped `scriptId` writing, clasp push, clasp deploy, and placeholder revert.

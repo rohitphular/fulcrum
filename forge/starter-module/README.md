@@ -33,11 +33,12 @@ forge/
     backend/
       Code.js                     ← Google Apps Script source
       appsscript.json             ← GAS runtime manifest
-      .clasp.json                 ← links folder to GAS project
-      development-guide.md        ← clasp workflow reference
+      .clasp.json                 ← committed with ${SCRIPT_ID_PLACEHOLDER}; deploy script swaps in the real scriptId at runtime
+      README.md                   ← clasp workflow reference
     cicd/
-      app-deployment.sh           ← one-shot deploy: git + clasp push + clasp deploy
-      deployment-guide.md         ← first-time setup and operations reference
+      envs.json                   ← single source of truth for per-env scriptId / deploymentId / script_url
+      script-deployment.sh        ← backend deploy: clasp push + clasp deploy (no git)
+      README.md                   ← deploy pipeline + first-time setup
     dev-tasks/                    ← local scratch space (not committed)
     README.md                     ← this file
 ```
@@ -201,19 +202,41 @@ Update:
 - `updateRow(row, p)` — apply edits to an existing row
 - Keep `getSheet()`, `verify()`, `handleGet()`, `handlePost()`, `doGet()`, `doPost()` unchanged — they are the standard GAS plumbing
 
-### Step 13 — Update `cicd/app-deployment.sh`
+### Step 13 — Update `cicd/script-deployment.sh`
 
-- Line 8: `MSG` default — change `starter-module` to `<new-app-name>`
-- Line 27: `--deploymentId` — replace with your GAS deployment ID after first deploy
-- Line 30: `echo` message — update app name
+- `MSG` default — change `starter-module: code pushed` to `<new-app-name>: code pushed`
+- Any `echo` strings that reference the app name — swap in `<new-app-name>`
 
-### Step 14 — Create `app/config.js` (manually, not committed)
+The script reads `scriptId` and `deploymentId` from `cicd/envs.json` — no IDs are hardcoded inside the script.
+
+### Step 14 — Populate `cicd/envs.json`
+
+```json
+{
+  "_comment": "Single source of truth for dev + prod environment IDs.",
+  "dev":  { "script_id": "TODO", "deployment_id": "TODO", "script_url": "TODO" },
+  "prod": { "script_id": "TODO", "deployment_id": "TODO", "script_url": "TODO" }
+}
+```
+
+Fill in the dev block once the new app's dev GAS project is created (see `cicd/README.md § First-time setup`).
+
+### Step 15 — Update `app/config.js`
+
+`config.js` is committed. It picks the backend `/exec` URL by hostname at runtime — no per-deploy mutation needed.
 
 ```js
-window.CONFIG = {
-  SCRIPT_URL: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
-};
+window.CONFIG = (() => {
+  const isHosted = location.hostname.endsWith('.github.io');
+  const DEV_SCRIPT_URL  = 'https://script.google.com/macros/s/YOUR_DEV_DEPLOYMENT_ID/exec';
+  const PROD_SCRIPT_URL = 'TODO';
+  return {
+    SCRIPT_URL: isHosted ? PROD_SCRIPT_URL : DEV_SCRIPT_URL,
+  };
+})();
 ```
+
+Paste your dev `/exec` URL into `DEV_SCRIPT_URL` once you've created the deployment. Fill in `PROD_SCRIPT_URL` when prod is set up.
 
 ---
 
@@ -325,6 +348,6 @@ When building a new app, replace this table with your own schema.
 
 ## Setup and deployment
 
-See `cicd/deployment-guide.md` for the full first-time setup (Google Sheet, Apps Script, secrets, Web App deployment) and ongoing deployment instructions.
+See `cicd/README.md` for the full first-time setup (Google Sheet, Apps Script, secrets, Web App deployment) and ongoing deployment instructions.
 
-See `backend/development-guide.md` for the clasp workflow when iterating on the backend.
+See `backend/README.md` for the clasp workflow when iterating on the backend.

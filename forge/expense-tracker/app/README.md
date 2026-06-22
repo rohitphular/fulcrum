@@ -140,4 +140,4 @@ cd app && python3 -m http.server 8000      # → http://localhost:8000
 #    See backend/README.md for the /dev workflow.
 ```
 
-Any change to `app/**` ships via `bash cicd/app-deployment.sh` from the repo root. See `backend/README.md` for the push/deploy distinction.
+Frontend changes are NOT shipped via the deploy script — they only need a `git commit && git push` (GitHub Pages publishes the main branch automatically). The deploy script in `cicd/script-deployment.sh` handles backend-only operations (`clasp push` + `clasp deploy`). See `cicd/README.md` and `backend/README.md` for the push-vs-deploy distinction.

@@ -57,7 +57,7 @@ forge/expense-tracker/
   backend/
     Code.gs                    ← doGet + doPost + onEdit cascade
     appsscript.json            ← Apps Script manifest
-  deployment-guide.md          ← first-time + subsequent deployment steps
+  cicd/README.md               ← first-time + subsequent deployment steps
 ```
 
 `index.html` links `../../_shared/style-tokens.css`, `../../_shared/sheets-client.js`,
@@ -499,7 +499,7 @@ to find the highest NNN for that date and increments.
 
 ## 14. Deployment guide outline
 
-`deployment-guide.md` must cover:
+`cicd/README.md` must cover:
 
 1. **Prerequisites:** Google account, the `_shared/` folder present locally.
 2. **Create the Google Sheet:** create a new Sheet; all tabs are created

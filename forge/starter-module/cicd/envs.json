@@ -1,0 +1,15 @@
+{
+  "_comment": "Single source of truth for dev + prod environment IDs. Edit by hand to record IDs for each environment, then deploy with `bash forge/deploy.sh` (which prompts for env). The IDs here are NOT secrets — Script IDs and Deployment IDs are public URL components.",
+
+  "dev": {
+    "script_id":     "13jRb_he5r7sD5XA1vbAVqS2x-lFzM3JEJ9fkusgl0joL5jlOKf3HtdSA",
+    "deployment_id": "AKfycbykwDFrvKj5vnScj16Y1cb9FA5TkS5I0yss1RrX6ps8N04seU1Tlhi5s_V8ZuNzgvlK",
+    "script_url":    "https://script.google.com/macros/s/AKfycbykwDFrvKj5vnScj16Y1cb9FA5TkS5I0yss1RrX6ps8N04seU1Tlhi5s_V8ZuNzgvlK/exec"
+  },
+
+  "prod": {
+    "script_id":     "TODO",
+    "deployment_id": "TODO",
+    "script_url":    "TODO"
+  }
+}

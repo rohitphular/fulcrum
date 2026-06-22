@@ -1,5 +1,5 @@
 {
-  "scriptId": "13jRb_he5r7sD5XA1vbAVqS2x-lFzM3JEJ9fkusgl0joL5jlOKf3HtdSA",
+  "scriptId": "${SCRIPT_ID_PLACEHOLDER}",
   "rootDir": "",
   "scriptExtensions": [
     ".js",
