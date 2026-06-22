@@ -87,6 +87,16 @@ The cascade applies identically in both the add form and the edit form.
 
 The row-level `fx_rate` is preserved indefinitely. Reversing an edit or delete uses the same stored rate, so balance arithmetic remains exact even if the global rates table is later edited.
 
+### Inline conversion-rate record (notes)
+
+On every save, when the transaction is cross-currency, the backend appends a marker to the `notes` field of the form:
+
+```
+[FX: {amount} {fromCcy} <-> {credited} {toCcy}]
+```
+
+Example for a £100 → ₹10,500 transfer at rate 105: `[FX: 100 GBP <-> 10500 INR]`. The ratio between the two amounts is the rate used. The marker is regenerated on every save — if the user changes `fx_rate` on an edit, the stale marker is stripped and a fresh one appended. This makes the rate-at-time-of-transaction visible when inspecting the underlying sheet directly, not just inside the app.
+
 ## Filtering and sorting
 
 ### Filter dimensions (AND-combined)

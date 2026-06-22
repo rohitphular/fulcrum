@@ -36,6 +36,9 @@ function createTransaction(body) {
   const sheet = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
   const id    = generateTransactionId(sheet, body.transaction_date_utc);
 
+  // Augment notes with the conversion rate used (no-op when not cross-currency).
+  const finalNotes = applyFxNote(body.notes, body.source_account, body.target_account, amount, fxRate);
+
   sheet.appendRow([
     id,
     body.transaction_date_utc,
@@ -47,7 +50,7 @@ function createTransaction(body) {
     body.major_category    || '',
     body.minor_category    || '',
     body.counterparty      || '',
-    body.notes             || '',
+    finalNotes,
     normaliseTags(body.tags),
     '',                               // transfer_id — not used
     fxRate > 0 ? fxRate : '',
@@ -90,6 +93,24 @@ function updateTransaction(body) {
   const validation = validateTransactionUpdate(body, oldRow);
   if (!validation.ok) return validation;
 
+  // T-02: ALL validation must run BEFORE Phase 1 reversal. A validation failure
+  // between Phase 1 and Phase 2 would leave the sheet in an orphaned state
+  // (old row reversed, new row never applied). Rules 1–5 are inside
+  // validateTransactionUpdate; Rule 6 (FX) is the two checks below.
+  const newType   = body.transaction_type;
+  const newAmount = Number(body.amount);
+  const newFxRate = body.fx_rate ? Number(body.fx_rate) : 0;
+
+  if (newType === 'money-transfer') {
+    const fxValidation = validateFxRate(body.source_account, body.target_account, newFxRate);
+    if (!fxValidation.ok) return fxValidation;
+  }
+  if (newType === 'money-out' && body.target_account) {
+    const fxValidation = validateFxRate(body.source_account, body.target_account, newFxRate);
+    if (!fxValidation.ok) return fxValidation;
+  }
+
+  // All validation passed — safe to mutate balances and the row.
   const oldType            = String(oldRow[txColIndex('transaction_type')]);
   const oldAmount          = Number(oldRow[txColIndex('amount')]) || 0;
   const oldSourceAccountId = String(oldRow[txColIndex('source_account')]);
@@ -109,19 +130,6 @@ function updateTransaction(body) {
   }
 
   // Phase 2 — apply new transaction
-  const newType   = body.transaction_type;
-  const newAmount = Number(body.amount);
-  const newFxRate = body.fx_rate ? Number(body.fx_rate) : 0;
-
-  if (newType === 'money-transfer') {
-    const fxValidation = validateFxRate(body.source_account, body.target_account, newFxRate);
-    if (!fxValidation.ok) return fxValidation;
-  }
-  if (newType === 'money-out' && body.target_account) {
-    const fxValidation = validateFxRate(body.source_account, body.target_account, newFxRate);
-    if (!fxValidation.ok) return fxValidation;
-  }
-
   if (newType === 'money-in') adjustAccountBalance(body.target_account, newAmount);
   if (newType === 'money-out') adjustAccountBalance(body.source_account, -newAmount);
   if (newType === 'money-out' && body.target_account) {
@@ -135,6 +143,11 @@ function updateTransaction(body) {
     }
   }
 
+  // Augment notes with the conversion rate used (no-op when not cross-currency).
+  // On edit, applyFxNote strips any stale [FX: ...] marker before re-appending,
+  // so changing fx_rate updates the inline rate record correctly.
+  const finalNotes = applyFxNote(body.notes, body.source_account, body.target_account, newAmount, newFxRate);
+
   // Update cols 2–16 (transaction_date_utc through payment_method); col 1 (id) is immutable
   sheet.getRange(rowNum, 2, 1, 15).setValues([[
     body.transaction_date_utc,
@@ -146,7 +159,7 @@ function updateTransaction(body) {
     body.major_category    || '',
     body.minor_category    || '',
     body.counterparty      || '',
-    body.notes             || '',
+    finalNotes,
     normaliseTags(body.tags),
     '',
     newFxRate > 0 ? newFxRate : '',
