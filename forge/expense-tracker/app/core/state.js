@@ -46,10 +46,11 @@ export const state = {
   transactionSchema:  null,  // { types, categorisation_fields, transfer_fields }
   categorySchema:     null,  // { types, account_types }
 
-  accAddOpen:   false,
-  accViewRow:   null,
-  accEditRow:   null,
-  accDeleteRow: null,
+  accAddOpen:       false,
+  accViewRow:       null,
+  accEditRow:       null,
+  accDeleteRow:     null,
+  accDeleteBlocked: null,   // { referenced_count: N } when deletion is refused — paired with accDeleteRow
 
   txAddOpen:    false,
   txEditRow:    null,

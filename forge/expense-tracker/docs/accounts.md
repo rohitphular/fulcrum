@@ -49,9 +49,11 @@ There is no API to write `current_balance` directly. It changes only via the tra
 
 ### Deletion semantics
 
-- Deleting an account is unconditional — the store does not check for referencing transactions.
-- Existing transactions retain their stale `source_account` / `target_account` IDs (string values).
-- The deleted account simply disappears from form dropdowns. Lookups by ID return "—" or a blank fallback.
+- **Deletion is FK-guarded.** Before removing the row, the store counts transactions where `source_account == account.id` OR `target_account == account.id`. If that count is `> 0`, the delete is refused with `{ ok: false, error: 'account_in_use', referenced_count: N, hint: 'archive_instead' }`.
+- The user's recovery path is either to delete/reassign every referencing transaction, or to **archive** the account (set `is_active = false`) — see [Archive (soft delete)](#archive-soft-delete) below. The UI offers a one-click "Archive instead" button when the FK check refuses a deletion.
+- Once a deletion is permitted (no transactions reference the account), the row is removed unconditionally and the account disappears from all dropdowns.
+
+The previous design (unconditional delete + orphaned transaction references) led to silent balance drift when later edits hit the now-missing account. The FK guard plus the fail-closed behaviour of `adjust_balance` together close that loop.
 
 ### Archive (soft delete)
 

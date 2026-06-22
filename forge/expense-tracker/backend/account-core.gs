@@ -213,8 +213,41 @@ function deleteAccount(body) {
   var rowNum  = Number(body.row_num);
   var lastRow = sheet.getLastRow();
   if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
+
+  // T-04 FK check: refuse if any transaction references this account.
+  // Archive (is_active = false) is the recommended path for retiring an
+  // account while keeping its transaction history intact.
+  var idColPos  = getAccountSchemaField('id').sheet_column_position;
+  var accountId = String(sheet.getRange(rowNum, idColPos).getValue() || '');
+  if (!accountId) return { ok: false, error: 'missing_account_id' };
+
+  var refCount = _countTransactionsReferencingAccount(accountId);
+  if (refCount > 0) {
+    return {
+      ok: false,
+      error: 'account_in_use',
+      referenced_count: refCount,
+      hint: 'archive_instead',
+    };
+  }
+
   sheet.deleteRow(rowNum);
   return { ok: true };
+}
+
+// Counts transactions where source_account or target_account equals accountId.
+function _countTransactionsReferencingAccount(accountId) {
+  var txSheet = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
+  var values  = txSheet.getDataRange().getValues();
+  var srcIdx  = txColIndex('source_account');
+  var tgtIdx  = txColIndex('target_account');
+  var count   = 0;
+  for (var i = 1; i < values.length; i++) {
+    var src = String(values[i][srcIdx] || '');
+    var tgt = String(values[i][tgtIdx] || '');
+    if (src === accountId || tgt === accountId) count++;
+  }
+  return count;
 }
 
 function getAccountById(id) {

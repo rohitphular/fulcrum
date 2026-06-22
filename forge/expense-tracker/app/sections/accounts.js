@@ -611,8 +611,25 @@ function _activeBadge(a) {
 
 function _renderAccountRow(a) {
   if (state.accDeleteRow === a._row) {
+    // Blocked state — backend refused because transactions still reference this account.
+    if (state.accDeleteBlocked) {
+      const n = state.accDeleteBlocked.referenced_count || 0;
+      const noun = n === 1 ? 'transaction refers' : 'transactions refer';
+      return `<tr>
+        <td colspan="6">
+          <span class="confirm-text">Cannot delete <strong>${esc(a.name)}</strong> — <strong>${n}</strong> ${noun} to this account.</span>
+          <div style="color:var(--muted);font-size:var(--text-sm);margin-top:4px">
+            Delete or reassign those transactions first, or archive the account (it stays on record but is hidden from transaction forms).
+          </div>
+        </td>
+        <td><div class="row-actions">
+          <button class="btn-link" data-action="acc-archive" data-row="${a._row}">Archive instead</button>
+          <button class="btn-link" data-action="acc-cancel-delete">Cancel</button>
+        </div></td>
+      </tr>`;
+    }
     return `<tr>
-      <td colspan="6"><span class="confirm-text">Delete <strong>${esc(a.name)}</strong>? Existing transactions linked to this account are not affected.</span></td>
+      <td colspan="6"><span class="confirm-text">Delete <strong>${esc(a.name)}</strong>? This permanently removes the account.</span></td>
       <td><div class="row-actions">
         <button class="btn-link danger" data-action="acc-confirm-delete" data-row="${a._row}">Yes, delete</button>
         <button class="btn-link" data-action="acc-cancel-delete">Cancel</button>
@@ -780,11 +797,12 @@ function _attachEvents() {
     if (!btn) return;
     const action = btn.dataset.action;
     const row    = btn.dataset.row ? Number(btn.dataset.row) : null;
-    if (action === 'acc-view')           { state.accViewRow = row; state.accEditRow = null; state.accDeleteRow = null; state.accAddOpen = false; renderAccounts(); return; }
-    if (action === 'acc-edit')           { state.accEditRow = row; state.accViewRow = null; state.accDeleteRow = null; state.accAddOpen = false; renderAccounts(); return; }
-    if (action === 'acc-delete')         { state.accDeleteRow = row; state.accViewRow = null; state.accEditRow = null; renderAccounts(); }
-    if (action === 'acc-cancel-delete')  { state.accDeleteRow = null; renderAccounts(); }
+    if (action === 'acc-view')           { state.accViewRow = row; state.accEditRow = null; state.accDeleteRow = null; state.accDeleteBlocked = null; state.accAddOpen = false; renderAccounts(); return; }
+    if (action === 'acc-edit')           { state.accEditRow = row; state.accViewRow = null; state.accDeleteRow = null; state.accDeleteBlocked = null; state.accAddOpen = false; renderAccounts(); return; }
+    if (action === 'acc-delete')         { state.accDeleteRow = row; state.accViewRow = null; state.accEditRow = null; state.accDeleteBlocked = null; renderAccounts(); }
+    if (action === 'acc-cancel-delete')  { state.accDeleteRow = null; state.accDeleteBlocked = null; renderAccounts(); }
     if (action === 'acc-confirm-delete') { _confirmDelete(row); }
+    if (action === 'acc-archive')        { _archiveAccount(row); }
   };
   el('accountsContent')?.querySelector('.acc-table-wrap')?.addEventListener('click', handleAccAction);
   el('accountsContent')?.querySelector('.acc-cards')?.addEventListener('click', handleAccAction);
@@ -981,16 +999,63 @@ async function _confirmDelete(rowNum) {
     if (res.ok) {
       showMsg('Account deleted.');
       state.accDeleteRow = null;
+      state.accDeleteBlocked = null;
+      await _refreshAccounts();
+      renderAccounts();
+      renderDashboard();
+    } else if (res.error === 'account_in_use') {
+      // T-04: backend refused because transactions reference this account.
+      // Keep the row in delete-confirm state, switch to the blocked variant
+      // which offers an "Archive instead" CTA.
+      state.accDeleteBlocked = { referenced_count: res.referenced_count || 0 };
+      renderAccounts();
+    } else {
+      showMsg('Delete failed: ' + (res.error || 'unknown'), 'warn');
+      state.accDeleteRow = null;
+      state.accDeleteBlocked = null;
+      renderAccounts();
+    }
+  } catch (_) {
+    showMsg('Connection error.', 'warn');
+    state.accDeleteRow = null;
+    state.accDeleteBlocked = null;
+    renderAccounts();
+  } finally {
+    hideLoading();
+  }
+}
+
+// One-click archive (is_active = false) — invoked from the blocked-deletion CTA.
+// Preserves all other editable fields so they don't get overwritten by the update.
+async function _archiveAccount(rowNum) {
+  const acc = state.accounts.find(a => a._row === rowNum);
+  if (!acc) return;
+  showLoading();
+  try {
+    const res = await ExpenseAPI.updateAccount({
+      row_num:              rowNum,
+      name:                 acc.name || '',
+      is_active:            false,
+      institution:          acc.institution          || '',
+      account_number_last4: acc.account_number_last4 || '',
+      notes:                acc.notes                || '',
+    });
+    if (res.ok) {
+      showMsg('Account archived.');
+      state.accDeleteRow = null;
+      state.accDeleteBlocked = null;
       await _refreshAccounts();
       renderAccounts();
       renderDashboard();
     } else {
-      showMsg('Delete failed: ' + (res.error || 'unknown'), 'warn');
+      showMsg('Archive failed: ' + (res.error || 'unknown'), 'warn');
+      state.accDeleteBlocked = null;
       state.accDeleteRow = null;
       renderAccounts();
     }
   } catch (_) {
     showMsg('Connection error.', 'warn');
+    state.accDeleteBlocked = null;
     state.accDeleteRow = null;
     renderAccounts();
   } finally {
