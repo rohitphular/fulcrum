@@ -85,7 +85,7 @@ const ACCOUNT_SCHEMA = {
     group: 'core',
     applies_to: ['investment', 'mortgage'],
     required_for: [],
-    editable: false,
+    editable: true,
     default_value: '',
   },
   currency: {

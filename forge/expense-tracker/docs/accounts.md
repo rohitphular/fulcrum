@@ -39,7 +39,9 @@ The user enters the outstanding owed amount as a **positive** number in the open
 
 ### Immutable after creation
 
-`id`, `type`, `sub_type`, `currency`, `opening_balance`, `current_balance`, `loan_original_amount`, `loan_start_date`, `loan_first_repayment_date`, `created_at`. Attempting to update any of these returns a `field_not_editable:<name>` error.
+`id`, `type`, `currency`, `opening_balance`, `current_balance`, `loan_original_amount`, `loan_start_date`, `loan_first_repayment_date`, `created_at`. Attempting to update any of these returns a `field_not_editable:<name>` error.
+
+`sub_type` IS editable post-creation — it is purely a classification label (investment → `stocks_shares`/`pension_sipp`/…, mortgage → `residential`/`buy_to_let`/…) with no side effects on balance arithmetic or validation. Use cases: correcting an initial mis-classification.
 
 ### current_balance is system-managed
 

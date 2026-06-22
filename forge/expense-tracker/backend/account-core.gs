@@ -167,6 +167,11 @@ function updateAccount(body) {
     if (body.investment_as_of_date    !== undefined) writeField('investment_as_of_date',    String(body.investment_as_of_date    || '').trim());
   }
 
+  // sub_type — investment + mortgage only
+  if (currentType === 'investment' || currentType === 'mortgage') {
+    if (body.sub_type !== undefined) writeField('sub_type', String(body.sub_type || '').trim());
+  }
+
   // Loans
   if (isLoanType(currentType)) {
     if (body.loan_interest_rate     !== undefined) writeField('loan_interest_rate',     body.loan_interest_rate);

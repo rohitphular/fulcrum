@@ -18,7 +18,7 @@ All entity shapes. Field types are abstract — choose a concrete type appropria
 | `id` | string | auto | no | `ACC-YYYYMMDD-NNN` |
 | `name` | string | yes | yes | Display label |
 | `type` | enum | yes | no | See [Account types](#account-types) |
-| `sub_type` | enum | type-dependent | no | Required for `mortgage`; optional for `investment`; ignored for all other types |
+| `sub_type` | enum | type-dependent | yes | Required for `mortgage`; optional for `investment`; ignored for all other types. Editable as it is purely a classification label with no side-effects on balance arithmetic. |
 | `currency` | ISO-4217 string | yes | no | Must exist in `rates` |
 | `opening_balance` | number | optional | no | Informational; for liabilities, enter positive — store as negated |
 | `current_balance` | number | derived | no (system-managed) | Updated by transaction lifecycle; stored as negative for liabilities |
