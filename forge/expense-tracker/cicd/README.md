@@ -26,7 +26,23 @@ Two environments are wired up in `cicd/envs.json`:
 | `dev` | A separate Sheet + Apps Script project for testing risky changes (T-04 deletion FK guard, schema migrations, etc.) without touching real personal-finance data |
 | `prod` | The live Sheet + Apps Script project that holds real data |
 
-Each env's IDs (Script ID, Deployment ID, /exec URL) live in `cicd/envs.json`. There's no separate "active env" file — the active environment is whichever one `backend/.clasp.json`'s `scriptId` currently matches in `envs.json`. `app-deployment.sh` rewrites that scriptId (plus `app/config.js`) on every run based on the env you pass it, so `envs.json` is the single source of truth.
+Each env's IDs (Script ID, Deployment ID, /exec URL) live in `cicd/envs.json`. There's no separate "active env" file. `envs.json` is the single source of truth; `app-deployment.sh` derives everything from it.
+
+### Local-state invariant: always returns to dev
+
+`app/config.js` always points at the **dev** `/exec` URL. This is true after every deploy — dev OR prod. The browser you open locally always talks to the dev backend.
+
+`backend/.clasp.json` also returns to dev after every deploy. During a prod deploy it's flipped to prod for the duration of `clasp push` + `clasp deploy`, then reverted. A bash `EXIT` trap ensures the revert fires even if the deploy fails midway or is interrupted with Ctrl-C.
+
+Concrete effect:
+
+| What you ran | After it finishes, `config.js` points at | `.clasp.json` `scriptId` is |
+|---|---|---|
+| `bash forge/deploy.sh` → dev | dev | dev |
+| `bash forge/deploy.sh` → prod | **dev** | **dev** (reverted) |
+| `bash forge/deploy.sh` → prod, but clasp deploy fails | **dev** | **dev** (reverted by EXIT trap) |
+
+Prod testing happens against the live prod `/exec` URL (the deployed Apps Script web app), not by pointing your local frontend at the prod backend.
 
 ## The pipeline (mandatory env)
 
@@ -54,14 +70,17 @@ cicd/app-deployment.sh <env> "<commit message>"
 
 which then:
 
-1. Validates the env arg (`dev` or `prod`) and that all three IDs for that env are set in `envs.json` (refuses on any TODO)
-2. Rewrites `backend/.clasp.json` `scriptId` and regenerates `app/config.js` from the env's `envs.json` block
-3. (prod only) Prompts for a `y` confirmation — belt-and-braces even though the env was just chosen in the menu
-4. `git add .` from the app dir + `git add ../_shared/` for shared forge modules
-5. `git commit -m "<msg>"` — skipped if there's nothing staged
-6. `git push -u origin HEAD`
-7. `cd backend/ && clasp push --force` — syncs all `.gs` modules to the chosen env's GAS **draft**
-8. `clasp deploy --deploymentId <env's id> --description "<msg>"` — snapshots the draft as a new live version on the chosen env
+1. Validates the env arg (`dev` or `prod`) and that all three IDs for that env are set in `envs.json` (refuses on any TODO). Also refuses if **dev** isn't fully configured, because local state always returns to dev — dev's IDs are needed regardless of which env you're deploying to.
+2. Writes the **dev** `/exec` URL into `app/config.js` (always — the browser stays on dev).
+3. (prod only) Prompts for a `y` confirmation — belt-and-braces even though the env was just chosen in the menu.
+4. (prod only) Installs an EXIT trap that will revert `.clasp.json` back to dev on script exit.
+5. Writes the **target env**'s `scriptId` to `backend/.clasp.json` (so clasp push hits the right project).
+6. `git add .` from the app dir + `git add ../_shared/` for shared forge modules.
+7. `git commit -m "<msg>"` — skipped if there's nothing staged.
+8. `git push -u origin HEAD`.
+9. `cd backend/ && clasp push --force` — syncs all `.gs` modules to the chosen env's GAS **draft**.
+10. `clasp deploy --deploymentId <env's id> --description "<msg>"` — snapshots the draft as a new live version on the chosen env.
+11. (prod only) EXIT trap fires: reverts `.clasp.json` to dev `scriptId`. Local state is back to dev.
 
 Each env's `/exec` URL is bound to that env's deployment ID and does **not** change between deploys. Pushing without deploying never affects users — see `backend/README.md` for the push-vs-deploy distinction.
 
@@ -92,7 +111,7 @@ A normal `bash forge/deploy.sh` run will reset `.clasp.json` to whatever env you
 
 ## First-time setup (per environment)
 
-You do this once for `dev`, then again for `prod` (or only one of them if you don't want both).
+You do this once for `dev`, then again for `prod`. **Set up dev first** — `app-deployment.sh` refuses any deploy (including prod) while dev's IDs are TODO, because local state always returns to dev. If you only want a single environment in your lifetime, set up the one you want as `dev`.
 
 1. **Sheet** — create a new Google Sheet (any name; e.g. `Expense Tracker — DEV` or `Expense Tracker — PROD`). Tabs (`transactions`, `categories`, `accounts`, `rates`, `audit_access`) auto-create on first request.
 2. **Apps Script** — open Extensions → Apps Script in the Sheet. Note the **Script ID** from Project Settings → IDs. Enable the manifest in **Project Settings → Show "appsscript.json" manifest file in editor**, then paste:

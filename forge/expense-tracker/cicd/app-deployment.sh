@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # Full deployment pipeline for expense-tracker.
-# Environment is MANDATORY — no default. The script switches to that env
-# (rewriting backend/.clasp.json + app/config.js) before deploying.
+# Environment is MANDATORY — no default.
+#
+# Local-state invariant: when this script exits (success OR failure), local
+# files (.clasp.json + app/config.js) are restored to dev. The local browser
+# always talks to the dev backend. Prod deploys are transient operations that
+# flip state only between Phase 2 (clasp push) and Phase 4 (revert).
 #
 # Usage: ./app-deployment.sh <dev|prod> [commit message]
 #
 # Normal entry point is `bash forge/deploy.sh`, which asks for env interactively.
-# This script can also be called directly if you know which env you want.
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -32,65 +35,93 @@ fi
 
 MSG="${2:-expense-tracker: code pushed}"
 
-# ── Resolve env IDs from cicd/envs.json ──────────────────────────────────────
-read_env_field() {
+# ── Resolve IDs for BOTH envs ────────────────────────────────────────────────
+# Dev IDs are mandatory for any deploy because the script always leaves local
+# state on dev. Target IDs are mandatory for the env being deployed to.
+read_field() {
+  local env="$1" field="$2"
   python3 -c "
 import json
 try:
-    d = json.load(open('$ENVS_FILE'))['$ENV_ARG']
-    print(d['$1'])
+    d = json.load(open('$ENVS_FILE'))['$env']
+    print(d['$field'])
 except KeyError:
     print('TODO')
 "
 }
 
-SCRIPT_ID=$(read_env_field script_id)
-DEPLOYMENT_ID=$(read_env_field deployment_id)
-SCRIPT_URL=$(read_env_field script_url)
+DEV_SCRIPT_ID=$(read_field dev script_id)
+DEV_SCRIPT_URL=$(read_field dev script_url)
 
-if [[ "$SCRIPT_ID" == "TODO" || "$DEPLOYMENT_ID" == "TODO" || "$SCRIPT_URL" == "TODO" ]]; then
+if [[ "$DEV_SCRIPT_ID" == "TODO" || "$DEV_SCRIPT_URL" == "TODO" ]]; then
+  echo "ERROR: dev environment is not configured in $ENVS_FILE."
+  echo "  script_id:  $DEV_SCRIPT_ID"
+  echo "  script_url: $DEV_SCRIPT_URL"
+  echo ""
+  echo "Dev IDs are required even for prod deploys — local state always returns to dev."
+  exit 1
+fi
+
+TARGET_SCRIPT_ID=$(read_field "$ENV_ARG" script_id)
+TARGET_DEPLOYMENT_ID=$(read_field "$ENV_ARG" deployment_id)
+TARGET_SCRIPT_URL=$(read_field "$ENV_ARG" script_url)
+
+if [[ "$TARGET_SCRIPT_ID" == "TODO" || "$TARGET_DEPLOYMENT_ID" == "TODO" || "$TARGET_SCRIPT_URL" == "TODO" ]]; then
   echo "ERROR: '$ENV_ARG' environment is not fully configured in $ENVS_FILE."
-  echo "  script_id:     $SCRIPT_ID"
-  echo "  deployment_id: $DEPLOYMENT_ID"
-  echo "  script_url:    $SCRIPT_URL"
+  echo "  script_id:     $TARGET_SCRIPT_ID"
+  echo "  deployment_id: $TARGET_DEPLOYMENT_ID"
+  echo "  script_url:    $TARGET_SCRIPT_URL"
   echo ""
   echo "Fill in the TODO fields, then re-run."
   exit 1
 fi
 
-# ── Switch the environment (rewrite .clasp.json + app/config.js) ─────────────
-# Single source of truth: cicd/envs.json. Both downstream files are derived
-# from it on every deploy, so a hand-edit drift is corrected on next deploy.
-python3 - <<PY
+echo "Deploying to: $ENV_ARG"
+echo "  scriptId:      $TARGET_SCRIPT_ID"
+echo "  deploymentId:  $TARGET_DEPLOYMENT_ID"
+echo "  /exec URL:     $TARGET_SCRIPT_URL"
+echo "Local state after deploy: dev (always reverted)"
+echo ""
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+write_clasp_script_id() {
+  local script_id="$1"
+  python3 - <<PY
 import json
 p = "$CLASP_FILE"
 d = json.load(open(p))
-d["scriptId"] = "$SCRIPT_ID"
+d["scriptId"] = "$script_id"
 with open(p, "w") as f:
     json.dump(d, f, indent=2)
 PY
+}
 
-cat > "$CONFIG_FILE" <<EOF
+write_config_js_to_dev() {
+  cat > "$CONFIG_FILE" <<EOF
 // AUTO-MANAGED by cicd/app-deployment.sh — do not hand-edit.
-// Regenerated on every deploy based on cicd/envs.json.
+// Always points at the dev /exec URL — the local browser always talks to dev.
+// Prod deploys do not modify this file; prod testing happens against the live
+// /exec URL recorded in cicd/envs.json from a deployed environment.
 //
-// Active env: $ENV_ARG
 // config.js is gitignored — the PIN + TOTP gate protects your data, not this URL.
 window.CONFIG = {
-  SCRIPT_URL: '$SCRIPT_URL',
+  SCRIPT_URL: '$DEV_SCRIPT_URL',
 };
 EOF
+}
 
-echo "Env: $ENV_ARG"
-echo "  scriptId:      $SCRIPT_ID"
-echo "  deploymentId:  $DEPLOYMENT_ID"
-echo "  /exec URL:     $SCRIPT_URL"
-echo ""
+# Revert .clasp.json to dev. Used as the EXIT trap during prod deploys so the
+# revert fires on success AND failure (avoids leaving local state on prod).
+restore_dev_state() {
+  write_clasp_script_id "$DEV_SCRIPT_ID"
+  echo ""
+  echo "✓ Local state restored: .clasp.json → dev scriptId"
+}
+
+# ── Always: write dev URL to config.js (local browser stays on dev) ─────────
+write_config_js_to_dev
 
 # ── Prod confirmation ────────────────────────────────────────────────────────
-# Belt-and-braces second prompt even when the env came from the deploy.sh menu
-# — clasp deploy is destructive in the sense that it shifts users to the new
-# version immediately, so a final yes is worth the extra second.
 if [[ "$ENV_ARG" == "prod" ]]; then
   read -rp "You are about to deploy to PROD. Continue? [y/N] " confirm
   if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
@@ -98,6 +129,14 @@ if [[ "$ENV_ARG" == "prod" ]]; then
     exit 1
   fi
 fi
+
+# ── Flip .clasp.json to the target env (so clasp push hits the right project) ─
+# For prod: install the EXIT trap BEFORE the flip so we revert even on Ctrl-C
+# or a clasp failure mid-deploy.
+if [[ "$ENV_ARG" == "prod" ]]; then
+  trap restore_dev_state EXIT
+fi
+write_clasp_script_id "$TARGET_SCRIPT_ID"
 
 # ── Git ──────────────────────────────────────────────────────────────────────
 echo "→ Staging and committing changes…"
@@ -113,10 +152,12 @@ echo "→ Pushing to remote…"
 git push -u origin HEAD
 
 # ── GAS deploy ───────────────────────────────────────────────────────────────
-echo "→ Pushing expense-tracker to GAS draft ($ENV_ARG)…"
+echo "→ Pushing expense-tracker to GAS draft (${ENV_ARG})…"
 cd "$APP_DIR/backend"
 clasp push --force
 echo "→ Deploying new version on ${ENV_ARG}…"
-clasp deploy --deploymentId "$DEPLOYMENT_ID" --description "$MSG"
+clasp deploy --deploymentId "$TARGET_DEPLOYMENT_ID" --description "$MSG"
 
-echo "✓ expense-tracker deployed to $ENV_ARG."
+echo "✓ expense-tracker deployed to ${ENV_ARG}."
+# For prod: the EXIT trap fires here and restores .clasp.json to dev.
+# For dev: .clasp.json is already on dev — no trap needed.
