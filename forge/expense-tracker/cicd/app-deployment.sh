@@ -116,7 +116,7 @@ git push -u origin HEAD
 echo "→ Pushing expense-tracker to GAS draft ($ENV_ARG)…"
 cd "$APP_DIR/backend"
 clasp push --force
-echo "→ Deploying new version on $ENV_ARG…"
+echo "→ Deploying new version on ${ENV_ARG}…"
 clasp deploy --deploymentId "$DEPLOYMENT_ID" --description "$MSG"
 
 echo "✓ expense-tracker deployed to $ENV_ARG."
