@@ -161,14 +161,24 @@ function validateFxRate(sourceAccount, targetAccount, fxRate) {
 // follow-up — the frontend already enforces it on update.
 
 function _validateFinancialRules(body, oldRow) {
+  const accountMap = _loadAccountMap();
+
+  // T-03 preflight: NEW account refs must exist. Refusing here forces the user
+  // to fix the data before any sheet mutation happens, and means
+  // adjustAccountBalance can't silently no-op on a typo or stale reference.
+  // OLD account refs (read from the stored row during update/delete) are
+  // intentionally NOT preflight-checked here — see adjustAccountBalance.
+  if (body.source_account && !accountMap[String(body.source_account)]) {
+    return { ok: false, error: 'unknown_source_account:' + body.source_account };
+  }
+  if (body.target_account && !accountMap[String(body.target_account)]) {
+    return { ok: false, error: 'unknown_target_account:' + body.target_account };
+  }
+
   // money-in has no source account — source-side rules don't apply.
   if (!body.source_account) return { ok: true };
 
-  const accountMap = _loadAccountMap();
-  const sourceRaw  = accountMap[String(body.source_account)];
-  if (!sourceRaw) {
-    return { ok: false, error: 'unknown_source_account:' + body.source_account };
-  }
+  const sourceRaw = accountMap[String(body.source_account)];
 
   // For update: project source balance through the old-row reversal so the rule
   // checks operate on the balance the NEW row will face after Phase 1.

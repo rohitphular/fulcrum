@@ -19,6 +19,19 @@ function generateTransactionId(sheet, date) {
   return dateStr + '-' + String(max + 1).padStart(3, '0');
 }
 
+// T-03 fail-closed: return { ok, error } so misses are observable.
+//
+// Contract: NEW account refs (the ones being saved in this request) are
+// preflight-checked by the validator. They MUST exist. If they don't,
+// the validator refuses before this function is reached.
+//
+// OLD account refs (read from the stored row during update Phase 1 or delete)
+// are NOT preflight-checked — they may have been manually removed from the
+// sheet. This function returns ok:false in that case; callers tolerate it
+// (log + continue) so the stored transaction remains editable/deletable.
+//
+// Either way, this function never throws — the result object plus the
+// console.log below are the visibility mechanism.
 function adjustAccountBalance(accountId, delta) {
   const sheet           = getOrCreateSheet(ACCOUNTS_SHEET, getAccountSheetColumns());
   const values          = sheet.getDataRange().getValues();
@@ -26,11 +39,13 @@ function adjustAccountBalance(accountId, delta) {
   const balanceColIdx   = getAccountSchemaField('current_balance').sheet_column_position - 1;
   const balanceColNum   = getAccountSchemaField('current_balance').sheet_column_position;
   for (let i = 1; i < values.length; i++) {
-    if (String(values[i][accountIdColIdx]) !== accountId) continue;
+    if (String(values[i][accountIdColIdx]) !== String(accountId)) continue;
     const current = Number(values[i][balanceColIdx]) || 0;
     sheet.getRange(i + 1, balanceColNum).setValue(current + delta);
-    return;
+    return { ok: true };
   }
+  console.log('adjustAccountBalance: account_not_found id=' + accountId + ' delta=' + delta);
+  return { ok: false, error: 'account_not_found:' + accountId };
 }
 
 // applyFxNote — capture the conversion rate USED for this transaction inline in
