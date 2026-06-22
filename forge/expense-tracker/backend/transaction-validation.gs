@@ -17,10 +17,17 @@ function validateTransactionCreate(body) {
   const acctTypeErr = _validateCategoryAccountTypeHints(body);
   if (acctTypeErr) return acctTypeErr;
 
+  // Financial hard-block rules (Rules 1–5; Rule 6 is validateFxRate, called by the caller).
+  const finErr = _validateFinancialRules(body, null);
+  if (!finErr.ok) return finErr;
+
   return { ok: true };
 }
 
-function validateTransactionUpdate(body) {
+// `oldRow` is the existing sheet row (array, indexed by txColIndex). Pass it so
+// financial-rule checks operate on the post-reversal balance projection. T-02
+// will move all validation to BEFORE Phase 1 reversal — this signature anticipates that.
+function validateTransactionUpdate(body, oldRow) {
   if (!body.row_num)
     return { ok: false, error: 'missing_row_num' };
   if (!body.transaction_date_utc)
@@ -34,6 +41,10 @@ function validateTransactionUpdate(body) {
 
   const acctTypeErr = _validateCategoryAccountTypeHints(body);
   if (acctTypeErr) return acctTypeErr;
+
+  // Financial hard-block rules with post-reversal balance when oldRow is supplied.
+  const finErr = _validateFinancialRules(body, oldRow || null);
+  if (!finErr.ok) return finErr;
 
   return { ok: true };
 }
@@ -133,4 +144,133 @@ function validateFxRate(sourceAccount, targetAccount, fxRate) {
     return { ok: false, error: `FX rate required for ${fromCcy} → ${toCcy} transaction.` };
   }
   return { ok: true };
+}
+
+// ── Financial hard-block rules — server-side safety net ─────────────────────
+// Mirrors the frontend rule logic in app/sections/transactions.js so a direct
+// POST or a request from a stale UI cannot bypass the rules. Specifications:
+// docs/financial-rules.md.
+//
+//   Rules 1 & 3 — source-side asset balance cannot go negative
+//   Rules 2 & 4 — source-side credit-card limit cannot be exceeded
+//   Rule 5     — money-out from a loan account is blocked (except Interest & charges)
+//   Rule 6     — FX rate required for cross-currency transfer (validateFxRate above)
+//
+// NOT enforced here (frontend-only, per docs/financial-rules.md): Rule 4 for the
+// TARGET account when a money-transfer credits a credit card. Adding this is a
+// follow-up — the frontend already enforces it on update.
+
+function _validateFinancialRules(body, oldRow) {
+  // money-in has no source account — source-side rules don't apply.
+  if (!body.source_account) return { ok: true };
+
+  const accountMap = _loadAccountMap();
+  const sourceRaw  = accountMap[String(body.source_account)];
+  if (!sourceRaw) {
+    return { ok: false, error: 'unknown_source_account:' + body.source_account };
+  }
+
+  // For update: project source balance through the old-row reversal so the rule
+  // checks operate on the balance the NEW row will face after Phase 1.
+  const sourceForCheck = oldRow
+    ? _postReversalBalance(body.source_account, sourceRaw, oldRow)
+    : sourceRaw;
+
+  const amount = Number(body.amount) || 0;
+
+  const balanceErr = _checkBalanceRules(body.transaction_type, sourceForCheck, amount);
+  if (balanceErr) return balanceErr;
+
+  const rule5Err = _checkRule5(body.transaction_type, sourceForCheck, body.major_category, body.minor_category);
+  if (rule5Err) return rule5Err;
+
+  return { ok: true };
+}
+
+function _loadAccountMap() {
+  const sheet = getOrCreateSheet(ACCOUNTS_SHEET, getAccountSheetColumns());
+  const rows  = sheetToObjectsWithRow(sheet);
+  const out   = {};
+  rows.forEach(function(a) {
+    if (a.id) out[String(a.id)] = a;
+  });
+  return out;
+}
+
+// When source_account is unchanged across old → new, project the source's
+// current_balance to its post-Phase-1 value (undo the old row's effect on the
+// source side). When source_account changes, the old reversal lands on a
+// different account and the new source's current_balance is correct as-is.
+function _postReversalBalance(sourceAccountId, sourceAccount, oldRow) {
+  if (!sourceAccount || !oldRow) return sourceAccount;
+
+  const oldSource = String(oldRow[txColIndex('source_account')] || '');
+  if (oldSource !== String(sourceAccountId)) return sourceAccount;
+
+  const oldType   = String(oldRow[txColIndex('transaction_type')] || '');
+  const oldAmount = Number(oldRow[txColIndex('amount')]) || 0;
+
+  let projected = Number(sourceAccount.current_balance) || 0;
+  if (oldType === 'money-in')       projected -= oldAmount;  // reverse credit
+  if (oldType === 'money-out')      projected += oldAmount;  // reverse debit
+  if (oldType === 'money-transfer') projected += oldAmount;  // reverse debit
+
+  // Shallow copy — never mutate the caller's account object
+  const copy = {};
+  Object.keys(sourceAccount).forEach(function(k) { copy[k] = sourceAccount[k]; });
+  copy.current_balance = projected;
+  return copy;
+}
+
+// Rules 1–4 (source side): asset insufficient balance, credit-card limit exceeded.
+function _checkBalanceRules(transactionType, sourceAccount, amount) {
+  if (!sourceAccount) return null;
+  if (transactionType !== 'money-out' && transactionType !== 'money-transfer') return null;
+
+  // Rules 1 & 3 — asset accounts cannot go negative
+  if (!isLiabilityType(sourceAccount.type)) {
+    const balance = Number(sourceAccount.current_balance) || 0;
+    if (balance < amount) {
+      return {
+        ok: false,
+        error: 'insufficient_balance',
+        detail: sourceAccount.name + ' balance ' + balance.toFixed(2) +
+                ' is less than transaction amount ' + Number(amount).toFixed(2),
+      };
+    }
+    return null;
+  }
+
+  // Rules 2 & 4 — credit-card source cannot exceed limit
+  if (sourceAccount.type === 'credit_card') {
+    const creditLimit = Number(sourceAccount.credit_card_limit) || 0;
+    if (creditLimit <= 0) return null;  // no limit configured — skip
+    const balance         = Number(sourceAccount.current_balance) || 0;  // stored negative for liabilities
+    const availableCredit = creditLimit + balance;
+    if (amount > availableCredit) {
+      return {
+        ok: false,
+        error: 'credit_limit_exceeded',
+        detail: sourceAccount.name + ' transaction ' + Number(amount).toFixed(2) +
+                ' exceeds available credit ' + availableCredit.toFixed(2),
+      };
+    }
+    return null;
+  }
+
+  return null;
+}
+
+// Rule 5 — block money-out from a loan account; allow interest/charges exception.
+function _checkRule5(transactionType, sourceAccount, majorCategory, minorCategory) {
+  if (transactionType !== 'money-out') return null;
+  if (!sourceAccount) return null;
+  if (!isLoanType(sourceAccount.type)) return null;
+  if (majorCategory === 'Debt & finance' && minorCategory === 'Interest & charges') return null;
+  return {
+    ok: false,
+    error: 'money_out_from_loan_not_allowed',
+    detail: 'Source ' + sourceAccount.name +
+            ' is a loan account; record loan repayments as money-transfer or money-out with the loan as target',
+  };
 }

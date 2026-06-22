@@ -77,15 +77,19 @@ function createTransaction(body) {
 }
 
 function updateTransaction(body) {
-  const validation = validateTransactionUpdate(body);
-  if (!validation.ok) return validation;
-
+  // Row-range guard runs first so we can hand the old row to the validator,
+  // which uses it to compute the post-reversal balance for Rules 1–5.
+  if (!body.row_num) return { ok: false, error: 'missing_row_num' };
   const sheet   = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
   const rowNum  = Number(body.row_num);
   const lastRow = sheet.getLastRow();
   if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
 
-  const oldRow    = sheet.getRange(rowNum, 1, 1, TRANSACTION_COLUMNS.length).getValues()[0];
+  const oldRow = sheet.getRange(rowNum, 1, 1, TRANSACTION_COLUMNS.length).getValues()[0];
+
+  const validation = validateTransactionUpdate(body, oldRow);
+  if (!validation.ok) return validation;
+
   const oldType            = String(oldRow[txColIndex('transaction_type')]);
   const oldAmount          = Number(oldRow[txColIndex('amount')]) || 0;
   const oldSourceAccountId = String(oldRow[txColIndex('source_account')]);
