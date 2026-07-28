@@ -1,6 +1,6 @@
 # Forge Design System
 
-A compact reference for building consistent Fulcrum Forge modules. All modules share the same visual language; copy this guide when bootstrapping a new one.
+Living reference for building consistent Fulcrum Forge modules. All modules share the same visual language. Update this document as the system evolves — it is the source of truth.
 
 ---
 
@@ -149,7 +149,7 @@ Implemented via `::after` pseudo-element + `barSlide` keyframe (a sliding block,
 </div>
 ```
 
-On success: store PIN in `sessionStorage` with a module-prefixed key (e.g. `dt_pin`), call `hidePinGate()`, then load data. On lock/auth error: clear `sessionStorage` key, call `showPinGate()`.
+On success: store PIN in `sessionStorage` with a module-prefixed key (e.g. `<slug>_pin`), call `hidePinGate()`, then load data. On lock/auth error: clear the `sessionStorage` key, call `showPinGate()`.
 
 ---
 
@@ -327,20 +327,20 @@ Empty state row:
 
 All badges: `font-family: var(--mono); font-size: 10px; uppercase; padding: 3px 8px; border-radius: 6px; border: 1px solid`.
 
-Add module-specific badge colors in the module's CSS. Prefix class names to avoid collisions: `.badge-loan`, `.badge-card`, `.badge-in`, `.badge-out`, etc.
+Add module-specific badge colors in the module's CSS. Prefix class names to avoid collisions: e.g. `.badge-<type>`.
 
 ---
 
 ## Inline Edit Rows
 
-Replace the normal row with an edit row that contains `<input>` and `<select>` elements. Use `data-action` for Save/Cancel:
+Replace the normal row with an edit row containing `<input>` and `<select>` elements. Use `data-action` for Save/Cancel:
 
 ```js
 function renderEditRow(item) {
   const r = item.id;
   return `<tr>
-    <td><input class="rate-edit-input" id="editName-${r}" value="${esc(item.name)}"></td>
-    <td><select class="cat-edit-select" id="editStatus-${r}">…</select></td>
+    <td><input class="edit-input" id="editName-${r}" value="${esc(item.name)}"></td>
+    <td><select class="edit-select" id="editStatus-${r}">…</select></td>
     <td><div class="row-actions">
       <button class="btn-link" data-action="save-edit" data-id="${r}">Save</button>
       <button class="btn-link" data-action="cancel-edit">Cancel</button>
@@ -349,8 +349,8 @@ function renderEditRow(item) {
 }
 ```
 
-`.rate-edit-input` — compact text/number field that fits inside a table cell.
-`.cat-edit-select` — compact select that fits inside a table cell.
+`.edit-input` — compact text/number field that fits inside a table cell.
+`.edit-select` — compact select that fits inside a table cell.
 
 ---
 
@@ -395,7 +395,7 @@ el('themeToggle').addEventListener('click', () => {
 
 function setTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('forge_theme', theme);   // use module prefix: dt_theme, et_theme, etc.
+  localStorage.setItem('<slug>_theme', theme);
   el('themeToggle').textContent = theme === 'dark' ? '☀' : '☽';
 }
 ```
@@ -425,10 +425,10 @@ Prefix all keys with a 2–3 character module slug to avoid collisions across mo
 
 | Storage | Key pattern | Example |
 |---|---|---|
-| `localStorage` | `<slug>_<key>` | `dt_theme`, `et_theme`, `sm_theme` |
-| `sessionStorage` | `<slug>_<key>` | `dt_pin`, `et_section` |
+| `localStorage` | `<slug>_<key>` | `et_theme`, `dt_theme` |
+| `sessionStorage` | `<slug>_<key>` | `et_pin`, `et_section` |
 
-Common keys: `<slug>_theme`, `<slug>_pin`, `<slug>_section`, `<slug>_quote_currency`.
+Common keys: `<slug>_theme`, `<slug>_pin`, `<slug>_section`.
 
 ---
 
@@ -447,16 +447,16 @@ Common keys: `<slug>_theme`, `<slug>_pin`, `<slug>_section`, `<slug>_quote_curre
 
 ```js
 // In a section module (e.g. after a successful save):
-document.dispatchEvent(new CustomEvent('dt:reload'));
+document.dispatchEvent(new CustomEvent('<slug>:reload'));
 
 // In main.js:
-document.addEventListener('dt:reload', loadAll);
+document.addEventListener('<slug>:reload', loadAll);
 ```
 
 Similarly for navigating to another section from inside a section module:
 ```js
-document.dispatchEvent(new CustomEvent('dt:show-section', { detail: 'debts' }));
-// main.js: document.addEventListener('dt:show-section', e => showSection(e.detail));
+document.dispatchEvent(new CustomEvent('<slug>:show-section', { detail: 'items' }));
+// main.js: document.addEventListener('<slug>:show-section', e => showSection(e.detail));
 ```
 
 ---
@@ -499,7 +499,7 @@ Minimal multi-tab shell:
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../../_shared/style-tokens.css">
-<link rel="stylesheet" href="module-name.css">
+<link rel="stylesheet" href="<module-name>.css">
 </head>
 <body>
 
@@ -507,7 +507,7 @@ Minimal multi-tab shell:
 
 <div class="overlay" id="pinOverlay">
   <div class="pin-card">
-    <div class="pin-eyebrow">forge · module-name</div>
+    <div class="pin-eyebrow">forge · <module-name></div>
     <h2>Sign in</h2>
     <p>Enter your PIN and the 6-digit code from your authenticator app.</p>
     <div class="pin-field-label">PIN</div>
@@ -527,7 +527,7 @@ Minimal multi-tab shell:
   <header class="app-header">
     <div class="app-header-inner">
       <div class="app-brand">
-        <p class="eyebrow">forge · module-name</p>
+        <p class="eyebrow">forge · <module-name></p>
         <h1>Module Name</h1>
       </div>
       <div class="header-controls">

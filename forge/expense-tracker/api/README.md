@@ -32,7 +32,7 @@ clasp login                # opens browser; tokens cached in ~/.clasprc.json
 
 ## Daily commands
 
-Run from inside `backend/`:
+Run from inside `api/`:
 
 ```bash
 clasp push --force         # sync local → GAS draft (does NOT affect live /exec)
@@ -70,7 +70,7 @@ See `cicd/README.md` for the full pipeline detail.
 
 Each GAS project has a `/dev` URL that always serves the latest draft (whatever was last `clasp push`'d). Useful for fast iteration without burning a new deployment version.
 
-1. Hand-edit `backend/.clasp.json` to the env's `scriptId` (from `cicd/envs.json`)
+1. Hand-edit `api/.clasp.json` to the env's `scriptId` (from `cicd/envs.json`)
 2. `cd backend && clasp push --force`
 3. In the GAS editor → **Deploy → Test deployments** → copy the `/dev` URL
 4. Temporarily edit the env's URL constant in `app/config.js` to point at the `/dev` URL

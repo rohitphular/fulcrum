@@ -13,7 +13,7 @@ Part of the **[Fulcrum Forge](../)** family of static web apps backed by Google 
 - **Analyse** — dashboard with income/expense/net/savings-rate cards, monthly trend, drillable category breakdown, per-account spend
 - **Manage accounts** — 13 account types across Asset and Liability groups with type-specific fields (loan terms, credit limit, overdraft, investment platform, …)
 
-Full capability list and out-of-scope items: **[docs/overview.md](docs/overview.md)**.
+Full capability list and out-of-scope items: **[_docs/overview.md](_docs/overview.md)**.
 
 ## Architecture
 
@@ -34,11 +34,10 @@ Browser  ──HTTPS──>  Google Apps Script Web App  ──Sheets API──>
 | Folder | Purpose | Read |
 |---|---|---|
 | `app/` | Frontend SPA — sections, state, design system | [app/README.md](app/README.md) |
-| `backend/` | Apps Script source — `.gs` modules grouped by domain | [backend/README.md](backend/README.md) |
+| `api/` | Apps Script source — `.gs` modules grouped by domain | [api/README.md](api/README.md) |
 | `cicd/` | Deploy pipeline (`script-deployment.sh`) and first-time setup | [cicd/README.md](cicd/README.md) |
-| `docs/` | Language-agnostic requirements — anyone can rebuild in any stack | [docs/README.md](docs/README.md) |
-| `local-dev/` | Local dev scripts (seed data, sandbox helpers) — not for production |  |
-| `dev-tasks/` | Internal task notes from in-flight development |  |
+| `_docs/` | Language-agnostic requirements — anyone can rebuild in any stack | [_docs/README.md](_docs/README.md) |
+| `_tasks/` | Internal task notes from in-flight development |  |
 
 ## Quick start
 
@@ -51,7 +50,7 @@ Browser  ──HTTPS──>  Google Apps Script Web App  ──Sheets API──>
 **Day-to-day development:**
 
 - Edit frontend (`app/*`) — refresh the browser; no deploy needed. The runtime hostname detection in `config.js` picks dev locally / prod when hosted.
-- Edit backend (`backend/*.gs`) — push and deploy via the pipeline:
+- Edit backend (`api/*.gs`) — push and deploy via the pipeline:
   ```bash
   bash forge/deploy.sh        # interactive: pick app + env
   # or directly:
@@ -62,9 +61,9 @@ Browser  ──HTTPS──>  Google Apps Script Web App  ──Sheets API──>
 **Where to look when:**
 
 - Designing UI / writing frontend code → [app/README.md](app/README.md)
-- Editing backend logic → [backend/README.md](backend/README.md)
+- Editing backend logic → [api/README.md](api/README.md)
 - Deploying changes → [cicd/README.md](cicd/README.md)
-- Understanding *what* the app does, not *how* → [docs/](docs/)
+- Understanding *what* the app does, not *how* → [_docs/](_docs/)
 
 ## Tech reference
 
@@ -78,16 +77,15 @@ Browser  ──HTTPS──>  Google Apps Script Web App  ──Sheets API──>
 | CLI | [`clasp`](https://github.com/google/clasp) for local-to-GAS sync |
 | Design tokens | Shared CSS variables from `forge/_shared/style-tokens.css` |
 
-None of these are load-bearing requirements. The reference choices are documented in `docs/README.md § Building this in any language` along with substitution candidates.
+None of these are load-bearing requirements. The reference choices are documented in `_docs/README.md § Building this in any language` along with substitution candidates.
 
 ## Documentation map
 
 ```
-docs/
+_docs/
 ├── README.md             ← index
 ├── overview.md           ← domain model, capabilities, scope
 ├── data-model.md         ← all entity schemas in one place
-├── auth.md               ← PIN + TOTP + IP rate limit + session
 ├── accounts.md           ← types, balance convention, derived fields
 ├── transactions.md       ← three types, filters, FX handling
 ├── balance-lifecycle.md  ← how current_balance changes (two-phase reversal)

@@ -9,7 +9,7 @@ set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ENVS_FILE="$APP_DIR/cicd/envs.json"
-CLASP_FILE="$APP_DIR/backend/.clasp.json"
+CLASP_FILE="$APP_DIR/api/.clasp.json"
 
 # Literal placeholder string committed in backend/.clasp.json.
 # Single-quoted on the right-hand side so bash does NOT try to expand
@@ -104,7 +104,7 @@ PY
 # Step 5: Upload backend code to the GAS draft, then promote it to a new live
 # version on the env's deployment.
 echo "Pushing expense-tracker to GAS draft (${ENV_ARG})..."
-cd "$APP_DIR/backend"
+cd "$APP_DIR/api"
 clasp push --force
 echo "Deploying new version on ${ENV_ARG}..."
 clasp deploy --deploymentId "$DEPLOYMENT_ID" --description "$MSG"
