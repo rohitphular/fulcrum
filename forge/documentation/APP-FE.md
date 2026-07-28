@@ -510,6 +510,10 @@ These are defined in module CSS but follow a consistent naming convention:
 
 ## Coding guidelines
 
+> Naming conventions (variables, functions, CSS classes, state keys, storage keys, custom events) are in **APP-CONVENTIONS.md**.
+> Logging standards (format, what to log, what not to log) are in **APP-LOGGING.md**.
+> Shared utility catalog and how to extend `_shared/` are in **APP-SHARED-UTILS.md**.
+
 ### Always escape user data
 
 Any value that came from the backend — account names, categories, transaction notes — could contain HTML special characters. Always wrap in `esc()` before putting into a template literal.
@@ -629,7 +633,7 @@ Split a section file only if a large private helper function (e.g. a form render
 open app/index.html
 
 # Static server — recommended
-cd ui && python3 -m http.server 8000
+cd app && python3 -m http.server 8000
 # → http://localhost:8000
 
 # Test against /dev GAS endpoint

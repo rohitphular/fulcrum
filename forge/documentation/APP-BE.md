@@ -765,6 +765,9 @@ Key rules:
 
 ## Coding guidelines
 
+> Naming conventions (variables, functions, files, field names, error codes, ID formats) are in **APP-CONVENTIONS.md**.
+> Logging standards (format, what to log, what not to log, viewing logs) are in **APP-LOGGING.md**.
+
 ### Global namespace — name carefully
 
 All `.gs` files share one global namespace. Prefix private helpers with `_` (e.g. `_validateFinancialRules`, `_countTransactionsReferencingAccount`). Public functions use plain camelCase: `createTransaction`, `listAccounts`.

@@ -17,8 +17,9 @@ forge/
     app/
       index.html           ← shell, loads shared CSS → module CSS → <script type="module">
       main.js              ← ES module entry point
-      <module-name>.css    ← module-specific styles only
       config.js            ← SCRIPT_URL (gitignored)
+      style/
+        <module-name>.css  ← module-specific styles only
       core/
         state.js           ← exported state object + any shared setters
         api.js             ← API wrapper (wraps SheetsClient)
@@ -499,7 +500,7 @@ Minimal multi-tab shell:
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../../_shared/style-tokens.css">
-<link rel="stylesheet" href="<module-name>.css">
+<link rel="stylesheet" href="style/<module-name>.css">
 </head>
 <body>
 
