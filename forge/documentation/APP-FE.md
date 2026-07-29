@@ -630,12 +630,9 @@ Split a section file only if a large private helper function (e.g. a form render
 
 ```bash
 # HTTP server required — file:// is blocked at the HTML level
-cd app && python3 -m http.server 8000
-# → http://localhost:8000
-
-# Test against /dev GAS endpoint
-# Edit config.js to set DEV_SCRIPT_URL to your /dev URL
-# Serve with the static server above
+make app-start
+# → http://localhost:8000/expense-tracker/app/
+# Serves from forge/ so ../../_shared/ paths resolve correctly
 ```
 
-Frontend changes do NOT go through the `cicd/script-deployment.sh` deploy script — that script is backend-only. To publish frontend changes, commit and push to the main branch. GitHub Pages serves from main automatically.
+Frontend changes do NOT go through `cicd/deploy.sh` — that script is backend-only. To publish frontend changes, commit and push to the main branch. GitHub Pages serves from main automatically.

@@ -121,7 +121,7 @@ Rules:
 ```
 
 - **Always committed with the placeholder** — `${SCRIPT_ID_PLACEHOLDER}` is the literal string in git.
-- The deploy script writes the real `scriptId` here at step 4 and restores the placeholder at exit.
+- The deploy script writes the real `scriptId` here at step 5 and restores the placeholder at exit.
 - `rootDir: "."` means `clasp push` uploads everything in `api/` (where `.clasp.json` lives).
 - `scriptExtensions` limits uploads to `.gs` and `.js` files — JSON, markdown, and other files are excluded.
 
@@ -136,15 +136,16 @@ The frontend (`app/`) is static and does not use `cicd/deploy.sh`.
 | Trigger | Result |
 |---|---|
 | `git push` to `main` | GitHub Pages republishes `app/` automatically |
-| Open `app/index.html` locally | Served from disk — browser loads it directly |
+| `make app-start` | Serves from `forge/` at http://localhost:8000/expense-tracker/app/ |
 
 `app/config.js` picks the backend URL based on `location.hostname` at runtime — no per-deploy mutation:
 
 | Where loaded | Backend URL used |
 |---|---|
-| `file://` | dev `/exec` URL |
 | `http://localhost:*` | dev `/exec` URL |
 | `https://*.github.io/...` | prod `/exec` URL |
+
+Note: `file://` is blocked at the HTML level — the app refuses to load outside an HTTP server.
 
 Do not edit `app/config.js` as part of a backend deploy.
 

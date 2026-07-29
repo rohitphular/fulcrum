@@ -8,5 +8,8 @@
 # Dev task files
 **/dev-tasks/
 
+# Local server PID file (make app-start / app-stop)
+.server.pid
+
 # clasp credentials — never commit OAuth tokens
 .clasprc.json

@@ -9,7 +9,7 @@ Personal finance ledger. Tracks income, expenses, and transfers across multiple 
 | | URL |
 |---|---|
 | **App (prod)** | https://rohitphular.github.io/fulcrum/forge/expense-tracker/app/ |
-| **App (local)** | `cd app && python3 -m http.server 8000` → http://localhost:8000 |
+| **App (local)** | `make app-start` → http://localhost:8000/expense-tracker/app/ |
 | **Backend (prod)** | GAS `/exec` — in `app/config.js` as `PROD_SCRIPT_URL` |
 | **Backend (dev)** | GAS `/exec` — in `app/config.js` as `DEV_SCRIPT_URL` |
 
@@ -35,10 +35,11 @@ Login: PIN + 6-digit TOTP code from your authenticator app. TOTP can be disabled
 expense-tracker/
 ├── app/          Frontend SPA — sections, state, API wrappers, styles
 ├── api/          GAS backend — .gs modules by domain
-├── cicd/         Deploy script + environment IDs (envs.json)
+├── cicd/         deploy.sh, logs.sh, envs.json
 ├── _docs/        Language-agnostic requirements (what, not how)
 ├── _tasks/       In-flight task notes
-└── RE-WIRE-BRAIN.md  ← you are here
+├── Makefile      app-start, app-stop, api-deploy, api-logs
+└── REWIRE-BRAIN.md  ← you are here
 ```
 
 Shared code for all Forge modules: `forge/_shared/` (sheets-client.js, auth.js, ui.js, utils.js, style-tokens.css).
@@ -58,7 +59,7 @@ Shared code for all Forge modules: `forge/_shared/` (sheets-client.js, auth.js, 
 | Dashboard — summary cards, monthly trend chart, category breakdown | ✓ Done |
 | Advisor — LLM chat panel (OpenAI gpt-4o-mini, script property key) | ✓ Done |
 | Auth — PIN + TOTP gate, IP-based lockout after 3 failures | ✓ Done |
-| CI/CD — one-command deploy via `bash forge/deploy.sh` | ✓ Done |
+| CI/CD — one-command deploy via `make api-deploy` | ✓ Done |
 | Dark mode | ✓ Done |
 
 ## What is pending
@@ -70,14 +71,14 @@ Nothing tracked in `_tasks/` right now. Check `_docs/overview.md` for the full f
 ## Start working locally
 
 ```bash
-# Run the frontend — HTTP server required (file:// is blocked)
-cd app && python3 -m http.server 8000
-# → http://localhost:8000  (auto-picks dev backend)
+# Run the frontend (file:// is blocked — HTTP server required)
+make app-start
+# → http://localhost:8000/expense-tracker/app/
 
 # Edit backend
 cd api
-# Edit .gs files, then push:
-bash forge/deploy.sh   # pick expense-tracker → dev
+# Edit .gs files, then deploy:
+make api-deploy   # pick env → enter description
 ```
 
 Backend changes take effect immediately after deploy. Frontend changes are live on save — just refresh.
