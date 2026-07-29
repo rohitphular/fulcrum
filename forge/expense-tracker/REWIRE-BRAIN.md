@@ -9,7 +9,7 @@ Personal finance ledger. Tracks income, expenses, and transfers across multiple 
 | | URL |
 |---|---|
 | **App (prod)** | https://rohitphular.github.io/fulcrum/forge/expense-tracker/app/ |
-| **App (local)** | `open app/index.html` or `cd app && python3 -m http.server 8000` → http://localhost:8000 |
+| **App (local)** | `cd app && python3 -m http.server 8000` → http://localhost:8000 |
 | **Backend (prod)** | GAS `/exec` — in `app/config.js` as `PROD_SCRIPT_URL` |
 | **Backend (dev)** | GAS `/exec` — in `app/config.js` as `DEV_SCRIPT_URL` |
 
@@ -70,7 +70,7 @@ Nothing tracked in `_tasks/` right now. Check `_docs/overview.md` for the full f
 ## Start working locally
 
 ```bash
-# Run the frontend (no install needed)
+# Run the frontend — HTTP server required (file:// is blocked)
 cd app && python3 -m http.server 8000
 # → http://localhost:8000  (auto-picks dev backend)
 
@@ -87,10 +87,9 @@ Backend changes take effect immediately after deploy. Frontend changes are live 
 ## Deploy
 
 ```bash
-bash forge/deploy.sh
-# 1. Pick: expense-tracker
-# 2. Pick: dev | prod
-# 3. Enter a description (or leave blank)
+bash forge/expense-tracker/cicd/deploy.sh
+# 1. Pick: dev | prod
+# 2. Enter a description (or leave blank)
 ```
 
 This does: `clasp push --force` → `clasp deploy` → restores `.clasp.json` placeholder. Git is NOT touched — commit and push separately.

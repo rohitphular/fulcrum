@@ -15,73 +15,59 @@ The deploy pipeline is **backend-only**. It pushes `.gs` source files to a Googl
 
 ---
 
-## Two-tier launcher
+## Invocation
 
-There are two entry points:
-
-```
-forge/deploy.sh                        ← interactive launcher — discovers apps, asks for app + env
-  └─ <app>/cicd/script-deployment.sh   ← per-app deploy script — takes env as arg, does the work
-```
-
-**Canonical invocation (recommended):**
+**Interactive (recommended):**
 
 ```bash
-bash forge/deploy.sh
-# Prompts: pick app → pick env → optional description
+bash forge/expense-tracker/cicd/deploy.sh
+# Prompts: pick env → optional description
 ```
 
-**Direct invocation (for scripting or CI):**
+**Direct (for scripting or CI):**
 
 ```bash
-bash cicd/script-deployment.sh dev  "expense-tracker: <change description>"
-bash cicd/script-deployment.sh prod "expense-tracker: <change description>"
+bash cicd/deploy.sh dev  "expense-tracker: <change description>"
+bash cicd/deploy.sh prod "expense-tracker: <change description>"
 ```
 
 The description becomes the GAS deployment label — it appears in the Apps Script editor's "Deployments" list.
 
 ---
 
-## `forge/deploy.sh` — the launcher
-
-Discovers all Forge apps by scanning for `cicd/script-deployment.sh` in each subdirectory of `forge/`. A new app becomes automatically selectable the moment it has that file — no changes to the launcher needed.
+## `cicd/deploy.sh` — the deploy script
 
 ```
-forge/
-├── deploy.sh              ← the launcher
-├── expense-tracker/
-│   └── cicd/
-│       └── script-deployment.sh   ← discovered automatically
-└── <new-app>/
-    └── cicd/
-        └── script-deployment.sh   ← also discovered
+expense-tracker/
+└── cicd/
+    ├── deploy.sh    ← interactive launcher + deployment logic
+    ├── logs.sh      ← interactive log viewer (pick env)
+    └── envs.json    ← script/deployment IDs per env
 ```
 
-The launcher also offers **"All apps"** — runs `script-deployment.sh` sequentially for every discovered app against the selected env.
+Six steps, in order:
 
----
+### Step 1 — Resolve env
 
-## `cicd/script-deployment.sh` — the deploy script
+If no env arg is provided, presents an interactive prompt. Validates the choice against `cicd/envs.json` (any top-level key not starting with `_`). Exits with an error if the env is unknown.
 
-Five steps, in order:
+### Step 2 — Resolve description
 
-### Step 1 — Validate env arg
+If no description arg is provided and the script is running interactively, prompts for one. Defaults to `expense-tracker: code pushed` if left blank.
 
-Reads valid env names from `cicd/envs.json` (any top-level key not starting with `_`). Exits with an error listing valid envs if the arg is unknown or missing.
-
-### Step 2 — Resolve IDs
+### Step 3 — Resolve IDs
 
 Reads `script_id` and `deployment_id` for the target env from `cicd/envs.json`. Exits with a clear error if either value is `TODO` — this prevents accidental deploys to unconfigured environments.
 
-### Step 3 — Install EXIT trap
+### Step 4 — Install EXIT trap
 
-Registers a `trap restore_placeholder EXIT` before touching any files. The trap rewrites `api/.clasp.json` back to `${SCRIPT_ID_PLACEHOLDER}` no matter how the script exits — success, `clasp` error, or Ctrl-C. The placeholder is a literal 27-character string, not a shell variable.
+Registers a `trap restore_placeholder EXIT` before touching any files. The trap rewrites `api/.clasp.json` back to `${SCRIPT_ID_PLACEHOLDER}` no matter how the script exits — success, `clasp` error, or Ctrl-C. The placeholder is a literal string, not a shell variable.
 
-### Step 4 — Write real `scriptId` into `api/.clasp.json`
+### Step 5 — Write real `scriptId` into `api/.clasp.json`
 
 Injects the env's `script_id` into `api/.clasp.json` so `clasp` knows which GAS project to target. This file is committed to git with the placeholder; the real ID exists on disk only during the deploy window.
 
-### Step 5 — `clasp push` → `clasp deploy`
+### Step 6 — `clasp push` → `clasp deploy`
 
 ```bash
 clasp push --force            # uploads .gs files to the GAS draft
@@ -145,7 +131,7 @@ Rules:
 
 ## Frontend deploy (not this script)
 
-The frontend (`app/`) is static and does not use `script-deployment.sh`.
+The frontend (`app/`) is static and does not use `cicd/deploy.sh`.
 
 | Trigger | Result |
 |---|---|
@@ -212,7 +198,7 @@ Edit `cicd/envs.json`, set `script_id` for this env. Leave `deployment_id` and `
 
 ### 5. Bootstrap push
 
-`script-deployment.sh` refuses to run while `deployment_id` is `TODO`. For the first push, temporarily hand-edit `api/.clasp.json`:
+`deploy.sh` refuses to run while `deployment_id` is `TODO`. For the first push, temporarily hand-edit `api/.clasp.json`:
 
 ```bash
 # 1. Set scriptId in api/.clasp.json to this env's script_id value
@@ -246,19 +232,19 @@ Paste the env's `/exec` URL into the matching constant in `app/config.js` (`DEV_
 ### 9. First scripted deploy
 
 ```bash
-bash cicd/script-deployment.sh dev "bootstrap"
+bash cicd/deploy.sh dev "bootstrap"
 ```
 
-All subsequent deploys: `bash forge/deploy.sh`.
+All subsequent deploys: `bash forge/expense-tracker/cicd/deploy.sh`.
 
 ---
 
 ## Adding a new Forge app
 
-1. Create `<app>/cicd/script-deployment.sh` — copy verbatim from `expense-tracker/cicd/script-deployment.sh`. It is generic; the only app-specific line is the comment at the top.
-2. Create `<app>/cicd/envs.json` with `TODO` placeholders for `dev` and `prod`.
-3. Create `<app>/api/.clasp.json` with the placeholder `scriptId`.
-4. The app now appears in `forge/deploy.sh`'s discovery list automatically.
+1. Create `<app>/cicd/deploy.sh` — copy verbatim from `expense-tracker/cicd/deploy.sh`. Update the banner title and default description string.
+2. Create `<app>/cicd/logs.sh` — copy verbatim from `expense-tracker/cicd/logs.sh`. Update the banner title.
+3. Create `<app>/cicd/envs.json` with `TODO` placeholders for `dev` and `prod`.
+4. Create `<app>/api/.clasp.json` with the placeholder `scriptId`.
 5. Complete the first-time setup steps above for each env.
 
 ---

@@ -629,10 +629,7 @@ Split a section file only if a large private helper function (e.g. a form render
 ## Running locally
 
 ```bash
-# Direct open (may fail for ES modules in some browsers)
-open app/index.html
-
-# Static server — recommended
+# HTTP server required — file:// is blocked at the HTML level
 cd app && python3 -m http.server 8000
 # → http://localhost:8000
 

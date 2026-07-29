@@ -875,11 +875,11 @@ Split by domain, not by line count. If a core file exceeds ~400 lines, check whe
 
 ```bash
 # Interactive (recommended)
-bash forge/deploy.sh           # pick app, pick env
+bash forge/expense-tracker/cicd/deploy.sh   # pick env
 
 # Direct
-bash cicd/script-deployment.sh dev  "expense-tracker: add invoices domain"
-bash cicd/script-deployment.sh prod "expense-tracker: add invoices domain"
+bash cicd/deploy.sh dev  "expense-tracker: add invoices domain"
+bash cicd/deploy.sh prod "expense-tracker: add invoices domain"
 ```
 
 The script:

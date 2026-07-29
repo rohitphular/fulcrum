@@ -12,6 +12,11 @@
 <link rel="stylesheet" href="style/expense-tracker.css">
 </head>
 <body>
+<script>
+  if (location.protocol === 'file:') {
+    document.documentElement.innerHTML = '<body style="margin:0;padding:3rem;font-family:monospace;background:#111;color:#eee"><p style="color:#e74;font-size:1.1rem;margin:0 0 1rem">Cannot open via file://</p><p style="margin:0 0 0.5rem;color:#aaa">Start the local server:</p><code style="display:block;background:#1a1a1a;padding:1rem;border-radius:6px;color:#0f9;white-space:pre">cd forge/expense-tracker/app\npython3 -m http.server 8000</code><p style="margin:1rem 0 0;color:#aaa">Then open <a href="http://localhost:8000" style="color:#0f9">http://localhost:8000</a></p></body>';
+  }
+</script>
 
 <!-- Auth overlay -->
 <div class="overlay" id="pinOverlay">
