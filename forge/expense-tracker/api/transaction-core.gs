@@ -33,6 +33,11 @@ function createTransaction(body) {
     if (!fxValidation.ok) return fxValidation;
   }
 
+  // Resolve workflow before any sheet mutation — fail fast if category not found
+  const hints  = _findCategoryHints(body.transaction_type, body.major_category, body.minor_category);
+  const wfType = resolveWorkflow(hints ? hints.workflow_type : null);
+  if (typeof wfType !== 'string') return wfType;
+
   const sheet = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
   const id    = generateTransactionId(sheet, body.transaction_date_utc);
 
@@ -58,23 +63,14 @@ function createTransaction(body) {
     ''                                // payment_method — not used
   ]);
 
-  const type = body.transaction_type;
-  // money-in: source is external; credit the target account
-  if (type === 'money-in') adjustAccountBalance(body.target_account, amount);
-  // money-out: debit the source account
-  if (type === 'money-out') adjustAccountBalance(body.source_account, -amount);
-  // money-out with target (loan repayment, CC payment, etc.): also credit target with FX
-  if (type === 'money-out' && body.target_account) {
-    const credited = fxRate > 0 ? amount * fxRate : amount;
-    adjustAccountBalance(body.target_account, credited);
-  }
-  if (type === 'money-transfer') {
-    adjustAccountBalance(body.source_account, -amount);
-    if (body.target_account) {
-      const toAmount = fxRate > 0 ? amount * fxRate : amount;
-      adjustAccountBalance(body.target_account, toAmount);
-    }
-  }
+  const wfResult = executeWorkflow(wfType, {
+    source_account: body.source_account || '',
+    target_account: body.target_account || '',
+    amount:         amount,
+    to_amount:      fxRate > 0 ? amount * fxRate : amount,
+    fx_rate:        fxRate,
+  });
+  if (!wfResult.ok) return wfResult;
 
   return { ok: true, id };
 }
@@ -110,38 +106,40 @@ function updateTransaction(body) {
     if (!fxValidation.ok) return fxValidation;
   }
 
-  // All validation passed — safe to mutate balances and the row.
+  // All validation passed — resolve both workflows before any balance mutation
   const oldType            = String(oldRow[txColIndex('transaction_type')]);
+  const oldMajor           = String(oldRow[txColIndex('major_category')] || '');
+  const oldMinor           = String(oldRow[txColIndex('minor_category')] || '');
   const oldAmount          = Number(oldRow[txColIndex('amount')]) || 0;
   const oldSourceAccountId = String(oldRow[txColIndex('source_account')]);
   const oldTargetAccountId = String(oldRow[txColIndex('target_account')]);
   const oldFxRate          = Number(oldRow[txColIndex('fx_rate')]) || 0;
 
+  const oldHints  = _findCategoryHints(oldType, oldMajor, oldMinor);
+  const oldWfType = resolveWorkflow(oldHints ? oldHints.workflow_type : null);
+  if (typeof oldWfType !== 'string') return oldWfType;
+
+  const newHints  = _findCategoryHints(body.transaction_type, body.major_category, body.minor_category);
+  const newWfType = resolveWorkflow(newHints ? newHints.workflow_type : null);
+  if (typeof newWfType !== 'string') return newWfType;
+
   // Phase 1 — reverse old transaction
-  if (oldType === 'money-in') adjustAccountBalance(oldTargetAccountId, -oldAmount);
-  if (oldType === 'money-out') adjustAccountBalance(oldSourceAccountId, oldAmount);
-  if (oldType === 'money-out' && oldTargetAccountId) {
-    const oldCredited = oldFxRate > 0 ? oldAmount * oldFxRate : oldAmount;
-    adjustAccountBalance(oldTargetAccountId, -oldCredited);
-  }
-  if (oldType === 'money-transfer') {
-    adjustAccountBalance(oldSourceAccountId, oldAmount);
-    if (oldTargetAccountId) adjustAccountBalance(oldTargetAccountId, -(oldFxRate > 0 ? oldAmount * oldFxRate : oldAmount));
-  }
+  reverseWorkflow(oldWfType, {
+    source_account: oldSourceAccountId,
+    target_account: oldTargetAccountId,
+    amount:         oldAmount,
+    to_amount:      oldFxRate > 0 ? oldAmount * oldFxRate : oldAmount,
+    fx_rate:        oldFxRate,
+  });
 
   // Phase 2 — apply new transaction
-  if (newType === 'money-in') adjustAccountBalance(body.target_account, newAmount);
-  if (newType === 'money-out') adjustAccountBalance(body.source_account, -newAmount);
-  if (newType === 'money-out' && body.target_account) {
-    const credited = newFxRate > 0 ? newAmount * newFxRate : newAmount;
-    adjustAccountBalance(body.target_account, credited);
-  }
-  if (newType === 'money-transfer') {
-    adjustAccountBalance(body.source_account, -newAmount);
-    if (body.target_account) {
-      adjustAccountBalance(body.target_account, newFxRate > 0 ? newAmount * newFxRate : newAmount);
-    }
-  }
+  executeWorkflow(newWfType, {
+    source_account: body.source_account || '',
+    target_account: body.target_account || '',
+    amount:         newAmount,
+    to_amount:      newFxRate > 0 ? newAmount * newFxRate : newAmount,
+    fx_rate:        newFxRate,
+  });
 
   // Augment notes with the conversion rate used (no-op when not cross-currency).
   // On edit, applyFxNote strips any stale [FX: ...] marker before re-appending,
@@ -180,21 +178,24 @@ function deleteTransaction(body) {
 
   const row    = sheet.getRange(rowNum, 1, 1, TRANSACTION_COLUMNS.length).getValues()[0];
   const txType          = String(row[txColIndex('transaction_type')]);
+  const txMajor         = String(row[txColIndex('major_category')] || '');
+  const txMinor         = String(row[txColIndex('minor_category')] || '');
   const txAmount        = Number(row[txColIndex('amount')]) || 0;
   const sourceAccountId = String(row[txColIndex('source_account')]);
   const targetAccountId = String(row[txColIndex('target_account')]);
   const fxRate          = Number(row[txColIndex('fx_rate')]) || 0;
 
-  if (txType === 'money-in') adjustAccountBalance(targetAccountId, -txAmount);
-  if (txType === 'money-out') adjustAccountBalance(sourceAccountId, txAmount);
-  if (txType === 'money-out' && targetAccountId) {
-    const credited = fxRate > 0 ? txAmount * fxRate : txAmount;
-    adjustAccountBalance(targetAccountId, -credited);
-  }
-  if (txType === 'money-transfer') {
-    adjustAccountBalance(sourceAccountId, txAmount);
-    if (targetAccountId) adjustAccountBalance(targetAccountId, -(fxRate > 0 ? txAmount * fxRate : txAmount));
-  }
+  const hints  = _findCategoryHints(txType, txMajor, txMinor);
+  const wfType = resolveWorkflow(hints ? hints.workflow_type : null);
+  if (typeof wfType !== 'string') return wfType;
+
+  reverseWorkflow(wfType, {
+    source_account: sourceAccountId,
+    target_account: targetAccountId,
+    amount:         txAmount,
+    to_amount:      fxRate > 0 ? txAmount * fxRate : txAmount,
+    fx_rate:        fxRate,
+  });
 
   sheet.deleteRow(rowNum);
   return { ok: true };

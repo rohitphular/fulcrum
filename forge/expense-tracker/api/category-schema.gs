@@ -7,7 +7,7 @@
 // =============================================================================
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Schema — 12 fields in column-position order
+// Schema — 13 fields in column-position order
 // ─────────────────────────────────────────────────────────────────────────────
 const CATEGORY_SCHEMA = {
 
@@ -133,7 +133,7 @@ const CATEGORY_SCHEMA = {
     default_value:         false,
   },
 
-  // ── Meta (column 12) ─────────────────────────────────────────────────────
+  // ── Meta (columns 12–13) ─────────────────────────────────────────────────
   sort_order: {
     sheet_column_name: 'sort_order',
     sheet_column_position: 12,
@@ -143,6 +143,16 @@ const CATEGORY_SCHEMA = {
     group: 'meta',
     editable: true,
     default_value: 0,
+  },
+  workflow_type: {
+    sheet_column_name: 'workflow_type',
+    sheet_column_position: 13,
+    ui_label: 'Workflow type',
+    type: 'enum',
+    enum_values: ['account-credit', 'account-debit', 'funds-transfer', 'forex-transfer', 'debt-repayment'],
+    group: 'meta',
+    editable: true,
+    default_value: null,
   },
 };
 

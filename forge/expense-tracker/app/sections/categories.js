@@ -19,6 +19,14 @@ function _acctTypeGroups() {
   return { assetTypes, creditTypes, loanTypes };
 }
 
+const WORKFLOW_TYPES = [
+  { value: 'account-credit',  label: 'Account Credit — credit target' },
+  { value: 'account-debit',   label: 'Account Debit — debit source' },
+  { value: 'funds-transfer',  label: 'Funds Transfer — debit source, credit target' },
+  { value: 'forex-transfer',  label: 'Forex Transfer — debit source, credit target (FX)' },
+  { value: 'debt-repayment',  label: 'Debt Repayment — debit source, reduce liability' },
+];
+
 const ACCT_TYPE_LABELS = {
   current: 'Current', savings: 'Savings', cash: 'Cash', investment: 'Investment',
   credit_card: 'Credit Card', overdraft: 'Overdraft', mortgage: 'Mortgage',
@@ -74,6 +82,10 @@ function _renderForm(cat, mode) {
     `<option value="${esc(t)}" ${cat?.transaction_type === t ? 'selected' : ''}>${esc(t)}</option>`
   ).join('');
 
+  const wfTypeOpts = WORKFLOW_TYPES.map(w =>
+    `<option value="${esc(w.value)}" ${cat?.workflow_type === w.value ? 'selected' : ''}>${esc(w.label)}</option>`
+  ).join('');
+
   const header = (isView || isEdit) ? `
     <div class="cat-form-header">
       ${isView ? 'Viewing' : 'Editing'} —
@@ -87,23 +99,32 @@ function _renderForm(cat, mode) {
       <div class="field">
         <label>Type *</label>
         <select id="${pfx}Type"${dis}>${typeOpts}</select>
+        <div class="field-hint">money-in, money-out, or money-transfer.</div>
       </div>
       <div class="field">
         <label>Major *</label>
         <input type="text" id="${pfx}Major" placeholder="e.g. Food" value="${esc(String(cat?.major_category || ''))}"${dis}>
+        <div class="field-hint">Top-level category group.</div>
       </div>
       <div class="field form-grid-span-2">
         <label>Minor *</label>
         <input type="text" id="${pfx}Minor" placeholder="e.g. Groceries" value="${esc(String(cat?.minor_category || ''))}"${dis}>
+        <div class="field-hint">Specific category name shown in dropdowns.</div>
       </div>
-      <div class="field form-grid-span-3">
+      <div class="field form-grid-span-2">
         <label>Description</label>
         <input type="text" id="${pfx}Desc" placeholder="Short description" value="${esc(String(cat?.description || ''))}"${dis}>
+        <div class="field-hint">Shown in tooltips and reports.</div>
       </div>
       <div class="field">
         <label>Sort order</label>
         <input type="number" id="${pfx}SortOrder" min="0" step="1" value="${esc(String(cat?.sort_order ?? 0))}"${dis}>
         <div class="field-hint">Lower = first.</div>
+      </div>
+      <div class="field">
+        <label>Workflow type *</label>
+        <select id="${pfx}WorkflowType"${dis}>${wfTypeOpts}</select>
+        <div class="field-hint">Balance steps executed on save.</div>
       </div>
       <div class="field form-grid-span-2">
         <label>Tag keywords</label>
@@ -341,6 +362,7 @@ async function _saveNewCategory() {
   const source_account_mandatory = el('catNewSrcMandatory')?.checked === true;
   const target_account_mandatory = el('catNewTgtMandatory')?.checked === true;
   const sort_order            = Number(el('catNewSortOrder')?.value) || 0;
+  const workflow_type         = el('catNewWorkflowType')?.value;
   const is_active             = true;
   const errEl                 = el('catAddError');
 
@@ -356,7 +378,7 @@ async function _saveNewCategory() {
       transaction_type, major_category, minor_category, description,
       is_active, tag_keywords, counterparty_examples,
       source_account_types, target_account_types,
-      source_account_mandatory, target_account_mandatory, sort_order,
+      source_account_mandatory, target_account_mandatory, sort_order, workflow_type,
     });
     if (res.ok) {
       showMsg('Category added.');
@@ -392,6 +414,7 @@ async function _saveCatEdit() {
   const source_account_mandatory = el('catEditSrcMandatory')?.checked === true;
   const target_account_mandatory = el('catEditTgtMandatory')?.checked === true;
   const sort_order            = Number(el('catEditSortOrder')?.value) || 0;
+  const workflow_type         = el('catEditWorkflowType')?.value;
   const is_active             = el('catEditIsActive')?.checked !== false;
   const errEl                 = el('catEditError');
 
@@ -409,7 +432,7 @@ async function _saveCatEdit() {
       row_num: rowNum, transaction_type, major_category, minor_category, description,
       is_active, tag_keywords, counterparty_examples,
       source_account_types, target_account_types,
-      source_account_mandatory, target_account_mandatory, sort_order,
+      source_account_mandatory, target_account_mandatory, sort_order, workflow_type,
     });
     if (res.ok) {
       showMsg('Category updated.');

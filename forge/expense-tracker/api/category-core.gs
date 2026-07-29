@@ -97,6 +97,7 @@ function createCategory(body) {
   setCol('source_account_mandatory',  body.source_account_mandatory === true || body.source_account_mandatory === 'true');
   setCol('target_account_mandatory',  body.target_account_mandatory === true || body.target_account_mandatory === 'true');
   setCol('sort_order',                Number(body.sort_order) || 0);
+  setCol('workflow_type',             String(body.workflow_type || '').trim());
 
   sheet.appendRow(row);
   return { ok: true };
@@ -130,6 +131,7 @@ function updateCategory(body) {
   writeField('source_account_mandatory',  body.source_account_mandatory === true || body.source_account_mandatory === 'true');
   writeField('target_account_mandatory',  body.target_account_mandatory === true || body.target_account_mandatory === 'true');
   writeField('sort_order',                Number(body.sort_order) || 0);
+  writeField('workflow_type',             String(body.workflow_type || '').trim());
 
   return { ok: true };
 }

@@ -88,6 +88,7 @@ function _findCategoryHints(type, major, minor) {
     dst:          catColIndex('target_account_types'),
     srcMandatory: catColIndex('source_account_mandatory'),
     dstMandatory: catColIndex('target_account_mandatory'),
+    workflowType: catColIndex('workflow_type'),
   };
   for (let i = 1; i < values.length; i++) {
     if (values[i][ci.type] === type && values[i][ci.major] === major && values[i][ci.minor] === minor) {
@@ -97,6 +98,7 @@ function _findCategoryHints(type, major, minor) {
         target_account_types:      String(values[i][ci.dst]          || '').trim(),
         source_account_mandatory:  toBool(values[i][ci.srcMandatory]),
         target_account_mandatory:  toBool(values[i][ci.dstMandatory]),
+        workflow_type:             String(values[i][ci.workflowType]  || '').trim(),
       };
     }
   }
