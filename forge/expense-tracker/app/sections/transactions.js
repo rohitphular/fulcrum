@@ -1381,33 +1381,43 @@ async function _submitTxImport(transactions) {
       return;
     }
 
-    const results    = res.results || [];
-    const resultRows = results.map(r => `
-      <tr>
-        <td style="font-size:12px;color:var(--muted)">${esc(r.label || '')}</td>
-        <td>${r.ok
-          ? `<span class="badge badge-in">created</span>`
-          : `<span class="badge badge-out">failed: ${esc(r.error || 'unknown')}</span>`}
-        </td>
-      </tr>`).join('');
+    const created = res.created || 0;
+    const failed  = res.failed  || 0;
 
-    const preview = el('txImportPreview');
-    if (preview) preview.innerHTML = `
-      <div style="margin-bottom:8px;font-size:13px">${res.created || 0} created · ${res.failed || 0} failed</div>
-      <div class="table-wrap" style="margin-bottom:8px">
-        <table>
-          <thead><tr><th>Transaction</th><th>Result</th></tr></thead>
-          <tbody>${resultRows}</tbody>
-        </table>
-      </div>`;
-
-    _txImportParsed = null;
-    if ((res.created || 0) > 0) {
-      showMsg(`${res.created} transaction${res.created !== 1 ? 's' : ''} imported.`);
+    if (failed === 0) {
+      _txImportParsed = null;
+      state.txImportOpen = false;
       const r = await ExpenseAPI.listTransactions();
       if (r.ok) { state.transactions = r.data || []; state.txPage = 1; }
+      renderTransactions();
+      showMsg(`${created} transaction${created !== 1 ? 's' : ''} imported.`);
+    } else {
+      // Keep panel open — show per-row results so user can see what failed and why
+      const resultRows = (res.results || []).map(r => `
+        <tr>
+          <td style="font-size:12px;color:var(--muted)">${esc(r.label || '')}</td>
+          <td>${r.ok
+            ? `<span class="badge badge-in">created</span>`
+            : `<span class="badge badge-out">${esc(r.error || 'unknown')}</span>`}
+          </td>
+        </tr>`).join('');
+      const preview = el('txImportPreview');
+      if (preview) preview.innerHTML = `
+        <div style="margin-bottom:8px;font-size:13px">${created} created · <span style="color:var(--ember)">${failed} failed</span></div>
+        <div class="table-wrap" style="margin-bottom:8px">
+          <table>
+            <thead><tr><th>Transaction</th><th>Result</th></tr></thead>
+            <tbody>${resultRows}</tbody>
+          </table>
+        </div>`;
+      _txImportParsed = null;
+      if (btn) { btn.disabled = true; btn.textContent = 'Import'; }
+      if (created > 0) {
+        const r = await ExpenseAPI.listTransactions();
+        if (r.ok) { state.transactions = r.data || []; state.txPage = 1; }
+      }
+      showMsg(`${created} imported · ${failed} failed`, 'warn');
     }
-    if (btn) btn.disabled = true;
   } catch (_) {
     if (errEl) errEl.textContent = 'Connection error.';
     if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }

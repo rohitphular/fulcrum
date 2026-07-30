@@ -1227,33 +1227,40 @@ async function _submitImport(accounts) {
       return;
     }
 
-    const results = res.results || [];
-    const resultRows = results.map(r => `
-      <tr>
-        <td>${esc(r.name)}</td>
-        <td>${r.ok
-          ? `<span class="badge badge-in">created</span>`
-          : `<span class="badge badge-out">failed: ${esc(r.error || 'unknown')}</span>`}
-        </td>
-      </tr>`).join('');
+    const created = res.created || 0;
+    const failed  = res.failed  || 0;
 
-    const preview = el('accImportPreview');
-    if (preview) preview.innerHTML = `
-      <div style="margin-bottom:8px;font-size:13px">${res.created || 0} created · ${res.failed || 0} failed</div>
-      <div class="table-wrap" style="margin-bottom:8px">
-        <table class="acc-table">
-          <thead><tr><th>Name</th><th>Result</th></tr></thead>
-          <tbody>${resultRows}</tbody>
-        </table>
-      </div>`;
-
-    _importParsed = null;
-    if ((res.created || 0) > 0) {
-      showMsg(`${res.created} account${res.created !== 1 ? 's' : ''} imported.`);
+    if (failed === 0) {
+      _importParsed = null;
+      state.accImportOpen = false;
       await _refreshAccounts();
+      renderAccounts();
       renderDashboard();
+      showMsg(`${created} account${created !== 1 ? 's' : ''} imported.`);
+    } else {
+      // Keep panel open — show per-row results so user can see what failed and why
+      const resultRows = (res.results || []).map(r => `
+        <tr>
+          <td>${esc(r.name)}</td>
+          <td>${r.ok
+            ? `<span class="badge badge-in">created</span>`
+            : `<span class="badge badge-out">${esc(r.error || 'unknown')}</span>`}
+          </td>
+        </tr>`).join('');
+      const preview = el('accImportPreview');
+      if (preview) preview.innerHTML = `
+        <div style="margin-bottom:8px;font-size:13px">${created} created · <span style="color:var(--ember)">${failed} failed</span></div>
+        <div class="table-wrap" style="margin-bottom:8px">
+          <table class="acc-table">
+            <thead><tr><th>Name</th><th>Result</th></tr></thead>
+            <tbody>${resultRows}</tbody>
+          </table>
+        </div>`;
+      _importParsed = null;
+      if (btn) { btn.disabled = true; btn.textContent = 'Import'; }
+      if (created > 0) { await _refreshAccounts(); renderDashboard(); }
+      showMsg(`${created} imported · ${failed} failed`, 'warn');
     }
-    if (btn) btn.disabled = true;
   } catch (_) {
     if (errEl) errEl.textContent = 'Connection error.';
     if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
