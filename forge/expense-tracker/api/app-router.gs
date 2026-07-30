@@ -61,12 +61,14 @@ function doPost(e) {
   if (body.action === 'create_transaction') return json(createTransaction(body));
   if (body.action === 'update_transaction') return json(updateTransaction(body));
   if (body.action === 'delete_transaction') return json(deleteTransaction(body));
+  if (body.action === 'create_transactions_bulk') return json(createTransactionsBulk(body));
   if (body.action === 'upsert_rate')        return json(upsertRate(body));
   if (body.action === 'delete_rate')        return json(deleteRate(body));
   if (body.action === 'create_category')    return json(createCategory(body));
   if (body.action === 'update_category')    return json(updateCategory(body));
   if (body.action === 'delete_category')    return json(deleteCategory(body));
-  if (body.action === 'create_account')     return json(createAccount(body));
+  if (body.action === 'create_account')      return json(createAccount(body));
+  if (body.action === 'create_accounts_bulk') return json(createAccountsBulk(body));
   if (body.action === 'update_account')     return json(updateAccount(body));
   if (body.action === 'delete_account')     return json(deleteAccount(body));
   if (body.action === 'advisor_chat')        return json(advisorChat(body));

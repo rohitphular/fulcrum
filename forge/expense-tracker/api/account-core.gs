@@ -127,6 +127,28 @@ function createAccount(body) {
   return { ok: true, id: id };
 }
 
+function createAccountsBulk(body) {
+  if (!Array.isArray(body.accounts) || body.accounts.length === 0)
+    return { ok: false, error: 'missing_accounts' };
+
+  var results = [];
+  body.accounts.forEach(function(acct) {
+    var acctBody = {};
+    Object.keys(acct).forEach(function(k) { acctBody[k] = acct[k]; });
+    acctBody.pin = body.pin;
+    var r = createAccount(acctBody);
+    results.push({ name: acct.name || '', ok: r.ok, error: r.error || null, id: r.id || null });
+  });
+
+  var failed = results.filter(function(r) { return !r.ok; });
+  return {
+    ok:      failed.length === 0,
+    created: results.length - failed.length,
+    failed:  failed.length,
+    results: results,
+  };
+}
+
 function updateAccount(body) {
   var cols    = getAccountSheetColumns();
   var sheet   = getOrCreateSheet(ACCOUNTS_SHEET, cols);

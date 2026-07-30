@@ -4,7 +4,8 @@ import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { filteredTx } from '../core/daterange.js';
 import { ExpenseAPI } from '../core/api.js';
 
-let filterOpen = false;
+let filterOpen      = false;
+let _txImportParsed = null;
 
 // ── Category dropdown helpers — respect is_active (greyed-out when archived) ──
 
@@ -82,18 +83,22 @@ export function renderTransactions() {
   const validRows = rows.filter(tx =>  tx.id && tx.transaction_date_utc && VALID_TX_TYPES.includes(tx.transaction_type));
   const warnRows  = rows.filter(tx => !tx.id || !tx.transaction_date_utc || !VALID_TX_TYPES.includes(tx.transaction_type));
 
-  const viewTx      = state.txViewRow !== null ? validRows.find(tx => tx._row === state.txViewRow) : null;
-  const editTx      = state.txEditRow !== null ? validRows.find(tx => tx._row === state.txEditRow) : null;
-  const anyFormOpen = state.txAddOpen || viewTx !== null || editTx !== null;
+  const viewTx     = state.txViewRow !== null ? validRows.find(tx => tx._row === state.txViewRow) : null;
+  const editTx     = state.txEditRow !== null ? validRows.find(tx => tx._row === state.txEditRow) : null;
+  const anyAddOpen = state.txAddOpen || viewTx !== null || editTx !== null;
 
   txEl.innerHTML = `
     <div class="sec-head">
       <div class="sec-head-left"><h2>Transactions</h2></div>
-      <button class="btn btn-primary btn-sm" id="txAddBtn">${anyFormOpen ? '× Close' : '+ Add'}</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" id="txImportBtn">${state.txImportOpen ? '× Close' : 'Import'}</button>
+        <button class="btn btn-primary btn-sm" id="txAddBtn">${anyAddOpen ? '× Close' : '+ Add'}</button>
+      </div>
     </div>
-    ${state.txAddOpen ? _renderAddForm() : ''}
-    ${viewTx ? _renderTxForm(viewTx, 'view') : ''}
-    ${editTx ? _renderTxForm(editTx, 'edit') : ''}
+    ${state.txImportOpen ? _renderTxImportPanel()        : ''}
+    ${state.txAddOpen    ? _renderAddForm()              : ''}
+    ${viewTx             ? _renderTxForm(viewTx, 'view') : ''}
+    ${editTx             ? _renderTxForm(editTx, 'edit') : ''}
     ${_renderFilterBar()}
     ${warnRows.length ? `<div class="warning-count" id="warnToggle">⚠ ${warnRows.length} row${warnRows.length > 1 ? 's' : ''} have warnings — click to expand</div>` : ''}
     <div class="table-controls">
@@ -103,14 +108,54 @@ export function renderTransactions() {
     ${_renderTxTable(validRows, warnRows)}
   `;
 
+  el('txImportBtn')?.addEventListener('click', () => {
+    if (state.txImportOpen) {
+      state.txImportOpen = false;
+      _txImportParsed = null;
+    } else {
+      state.txImportOpen = true;
+      state.txAddOpen = false;
+      state.txViewRow = null;
+      state.txEditRow = null;
+    }
+    renderTransactions();
+  });
+
   el('txAddBtn')?.addEventListener('click', () => {
-    if (anyFormOpen) {
+    if (anyAddOpen) {
       state.txAddOpen = false;
       state.txViewRow = null;
       state.txEditRow = null;
     } else {
       state.txAddOpen = true;
+      state.txImportOpen = false;
+      _txImportParsed = null;
     }
+    renderTransactions();
+  });
+
+  el('txImportFile')?.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const parsed = _parseTxCsv(ev.target.result);
+      _txImportParsed = parsed.transactions.length && !parsed.errors.length ? parsed.transactions : null;
+      const preview = el('txImportPreview');
+      if (preview) preview.innerHTML = _renderTxImportPreview(parsed);
+      const btn = el('txImportConfirm');
+      if (btn) btn.disabled = !_txImportParsed;
+    };
+    reader.readAsText(file);
+  });
+
+  el('txImportConfirm')?.addEventListener('click', () => {
+    if (_txImportParsed) _submitTxImport(_txImportParsed);
+  });
+
+  el('txImportCancel')?.addEventListener('click', () => {
+    state.txImportOpen = false;
+    _txImportParsed = null;
     renderTransactions();
   });
 
@@ -1176,6 +1221,199 @@ function _renderFilterBar() {
       ${activeChips.map(chip => `<span class="filter-chip">${esc(chip.label)}<button class="chip-remove" data-chip-key="${esc(chip.key)}" data-chip-val="${esc(chip.val)}">×</button></span>`).join('')}
     </div>` : ''}
   </div>`;
+}
+
+// ── Transaction CSV import ────────────────────────────────────────────────────
+
+function _renderTxImportPanel() {
+  return `
+  <div class="card" style="margin-bottom:20px">
+    <div class="cat-form-header">Import transactions from CSV</div>
+    <div class="form-grid" style="margin-bottom:16px;align-items:start">
+      <div class="field form-grid-span-2">
+        <label for="txImportFile">CSV file</label>
+        <input type="file" id="txImportFile" accept=".csv">
+        <div class="field-hint">Columns: date_time, tx_type, source_account, target_account, location, amount, currency, to_amount, to_currency, fx_rate, major_category, minor_category, tags, description</div>
+      </div>
+    </div>
+    <div id="txImportPreview"></div>
+    <div class="form-actions" style="margin-top:16px">
+      <button class="btn btn-primary" id="txImportConfirm" disabled>Import</button>
+      <button class="btn btn-secondary" id="txImportCancel">Cancel</button>
+    </div>
+    <div class="pin-error" id="txImportError"></div>
+  </div>`;
+}
+
+function _parseTxCsvRow(line) {
+  const result = [];
+  let cur = '';
+  let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
+    else { cur += c; }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function _parseTxCsv(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) return { transactions: [], errors: ['File is empty.'] };
+
+  const headers  = _parseTxCsvRow(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, '_'));
+  const nameToId = {};
+  (state.accounts || []).forEach(a => { nameToId[a.name.trim().toLowerCase()] = a.id; });
+
+  const transactions = [];
+  const errors       = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const vals = _parseTxCsvRow(lines[i]);
+    const row  = {};
+    headers.forEach((h, idx) => { row[h] = (vals[idx] || '').trim(); });
+
+    const rowErrors = [];
+    if (!row.date_time)       rowErrors.push('missing date_time');
+    if (!row.tx_type)         rowErrors.push('missing tx_type');
+    if (!row.amount)          rowErrors.push('missing amount');
+    if (!row.currency)        rowErrors.push('missing currency');
+    if (!row.major_category)  rowErrors.push('missing major_category');
+    if (!row.minor_category)  rowErrors.push('missing minor_category');
+
+    let sourceId = '';
+    let targetId = '';
+    if (row.source_account) {
+      sourceId = nameToId[row.source_account.toLowerCase()] || '';
+      if (!sourceId) rowErrors.push(`unknown account: "${row.source_account}"`);
+    }
+    if (row.target_account) {
+      targetId = nameToId[row.target_account.toLowerCase()] || '';
+      if (!targetId) rowErrors.push(`unknown account: "${row.target_account}"`);
+    }
+
+    if (rowErrors.length) { errors.push(`Row ${i + 1}: ${rowErrors.join('; ')}`); continue; }
+
+    const dt = row.date_time;
+    const transaction_date_utc = /Z$/.test(dt) ? dt
+      : /T\d{2}:\d{2}:\d{2}$/.test(dt) ? dt + 'Z'
+      : /T\d{2}:\d{2}$/.test(dt)        ? dt + ':00Z'
+      : dt;
+
+    const fxRate = row.fx_rate ? parseFloat(row.fx_rate) : 0;
+
+    transactions.push({
+      transaction_date_utc,
+      transaction_type: row.tx_type,
+      amount:           parseFloat(row.amount),
+      currency:         row.currency.toUpperCase(),
+      source_account:   sourceId,
+      target_account:   targetId,
+      major_category:   row.major_category,
+      minor_category:   row.minor_category,
+      counterparty:     row.location || '',
+      notes:            row.description || '',
+      tags:             row.tags || '',
+      fx_rate:          fxRate || undefined,
+      _src_name:        row.source_account,
+      _tgt_name:        row.target_account,
+    });
+  }
+
+  return { transactions, errors };
+}
+
+function _renderTxImportPreview(parsed) {
+  const { transactions, errors } = parsed;
+  const errHtml = errors.length
+    ? `<div class="pin-error" style="margin-bottom:12px">${errors.map(e => esc(e)).join('<br>')}</div>`
+    : '';
+  if (!transactions.length) return errHtml + '<p class="placeholder">No valid rows found.</p>';
+
+  const typeStyle = { 'money-in': 'color:var(--teal)', 'money-out': 'color:var(--ember)', 'money-transfer': 'color:var(--muted)' };
+  const typeShort = { 'money-in': 'in', 'money-out': 'out', 'money-transfer': 'transfer' };
+
+  const rows = transactions.map(tx => `
+    <tr>
+      <td style="font-size:12px;color:var(--muted)">${esc(tx.transaction_date_utc.replace('T', ' ').replace(':00Z', ''))}</td>
+      <td><span style="font-size:12px;font-weight:600;${typeStyle[tx.transaction_type] || ''}">${esc(typeShort[tx.transaction_type] || tx.transaction_type)}</span></td>
+      <td class="td-mono">${esc(tx.currency)} ${parseFloat(tx.amount).toFixed(2)}</td>
+      <td style="font-size:12px">${esc(tx._src_name || '—')}</td>
+      <td style="font-size:12px">${esc(tx._tgt_name || '—')}</td>
+      <td style="font-size:12px;color:var(--muted)">${esc(tx.major_category)} / ${esc(tx.minor_category)}</td>
+      <td style="font-size:12px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tx.notes || tx.counterparty || '')}</td>
+    </tr>`).join('');
+
+  return `${errHtml}
+    <div style="margin-bottom:8px;font-size:13px;color:var(--muted)">${transactions.length} transaction${transactions.length !== 1 ? 's' : ''} ready to import</div>
+    <div class="table-wrap" style="margin-bottom:8px">
+      <table>
+        <thead><tr>
+          <th>Date/Time</th><th>Type</th><th>Amount</th><th>From</th><th>To</th><th>Category</th><th>Description</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+async function _submitTxImport(transactions) {
+  const btn   = el('txImportConfirm');
+  const errEl = el('txImportError');
+  if (btn)   { btn.disabled = true; btn.textContent = 'Importing…'; }
+  if (errEl) errEl.textContent = '';
+  showLoading();
+  try {
+    // Strip display-only fields before sending
+    const payload = transactions.map(tx => {
+      const clean = Object.assign({}, tx);
+      delete clean._src_name;
+      delete clean._tgt_name;
+      return clean;
+    });
+
+    const res = await ExpenseAPI.createTransactionsBulk({ transactions: payload });
+
+    if (!res.ok && !res.results) {
+      if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
+      if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
+      return;
+    }
+
+    const results    = res.results || [];
+    const resultRows = results.map(r => `
+      <tr>
+        <td style="font-size:12px;color:var(--muted)">${esc(r.label || '')}</td>
+        <td>${r.ok
+          ? `<span class="badge badge-in">created</span>`
+          : `<span class="badge badge-out">failed: ${esc(r.error || 'unknown')}</span>`}
+        </td>
+      </tr>`).join('');
+
+    const preview = el('txImportPreview');
+    if (preview) preview.innerHTML = `
+      <div style="margin-bottom:8px;font-size:13px">${res.created || 0} created · ${res.failed || 0} failed</div>
+      <div class="table-wrap" style="margin-bottom:8px">
+        <table>
+          <thead><tr><th>Transaction</th><th>Result</th></tr></thead>
+          <tbody>${resultRows}</tbody>
+        </table>
+      </div>`;
+
+    _txImportParsed = null;
+    if ((res.created || 0) > 0) {
+      showMsg(`${res.created} transaction${res.created !== 1 ? 's' : ''} imported.`);
+      const r = await ExpenseAPI.listTransactions();
+      if (r.ok) { state.transactions = r.data || []; state.txPage = 1; }
+    }
+    if (btn) btn.disabled = true;
+  } catch (_) {
+    if (errEl) errEl.textContent = 'Connection error.';
+    if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
+  } finally {
+    hideLoading();
+  }
 }
 
 function _attachFilterEvents() {

@@ -4,6 +4,9 @@ import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { ExpenseAPI } from '../core/api.js';
 import { renderDashboard } from './dashboard.js';
 
+// Module-level holding area for the current import session's parsed rows.
+let _importParsed = null;
+
 // Schema is loaded at boot into state.accountSchema — no hardcoded constants here.
 function _sch()          { return state.accountSchema || {}; }
 function _accountTypes() { return _sch().types || []; }
@@ -104,18 +107,22 @@ function _balanceCell(a, compact = false) {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 export function renderAccounts() {
-  const viewAcc     = state.accViewRow !== null ? state.accounts.find(a => a._row === state.accViewRow) : null;
-  const editAcc     = state.accEditRow !== null ? state.accounts.find(a => a._row === state.accEditRow) : null;
-  const anyFormOpen = state.accAddOpen || viewAcc !== null || editAcc !== null;
+  const viewAcc    = state.accViewRow !== null ? state.accounts.find(a => a._row === state.accViewRow) : null;
+  const editAcc    = state.accEditRow !== null ? state.accounts.find(a => a._row === state.accEditRow) : null;
+  const anyAddOpen = state.accAddOpen || viewAcc !== null || editAcc !== null;
 
   el('accountsContent').innerHTML = `
     <div class="sec-head">
       <div class="sec-head-left"><h2>Accounts</h2></div>
-      <button class="btn btn-primary btn-sm" id="accAddBtn">${anyFormOpen ? '× Close' : '+ Add'}</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" id="accImportBtn">${state.accImportOpen ? '× Close' : 'Import'}</button>
+        <button class="btn btn-primary btn-sm" id="accAddBtn">${anyAddOpen ? '× Close' : '+ Add'}</button>
+      </div>
     </div>
-    ${state.accAddOpen ? _renderAccountForm(null,    'add')  : ''}
-    ${viewAcc          ? _renderAccountForm(viewAcc, 'view') : ''}
-    ${editAcc          ? _renderAccountForm(editAcc, 'edit') : ''}
+    ${state.accImportOpen ? _renderImportPanel()              : ''}
+    ${state.accAddOpen    ? _renderAccountForm(null,    'add')  : ''}
+    ${viewAcc             ? _renderAccountForm(viewAcc, 'view') : ''}
+    ${editAcc             ? _renderAccountForm(editAcc, 'edit') : ''}
     ${_renderNetWorth()}
     ${_renderTable()}
   `;
@@ -176,6 +183,108 @@ function _subTypeOptsHtml(type, selected) {
              : [];
   return `<option value="">— select —</option>` +
     opts.map(v => `<option value="${esc(v)}" ${selected === v ? 'selected' : ''}>${esc(v.replace(/_/g, ' '))}</option>`).join('');
+}
+
+// ── CSV import panel ──────────────────────────────────────────────────────────
+
+function _renderImportPanel() {
+  return `
+  <div class="card" style="margin-bottom:20px">
+    <div class="cat-form-header">Import accounts from CSV</div>
+    <div class="form-grid" style="margin-bottom:16px;align-items:start">
+      <div class="field form-grid-span-2">
+        <label for="accImportFile">CSV file</label>
+        <input type="file" id="accImportFile" accept=".csv">
+        <div class="field-hint">Columns: name, type, currency, opening_balance, institution, loan_original_amount, loan_monthly_repayment</div>
+      </div>
+    </div>
+    <div id="accImportPreview"></div>
+    <div class="form-actions" style="margin-top:16px">
+      <button class="btn btn-primary" id="accImportConfirm" disabled>Import</button>
+      <button class="btn btn-secondary" id="accImportCancel">Cancel</button>
+    </div>
+    <div class="pin-error" id="accImportError"></div>
+  </div>`;
+}
+
+function _parseCsvRow(line) {
+  const result = [];
+  let cur = '';
+  let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
+    else { cur += c; }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function _parseAccountsCsv(text) {
+  const LOAN_TYPES = _loanSet();
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) return { accounts: [], errors: ['File is empty.'] };
+
+  const headers = _parseCsvRow(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, '_'));
+  const accounts = [];
+  const errors   = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const vals = _parseCsvRow(lines[i]);
+    const row  = {};
+    headers.forEach((h, idx) => { row[h] = (vals[idx] || '').trim(); });
+
+    if (!row.name)     { errors.push(`Row ${i + 1}: missing name`);     continue; }
+    if (!row.type)     { errors.push(`Row ${i + 1}: missing type`);     continue; }
+    if (!row.currency) { errors.push(`Row ${i + 1}: missing currency`); continue; }
+
+    const acct = {
+      name:            row.name,
+      type:            row.type,
+      currency:        row.currency.toUpperCase(),
+      opening_balance: row.opening_balance ? parseFloat(row.opening_balance) : 0,
+      institution:     row.institution || '',
+    };
+
+    if (LOAN_TYPES.has(row.type)) {
+      if (row.loan_original_amount)    acct.loan_original_amount    = parseFloat(row.loan_original_amount);
+      if (row.loan_monthly_repayment)  acct.loan_monthly_repayment  = parseFloat(row.loan_monthly_repayment);
+    }
+
+    accounts.push(acct);
+  }
+
+  return { accounts, errors };
+}
+
+function _renderImportPreview(parsed) {
+  const { accounts, errors } = parsed;
+  const errHtml = errors.length
+    ? `<div class="pin-error" style="margin-bottom:12px">${errors.map(e => esc(e)).join('<br>')}</div>`
+    : '';
+  if (!accounts.length) return errHtml + '<p class="placeholder">No valid rows found.</p>';
+
+  const sym = n => n != null ? n.toFixed(2) : '0.00';
+  const rows = accounts.map(a => `
+    <tr>
+      <td>${esc(a.name)}</td>
+      <td style="color:var(--muted);font-size:12px">${esc(a.type)}</td>
+      <td>${esc(a.currency)}</td>
+      <td class="acc-bal-mono">${sym(a.opening_balance)}</td>
+      <td style="color:var(--muted);font-size:12px">${esc(a.institution || '—')}</td>
+    </tr>`).join('');
+
+  return `${errHtml}
+    <div style="margin-bottom:8px;font-size:13px;color:var(--muted)">${accounts.length} account${accounts.length !== 1 ? 's' : ''} ready to import</div>
+    <div class="table-wrap" style="margin-bottom:8px">
+      <table class="acc-table">
+        <thead><tr>
+          <th>Name</th><th>Type</th><th>Currency</th><th>Opening Balance</th><th>Institution</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
 
 // ── Unified form (Add / View / Edit) ─────────────────────────────────────────
@@ -763,6 +872,19 @@ function _refreshAddTypeUI() {
 // ── Events ────────────────────────────────────────────────────────────────────
 
 function _attachEvents() {
+  el('accImportBtn')?.addEventListener('click', () => {
+    if (state.accImportOpen) {
+      state.accImportOpen = false;
+      _importParsed = null;
+    } else {
+      state.accImportOpen = true;
+      state.accAddOpen = false;
+      state.accViewRow = null;
+      state.accEditRow = null;
+    }
+    renderAccounts();
+  });
+
   el('accAddBtn')?.addEventListener('click', () => {
     if (state.accAddOpen || state.accViewRow !== null || state.accEditRow !== null) {
       state.accAddOpen = false;
@@ -770,7 +892,34 @@ function _attachEvents() {
       state.accEditRow = null;
     } else {
       state.accAddOpen = true;
+      state.accImportOpen = false;
+      _importParsed = null;
     }
+    renderAccounts();
+  });
+
+  el('accImportFile')?.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const parsed = _parseAccountsCsv(ev.target.result);
+      _importParsed = parsed.accounts.length ? parsed.accounts : null;
+      const preview = el('accImportPreview');
+      if (preview) preview.innerHTML = _renderImportPreview(parsed);
+      const btn = el('accImportConfirm');
+      if (btn) btn.disabled = !_importParsed;
+    };
+    reader.readAsText(file);
+  });
+
+  el('accImportConfirm')?.addEventListener('click', () => {
+    if (_importParsed) _submitImport(_importParsed);
+  });
+
+  el('accImportCancel')?.addEventListener('click', () => {
+    state.accImportOpen = false;
+    _importParsed = null;
     renderAccounts();
   });
 
@@ -1058,6 +1207,56 @@ async function _archiveAccount(rowNum) {
     state.accDeleteBlocked = null;
     state.accDeleteRow = null;
     renderAccounts();
+  } finally {
+    hideLoading();
+  }
+}
+
+async function _submitImport(accounts) {
+  const btn   = el('accImportConfirm');
+  const errEl = el('accImportError');
+  if (btn)   { btn.disabled = true; btn.textContent = 'Importing…'; }
+  if (errEl) errEl.textContent = '';
+  showLoading();
+  try {
+    const res = await ExpenseAPI.createAccountsBulk({ accounts });
+
+    if (!res.ok && !res.results) {
+      if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
+      if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
+      return;
+    }
+
+    const results = res.results || [];
+    const resultRows = results.map(r => `
+      <tr>
+        <td>${esc(r.name)}</td>
+        <td>${r.ok
+          ? `<span class="badge badge-in">created</span>`
+          : `<span class="badge badge-out">failed: ${esc(r.error || 'unknown')}</span>`}
+        </td>
+      </tr>`).join('');
+
+    const preview = el('accImportPreview');
+    if (preview) preview.innerHTML = `
+      <div style="margin-bottom:8px;font-size:13px">${res.created || 0} created · ${res.failed || 0} failed</div>
+      <div class="table-wrap" style="margin-bottom:8px">
+        <table class="acc-table">
+          <thead><tr><th>Name</th><th>Result</th></tr></thead>
+          <tbody>${resultRows}</tbody>
+        </table>
+      </div>`;
+
+    _importParsed = null;
+    if ((res.created || 0) > 0) {
+      showMsg(`${res.created} account${res.created !== 1 ? 's' : ''} imported.`);
+      await _refreshAccounts();
+      renderDashboard();
+    }
+    if (btn) btn.disabled = true;
+  } catch (_) {
+    if (errEl) errEl.textContent = 'Connection error.';
+    if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
   } finally {
     hideLoading();
   }

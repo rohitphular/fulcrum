@@ -200,3 +200,30 @@ function deleteTransaction(body) {
   sheet.deleteRow(rowNum);
   return { ok: true };
 }
+
+function createTransactionsBulk(body) {
+  if (!Array.isArray(body.transactions) || body.transactions.length === 0)
+    return { ok: false, error: 'missing_transactions' };
+
+  var results = [];
+  body.transactions.forEach(function(tx) {
+    var txBody = {};
+    Object.keys(tx).forEach(function(k) { txBody[k] = tx[k]; });
+    txBody.pin = body.pin;
+    var r = createTransaction(txBody);
+    results.push({
+      label: (tx.transaction_date_utc || '').slice(0, 10) + ' ' + String(tx.notes || tx.counterparty || '').slice(0, 40),
+      ok:    r.ok,
+      error: r.error || null,
+      id:    r.id    || null,
+    });
+  });
+
+  var failed = results.filter(function(r) { return !r.ok; });
+  return {
+    ok:      failed.length === 0,
+    created: results.length - failed.length,
+    failed:  failed.length,
+    results: results,
+  };
+}
