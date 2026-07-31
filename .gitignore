@@ -13,3 +13,6 @@
 
 # clasp credentials — never commit OAuth tokens
 .clasprc.json
+
+# Scratch / temp files
+temp/
