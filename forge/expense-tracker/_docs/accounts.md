@@ -6,10 +6,8 @@ Schema reference: [data-model.md § Account](data-model.md#account).
 
 ## Capabilities
 
-- Create, edit, archive, delete accounts (13 types across Asset and Liability groups)
-- Per-type fields: loan terms, credit card limit / billing dates, overdraft limit, investment platform, interest rate, etc.
+- Create, edit, archive, delete accounts (3 types — asset, investment, liability — with mandatory sub-types)
 - Net Worth summary: Total Assets, Total Liabilities, Net Worth, Liquid Cash (current + savings + cash)
-- Utilisation bar for credit cards and overdrafts; repayment progress bar for loans
 - Currency dropdown sourced from the rates table — no free-text currency entry
 
 ## Rules
@@ -19,33 +17,29 @@ Schema reference: [data-model.md § Account](data-model.md#account).
 | Field | Applies to | Rule |
 |---|---|---|
 | `name` | All | Non-empty |
-| `type` | All | Must be one of the sanctioned 13 types |
+| `type` | All | Must be one of: `asset`, `investment`, `liability` |
+| `sub_type` | All | Required for all accounts; valid values depend on type |
 | `currency` | All | Must exist in `rates` |
-| `loan_original_amount` | All loan types | Must be > 0 |
-| `sub_type` | `mortgage` | Required, one of the 6 sanctioned mortgage sub-types |
-
-### Optional with constraints
-
-| Field | Constraint |
-|---|---|
-| `credit_card_billing_date`, `credit_card_due_date` | Range 1–31 |
-| `credit_card_limit`, `overdraft_limit` | ≥ 0 |
-| `loan_end_date` | Must be after `loan_start_date` (when both provided) |
-| `loan_collateral` | Only honoured for `mortgage` and `auto_loan`; ignored for other loan types |
 
 ### Liability balance convention
 
-The user enters the outstanding owed amount as a **positive** number in the opening balance field. The store negates it before persistence. The UI always displays `abs(current_balance)` for liabilities, labelled "owed".
+| Layer | Value | Example |
+|---|---|---|
+| User input | Positive — enter what you owe | `400` |
+| Stored (`current_value`) | Negative — store negates on save | `−400` |
+| UI display | `abs(current_value)` labelled "owed" | `£400 owed` |
+
+The user never sees a negative number. The store negates on write and `abs()` on read. This follows standard double-entry convention: liabilities cancel against assets in a single `SUM(all current_value)` to produce Net Worth.
 
 ### Immutable after creation
 
-`id`, `type`, `currency`, `opening_balance`, `current_balance`, `loan_original_amount`, `loan_start_date`, `loan_first_repayment_date`, `created_at`. Attempting to update any of these returns a `field_not_editable:<name>` error.
+`id`, `type`, `currency`, `opening_value`, `current_value`, `created_at`. Attempting to update any of these returns a `field_not_editable:<name>` error.
 
-`sub_type` IS editable post-creation — it is purely a classification label (investment → `stocks_shares`/`pension_sipp`/…, mortgage → `residential`/`buy_to_let`/…) with no side effects on balance arithmetic or validation. Use cases: correcting an initial mis-classification.
+`sub_type` IS editable post-creation — it is purely a classification label with no side effects on balance arithmetic or validation. Use cases: correcting an initial mis-classification.
 
-### current_balance is system-managed
+### current_value is system-managed
 
-There is no API to write `current_balance` directly. It changes only via the transaction lifecycle (see [balance-lifecycle.md](balance-lifecycle.md)). To correct a discrepancy between the recorded balance and reality, record an `Adjustments / Balance correction` transaction (`money-in` to credit, `money-out` to debit).
+There is no API to write `current_value` directly. It changes only via the transaction lifecycle (see [balance-lifecycle.md](balance-lifecycle.md)). To correct a discrepancy between the recorded balance and reality, record an `Adjustments / Balance correction` transaction (`money-in` to credit, `money-out` to debit).
 
 ### Deletion semantics
 
@@ -65,66 +59,24 @@ Four cards above the table, always in base currency:
 
 | Card | Calculation |
 |---|---|
-| **Total Assets** | Sum of `toBase(current_balance, currency)` over all asset accounts. For `investment`, use `investment_current_value` if > 0 else `current_balance`. |
-| **Total Liabilities** | Sum of `abs(toBase(current_balance, currency))` over all liability accounts |
+| **Total Assets** | Sum of `toBase(current_value, currency)` over all `asset` and `investment` accounts |
+| **Total Liabilities** | Sum of `abs(toBase(current_value, currency))` over all `liability` accounts |
 | **Net Worth** | `Total Assets − Total Liabilities`. Negative renders in ember/red. |
-| **Liquid Cash** | Sum of `toBase(current_balance)` over accounts where `type ∈ {current, savings, cash}` |
-
-## Progress bars
-
-### Credit card utilisation
-
-For `credit_card` accounts with `credit_card_limit > 0`:
-
-```
-utilisation_pct = abs(current_balance) / credit_card_limit × 100
-```
-
-Coloured by band:
-
-| Band | Colour |
-|---|---|
-| 0–30% | Teal |
-| 30–60% | Amber (light) |
-| 60–90% | Amber (dark) |
-| > 90% | Ember |
-
-### Overdraft utilisation
-
-Same formula, same colour bands, using `overdraft_limit`. Shown only when `overdraft_limit > 0`.
-
-### Loan repayment
-
-For all 7 loan types:
-
-```
-repayment_pct = (loan_original_amount − abs(current_balance)) / loan_original_amount × 100
-              clamped to [0, 100], rounded to 1 dp
-```
-
-Bar fills left → right.
-
-## Derived fields (computed at read time, not stored)
-
-| Field | Applies to | Formula |
-|---|---|---|
-| `utilisation_pct` | `credit_card`, `overdraft` | See above |
-| `repayment_pct` | All loan types | See above |
-| `next_payment_date` | All loan types | Advance `loan_first_repayment_date` one month at a time until result > today; return the first such date |
+| **Liquid Cash** | Sum of `toBase(current_value)` over accounts where `type = asset AND sub_type ∈ {current, savings, cash}` |
 
 ## API surface
 
 | Operation | Behaviour |
 |---|---|
-| `list_accounts` | Return all rows; compute derived fields; no defaults seeded |
-| `create_account` | Validate required + range checks; negate balance for liabilities; assign `id` and `created_at`; append |
+| `list_accounts` | Return all rows; no defaults seeded |
+| `create_account` | Validate required fields; negate value for liabilities; assign `id` and `created_at`; append |
 | `update_account` | Validate editable fields only; reject `field_not_editable:<name>` for any locked field |
-| `delete_account` | Unconditional delete by row identity |
-| `get_account_schema` | Return the type taxonomy (13 types with labels and groups), liability types, loan types, investment sub-types, mortgage sub-types — frontend uses this to drive forms without hard-coding |
+| `delete_account` | FK-guarded delete by row identity |
+| `get_account_schema` | Return the type taxonomy (3 types with sub-type enums) — frontend uses this to drive forms without hard-coding |
 
 ## Form behaviour
 
 - Currency dropdown is populated from the rates table — adding a new currency requires adding it to `rates` first.
-- Type-specific fields appear/disappear as `type` changes. Switching type clears any sub-type field values that no longer apply.
-- For liability types, a hint is shown explaining the positive-input convention.
+- Sub-type dropdown updates to the valid values for the selected type.
+- For liability accounts, a hint is shown explaining the positive-input convention.
 - Edit mode disables all immutable fields (greyed, not submitted).

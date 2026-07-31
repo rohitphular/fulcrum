@@ -210,9 +210,9 @@ function _loadAccountMap() {
 }
 
 // When source_account is unchanged across old → new, project the source's
-// current_balance to its post-Phase-1 value (undo the old row's effect on the
+// current_value to its post-Phase-1 value (undo the old row's effect on the
 // source side). When source_account changes, the old reversal lands on a
-// different account and the new source's current_balance is correct as-is.
+// different account and the new source's current_value is correct as-is.
 function _postReversalBalance(sourceAccountId, sourceAccount, oldRow) {
   if (!sourceAccount || !oldRow) return sourceAccount;
 
@@ -222,7 +222,7 @@ function _postReversalBalance(sourceAccountId, sourceAccount, oldRow) {
   const oldType   = String(oldRow[txColIndex('transaction_type')] || '');
   const oldAmount = Number(oldRow[txColIndex('amount')]) || 0;
 
-  let projected = Number(sourceAccount.current_balance) || 0;
+  let projected = Number(sourceAccount.current_value) || 0;
   if (oldType === 'money-in')       projected -= oldAmount;  // reverse credit
   if (oldType === 'money-out')      projected += oldAmount;  // reverse debit
   if (oldType === 'money-transfer') projected += oldAmount;  // reverse debit
@@ -230,7 +230,7 @@ function _postReversalBalance(sourceAccountId, sourceAccount, oldRow) {
   // Shallow copy — never mutate the caller's account object
   const copy = {};
   Object.keys(sourceAccount).forEach(function(k) { copy[k] = sourceAccount[k]; });
-  copy.current_balance = projected;
+  copy.current_value = projected;
   return copy;
 }
 
@@ -239,32 +239,15 @@ function _checkBalanceRules(transactionType, sourceAccount, amount) {
   if (!sourceAccount) return null;
   if (transactionType !== 'money-out' && transactionType !== 'money-transfer') return null;
 
-  // Rules 1 & 3 — asset accounts cannot go negative
+  // Rules 1 & 3 — asset/investment accounts cannot go negative
   if (!isLiabilityType(sourceAccount.type)) {
-    const balance = Number(sourceAccount.current_balance) || 0;
+    const balance = Number(sourceAccount.current_value) || 0;
     if (balance < amount) {
       return {
         ok: false,
         error: 'insufficient_balance',
         detail: sourceAccount.name + ' balance ' + balance.toFixed(2) +
                 ' is less than transaction amount ' + Number(amount).toFixed(2),
-      };
-    }
-    return null;
-  }
-
-  // Rules 2 & 4 — credit-card source cannot exceed limit
-  if (sourceAccount.type === 'credit_card') {
-    const creditLimit = Number(sourceAccount.credit_card_limit) || 0;
-    if (creditLimit <= 0) return null;  // no limit configured — skip
-    const balance         = Number(sourceAccount.current_balance) || 0;  // stored negative for liabilities
-    const availableCredit = creditLimit + balance;
-    if (amount > availableCredit) {
-      return {
-        ok: false,
-        error: 'credit_limit_exceeded',
-        detail: sourceAccount.name + ' transaction ' + Number(amount).toFixed(2) +
-                ' exceeds available credit ' + availableCredit.toFixed(2),
       };
     }
     return null;
@@ -277,7 +260,7 @@ function _checkBalanceRules(transactionType, sourceAccount, amount) {
 function _checkRule5(transactionType, sourceAccount, majorCategory, minorCategory) {
   if (transactionType !== 'money-out') return null;
   if (!sourceAccount) return null;
-  if (!isLoanType(sourceAccount.type)) return null;
+  if (!(sourceAccount.type === 'liability' && isLoanSubType(sourceAccount.sub_type))) return null;
   if (majorCategory === 'Debt & finance' && minorCategory === 'Interest & charges') return null;
   return {
     ok: false,

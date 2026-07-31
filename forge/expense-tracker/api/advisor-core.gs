@@ -92,9 +92,7 @@ function _buildSnapshot() {
   var acctList = [];
 
   accounts.filter(function(a) { return a.is_active; }).forEach(function(a) {
-    var bal = (a.type === 'investment' && Number(a.investment_current_value) > 0)
-      ? Number(a.investment_current_value)
-      : Number(a.current_balance) || 0;
+    var bal = Number(a.current_value) || 0;
     var rate   = rateMap[String(a.currency || 'GBP').toUpperCase()] || 1;
     var balGbp = bal / rate;
 

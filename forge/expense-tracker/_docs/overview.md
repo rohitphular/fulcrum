@@ -36,10 +36,11 @@ A `money-out` may credit a *target* owned account when the spend lands as a repa
 
 ## Account groups
 
-| Group | Types | Balance convention |
+| Type | Sub-types | Balance convention |
 |---|---|---|
-| **Asset** | current, savings, cash, investment | Positive = funds held |
-| **Liability** | mortgage, auto_loan, heloc, personal_loan, student_loan, medical_loan, debt_consolidation, credit_card, overdraft | Stored as a **negative** number; UI displays the absolute value as "owed" |
+| **asset** | current, savings, cash | Positive = funds held |
+| **investment** | stocks_shares, isa, pension_sipp, crypto, fixed_deposit, bonds, property, commodities, p2p_lending, other | Positive = funds held |
+| **liability** | personal_loan, credit_card, mortgage, auto_loan, heloc, student_loan, medical_loan, debt_consolidation, overdraft | Stored **negative** (double-entry convention); UI displays `abs(current_value)` labelled "owed" — user always inputs and sees positive numbers |
 
 Liabilities are modelled as accounts with negative balances. There is no separate debt entity.
 

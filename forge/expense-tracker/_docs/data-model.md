@@ -17,93 +17,34 @@ All entity shapes. Field types are abstract — choose a concrete type appropria
 |---|---|---|---|---|
 | `id` | string | auto | no | `ACC-YYYYMMDD-NNN` |
 | `name` | string | yes | yes | Display label |
-| `type` | enum | yes | no | See [Account types](#account-types) |
-| `sub_type` | enum | type-dependent | yes | Required for `mortgage`; optional for `investment`; ignored for all other types. Editable as it is purely a classification label with no side-effects on balance arithmetic. |
+| `type` | enum | yes | no | `asset` \| `investment` \| `liability` |
+| `sub_type` | enum | yes | yes | Required for all types; valid values depend on type. See [Sub-types](#sub-types). |
 | `currency` | ISO-4217 string | yes | no | Must exist in `rates` |
-| `opening_balance` | number | optional | no | Informational; for liabilities, enter positive — store as negated |
-| `current_balance` | number | derived | no (system-managed) | Updated by transaction lifecycle; stored as negative for liabilities |
+| `opening_value` | number | optional | no | Balance at import. User enters positive for liabilities; store negates it. |
+| `current_value` | number | derived | no (system-managed) | Updated by transaction lifecycle. Stored negative for liabilities; UI displays `abs(current_value)` labelled "owed" — user never sees a negative number. |
 | `is_active` | boolean | default true | yes | Archived accounts hide from transaction forms |
-| `institution` | string | optional | yes | Bank or lender name |
-| `account_number_last4` | string | optional | yes | Last 4 digits |
 | `notes` | string | optional | yes | Free text |
 | `created_at` | timestamp | auto | no | UTC ISO |
-
-### Type-specific fields
-
-**Savings / current** (also valid on investment):
-
-| Field | Type | Notes |
-|---|---|---|
-| `savings_interest_rate` | number (%) | Annual rate |
-| `savings_interest_frequency` | enum | `monthly` \| `quarterly` \| `annual` |
-| `savings_maturity_date` | date | Investment only |
-
-**Investment**:
-
-| Field | Type | Notes |
-|---|---|---|
-| `investment_platform` | string | Broker / platform |
-| `investment_risk_level` | enum | `low` \| `medium` \| `high` |
-
-**Loan family** (applies to: `mortgage`, `auto_loan`, `heloc`, `personal_loan`, `student_loan`, `medical_loan`, `debt_consolidation`):
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `loan_original_amount` | number | **yes** | Original principal; must be > 0 |
-| `loan_interest_rate` | number (%) | optional | |
-| `loan_interest_type` | enum | optional | `fixed` \| `variable` \| `tracker` |
-| `loan_tenure_months` | number | optional | |
-| `loan_start_date` | date | optional | Not editable after create |
-| `loan_end_date` | date | optional | Must be after `loan_start_date` |
-| `loan_first_repayment_date` | date | optional | Not editable after create; drives `next_payment_date` derivation |
-| `loan_monthly_repayment` | number | optional | |
-| `loan_collateral` | string | optional | Only meaningful for `mortgage` and `auto_loan` |
-
-**Credit card**:
-
-| Field | Type | Notes |
-|---|---|---|
-| `credit_card_limit` | number ≥ 0 | Drives utilisation; required for hard-block enforcement |
-| `credit_card_apr` | number (%) | Annual rate |
-| `credit_card_interest_free_days` | number | |
-| `credit_card_billing_date` | number (1–31) | Day of month |
-| `credit_card_due_date` | number (1–31) | Day of month |
-| `credit_card_minimum_payment_pct` | number | |
-| `credit_card_minimum_payment_fixed` | number | |
-| `credit_card_annual_fee` | number | |
-
-**Overdraft**:
-
-| Field | Type | Notes |
-|---|---|---|
-| `overdraft_limit` | number ≥ 0 | Drives utilisation |
-| `overdraft_arranged` | boolean | True = arranged; False = unarranged |
-| `overdraft_apr` | number (%) | |
-
-### Derived (computed by `list_accounts`, never stored)
-
-| Field | Applies to | Formula |
-|---|---|---|
-| `utilisation_pct` | `credit_card`, `overdraft` | `abs(current_balance) / limit × 100`, rounded to 1 dp; `null` if limit is 0/blank |
-| `repayment_pct` | All loan types | `(loan_original_amount − abs(current_balance)) / loan_original_amount × 100`, clamped to [0, 100] |
-| `next_payment_date` | All loan types | Advance `loan_first_repayment_date` by N months until result > today |
 
 ### Account types
 
 ```
-Assets:       current, savings, cash, investment
-Liabilities:  mortgage, auto_loan, heloc, personal_loan, student_loan,
-              medical_loan, debt_consolidation, credit_card, overdraft
+asset:       sub_type ∈ { current, savings, cash }
+investment:  sub_type ∈ { stocks_shares, isa, pension_sipp, crypto, fixed_deposit,
+                          bonds, property, commodities, p2p_lending, other }
+liability:   sub_type ∈ { personal_loan, credit_card, mortgage, auto_loan, heloc,
+                          student_loan, medical_loan, debt_consolidation, overdraft }
 ```
 
 ### Sub-types
 
-```
-investment:   stocks_shares, isa, pension_sipp, crypto, fixed_deposit,
-              bonds, property, commodities, p2p_lending, other
-mortgage:     residential, buy_to_let, holiday_let, commercial,
-              bridging, shared_ownership   (required)
-```
+`sub_type` is required for all account types. Valid values per type:
+
+| type | valid sub_type values |
+|---|---|
+| `asset` | `current`, `savings`, `cash` |
+| `investment` | `stocks_shares`, `isa`, `pension_sipp`, `crypto`, `fixed_deposit`, `bonds`, `property`, `commodities`, `p2p_lending`, `other` |
+| `liability` | `personal_loan`, `credit_card`, `mortgage`, `auto_loan`, `heloc`, `student_loan`, `medical_loan`, `debt_consolidation`, `overdraft` |
 
 ## Transaction
 
@@ -169,5 +110,5 @@ The base currency row (`GBP` in the reference) is read-only with rate = 1. Other
 1. Every `account.currency` MUST exist in `rates`.
 2. Every `transaction.source_account` and `transaction.target_account` MUST reference an existing account row.
 3. A transaction's `major`/`minor` MAY reference a deleted category — the strings are stored as-is; orphan category references do not break reads.
-4. `account.current_balance` is **only ever mutated by the transaction lifecycle** (create/update/delete), never written directly through the account API.
+4. `account.current_value` is **only ever mutated by the transaction lifecycle** (create/update/delete), never written directly through the account API.
 5. Account deletion does not cascade to transactions; transactions retain stale `source_account`/`target_account` IDs.

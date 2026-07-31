@@ -1,22 +1,22 @@
 # Balance Lifecycle
 
-How `account.current_balance` changes when a transaction is created, edited, or deleted. This is the only mechanism by which balances move — the account API never writes `current_balance` directly.
+How `account.current_value` changes when a transaction is created, edited, or deleted. This is the only mechanism by which balances move — the account API never writes `current_value` directly.
 
 ## Sign convention
 
-| Group | Balance representation |
-|---|---|
-| Assets (current, savings, cash, investment) | Positive = funds held |
-| Liabilities (loans, credit_card, overdraft) | Stored **negative**; UI displays `abs(current_balance)` as "owed" |
+| Type | Stored | UI display |
+|---|---|---|
+| `asset`, `investment` | Positive | As-is |
+| `liability` | **Negative** (double-entry convention) | `abs(current_value)` labelled "owed" |
 
-When the user enters an opening balance for a liability, they enter a positive number (the amount owed). The store negates it before saving.
+The user always inputs and sees positive numbers for liabilities. The store negates on write; the UI applies `abs()` on read. The user never encounters a negative number.
 
 ## Adjustment primitive
 
 Define a single operation:
 
 ```
-adjust(account_id, delta) → account.current_balance += delta
+adjust(account_id, delta) → account.current_value += delta
 ```
 
 All lifecycle logic is expressed as a sequence of `adjust(...)` calls. Delta is signed: positive = credit (balance up), negative = debit (balance down).
@@ -32,7 +32,7 @@ All lifecycle logic is expressed as a sequence of `adjust(...)` calls. Delta is 
 
 Where `credited = amount × fx_rate` when the source and target currencies differ and `fx_rate > 0`; otherwise `credited = amount`.
 
-Example — `money-out` paying off a credit card from a current account:
+Example — `money-out` paying off a credit card (liability/credit_card) from a current account (asset/current):
 - `adjust(current_account, −150)` — funds leave current
 - `adjust(credit_card, +150)` — owed amount reduces (the stored value moves from `−400` to `−250`)
 

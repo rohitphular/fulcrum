@@ -36,8 +36,8 @@ function adjustAccountBalance(accountId, delta) {
   const sheet           = getOrCreateSheet(ACCOUNTS_SHEET, getAccountSheetColumns());
   const values          = sheet.getDataRange().getValues();
   const accountIdColIdx = getAccountSchemaField('id').sheet_column_position - 1;
-  const balanceColIdx   = getAccountSchemaField('current_balance').sheet_column_position - 1;
-  const balanceColNum   = getAccountSchemaField('current_balance').sheet_column_position;
+  const balanceColIdx   = getAccountSchemaField('current_value').sheet_column_position - 1;
+  const balanceColNum   = getAccountSchemaField('current_value').sheet_column_position;
   for (let i = 1; i < values.length; i++) {
     if (String(values[i][accountIdColIdx]) !== String(accountId)) continue;
     const current = Number(values[i][balanceColIdx]) || 0;

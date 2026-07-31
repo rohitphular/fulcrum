@@ -6,9 +6,9 @@ The rules apply to the **post-reversal balance** during an update (see [balance-
 
 ## Rule 1 — Insufficient balance on asset accounts
 
-**Triggers when:** `transaction_type ∈ {money-out, money-transfer}` AND `source_account.type ∈ {current, savings, cash, investment}`.
+**Triggers when:** `transaction_type ∈ {money-out, money-transfer}` AND `source_account.type ∈ {asset, investment}`.
 
-**Blocks if:** `source_account.current_balance < amount`.
+**Blocks if:** `source_account.current_value < amount`.
 
 **Rationale:** Asset accounts cannot go negative through the app. Genuine overdrafts should be modelled as `overdraft` accounts.
 
@@ -16,25 +16,23 @@ The rules apply to the **post-reversal balance** during an update (see [balance-
 
 ## Rule 2 — Credit limit exceeded on credit card
 
-**Triggers when:** `transaction_type ∈ {money-out, money-transfer}` AND `source_account.type = credit_card` AND `source_account.credit_card_limit > 0`.
+**Triggers when:** `transaction_type ∈ {money-out, money-transfer}` AND `source_account.type = liability` AND `source_account.sub_type = credit_card`.
 
-**Available credit:** `credit_card_limit + current_balance` (note: balance is stored negative for liabilities, so this evaluates to `limit − amount_owed`).
+**Note:** `credit_card_limit` is no longer a stored field. This rule requires revisiting once a limit field is reintroduced. For now, the rule is defined but not enforced.
 
-**Blocks if:** `amount > available_credit`.
-
-**Recovery:** Reduce the amount, or increase the credit limit on the account if your real-world limit has changed.
+**Recovery:** Reduce the amount.
 
 ## Rule 3 — Insufficient balance applies to transfers too
 
-Rule 1 also applies when `transaction_type = money-transfer` and the source is an asset account. The destination type is irrelevant.
+Rule 1 also applies when `transaction_type = money-transfer` and the source is an `asset` or `investment` account. The destination type is irrelevant.
 
 ## Rule 4 — Credit limit applies to credit-card transfers too
 
-Rule 2 also applies when `transaction_type = money-transfer` and the source is a credit card. Additionally, when the **target** is a credit card with a non-zero limit (e.g. paying *into* a credit card from another card — unusual but representable), the credited amount must not exceed the target's available credit; same formula on the target side. This second target-side check is currently enforced only on `update` for `money-transfer`.
+Rule 2 also applies when `transaction_type = money-transfer` and the source is a `liability/credit_card` account. This rule is currently unenforced pending reintroduction of a credit limit field.
 
 ## Rule 5 — No money-out from a loan account
 
-**Triggers when:** `transaction_type = money-out` AND `source_account.type ∈ {mortgage, auto_loan, heloc, personal_loan, student_loan, medical_loan, debt_consolidation}`.
+**Triggers when:** `transaction_type = money-out` AND `source_account.type = liability` AND `source_account.sub_type ∈ {mortgage, auto_loan, heloc, personal_loan, student_loan, medical_loan, debt_consolidation}`.
 
 **Blocks unless:** `major_category = "Debt & finance"` AND `minor_category = "Interest & charges"` — this exception covers interest accruals and fees recorded against the loan itself.
 
@@ -57,7 +55,7 @@ This rule applies equally when `money-out` is recorded against a target account 
 When validating an **edit** rather than a create, evaluate the rules against the source account's balance *after* the old row would have been reversed:
 
 ```
-post_reversal_balance = source.current_balance
+post_reversal_balance = source.current_value
 
 if old.source_account == new.source_account:
     if old.type == 'money-in':       post_reversal_balance -= old.amount
@@ -65,7 +63,7 @@ if old.source_account == new.source_account:
     if old.type == 'money-transfer': post_reversal_balance += old.amount
 ```
 
-Pass `post_reversal_balance` to Rules 1–4 instead of the raw `current_balance`. Without this adjustment, edits that merely *change* a transaction (e.g. fix a typo'd amount of £100 to £105) would be rejected when the resulting balance is still fine.
+Pass `post_reversal_balance` to Rules 1–4 instead of the raw `current_value`. Without this adjustment, edits that merely *change* a transaction (e.g. fix a typo'd amount of £100 to £105) would be rejected when the resulting balance is still fine.
 
 The same logic applies to the target account for Rule 4's target-side credit-limit check on cross-currency credit-card transfers.
 
