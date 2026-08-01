@@ -1,5 +1,5 @@
 import { state, VALID_TX_TYPES } from '../core/state.js';
-import { el, esc, fmtDateTime, fmtDateTimeCompact, fmtNative, fmtBase, nowLocalISO, toDateInputVal, exportData, getSymbol } from '../core/utils.js';
+import { el, esc, fmtDateTime, fmtDateTimeCompact, fmtNative, fmtBase, nowLocalISO, toDateInputVal, exportData, getSymbol, localToUtcISO, utcToLocalInput } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { filteredTx } from '../core/daterange.js';
 import { ExpenseAPI } from '../core/api.js';
@@ -708,7 +708,7 @@ async function _saveTransaction() {
   showLoading();
   try {
     const res = await ExpenseAPI.createTransaction({
-      transaction_date_utc: new Date(dateRaw).toISOString(),
+      transaction_date_utc: localToUtcISO(dateRaw),
       transaction_type, source_account, target_account,
       amount: parseFloat(amount), currency,
       fx_rate: fx_rate ? parseFloat(fx_rate) : '',
@@ -781,14 +781,7 @@ function _renderTxForm(tx, mode) {
   const majorOpts = _catMajorOpts(tx.transaction_type, tx.major_category);
   const minorOpts = _catMinorOpts(tx.transaction_type, tx.major_category, tx.minor_category);
 
-  const dateVal = (() => {
-    const s = String(tx.transaction_date_utc || '').trim();
-    if (!s) return '';
-    const d = new Date(s);
-    if (isNaN(d)) return s.slice(0, 10);
-    const pad = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  })();
+  const dateVal = utcToLocalInput(tx.transaction_date_utc);
 
   const fromCcy    = state.accountMap[tx.source_account]?.currency;
   const toCcy      = state.accountMap[tx.target_account]?.currency;
@@ -1105,7 +1098,7 @@ async function _saveEdit() {
   showLoading();
   try {
     const res = await ExpenseAPI.updateTransaction({
-      row_num: rowNum, transaction_date_utc: new Date(dateRaw).toISOString(), transaction_type,
+      row_num: rowNum, transaction_date_utc: localToUtcISO(dateRaw), transaction_type,
       source_account, target_account, amount: parseFloat(amount), currency,
       fx_rate: fx_rate ? parseFloat(fx_rate) : '',
       major_category, minor_category, counterparty, country, tags, notes,
@@ -1296,11 +1289,7 @@ function _parseTxCsv(text) {
 
     if (rowErrors.length) { errors.push(`Row ${i + 1}: ${rowErrors.join('; ')}`); continue; }
 
-    const dt = row.tx_date_time;
-    const transaction_date_utc = /Z$/.test(dt) ? dt
-      : /T\d{2}:\d{2}:\d{2}$/.test(dt) ? dt + 'Z'
-      : /T\d{2}:\d{2}$/.test(dt)        ? dt + ':00Z'
-      : dt;
+    const transaction_date_utc = localToUtcISO(row.tx_date_time);
 
     const fxRate = row.fx_rate ? parseFloat(row.fx_rate) : 0;
 

@@ -42,6 +42,25 @@ export function nowLocalISO() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Converts a local datetime string (datetime-local input or CSV tx_date_time) to UTC ISO.
+// Strings without a timezone suffix are treated as local time by the browser's Date parser.
+// Strings already ending in Z are normalised to full ISO format without re-converting.
+export function localToUtcISO(s) {
+  if (!s) return '';
+  const d = new Date(String(s).trim());
+  return isNaN(d) ? String(s) : d.toISOString();
+}
+
+// Converts a stored UTC ISO string to the value needed by <input type="datetime-local">.
+// Produces YYYY-MM-DDTHH:MM in the browser's local timezone.
+export function utcToLocalInput(s) {
+  if (!s) return '';
+  const d = new Date(String(s).trim());
+  if (isNaN(d)) return String(s).slice(0, 16);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function fmtDateTime(v) {
   if (!v) return '—';
   try {
