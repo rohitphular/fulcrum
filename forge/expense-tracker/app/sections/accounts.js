@@ -44,7 +44,7 @@ function _balanceCell(a, compact = false) {
   const val = parseFloat(a.current_value || 0);
   const sym = getSymbol(a.currency);
   if (_isLiability(a)) {
-    return `<span class="acc-bal-owed">${sym}${_fmtBal(Math.abs(val))}</span>`;
+    return `<span class="acc-bal-owed">−${sym}${_fmtBal(Math.abs(val))}</span>`;
   }
   const cls = val < 0 ? 'negative acc-bal-mono' : 'acc-bal-mono';
   return `<span class="${cls}">${val < 0 ? '−' : ''}${sym}${_fmtBal(val)}</span>`;
@@ -318,12 +318,12 @@ function _renderAccountForm(a, mode) {
       </div>` : `
       <div class="field">
         <label>Opening value</label>
-        <input type="text" value="${v(sym + _fmtBal(a.opening_value || 0))}" disabled>
+        <input type="text" value="${_isLiability(a) ? v('−' + sym + _fmtBal(Math.abs(parseFloat(a.opening_value || 0)))) : v(sym + _fmtBal(parseFloat(a.opening_value || 0)))}" disabled>
       </div>
       <div class="field">
         <label>Current value</label>
         <input type="text" value="${_isLiability(a)
-          ? v(sym + _fmtBal(Math.abs(parseFloat(a.current_value || 0))))
+          ? v('−' + sym + _fmtBal(Math.abs(parseFloat(a.current_value || 0))))
           : v(sym + _fmtBal(parseFloat(a.current_value || 0)))}" disabled>
       </div>`}
       <div class="field">
