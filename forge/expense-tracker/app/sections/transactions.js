@@ -584,7 +584,7 @@ function _checkBalanceRules(transaction_type, sourceAccount, amount) {
 
   // Rules 1 & 3 — asset accounts
   if ((state.accountSchema?.asset_types || []).includes(sourceAccount.type)) {
-    const balance = Number(sourceAccount.current_balance);
+    const balance = Number(sourceAccount.current_value);
     if (balance < amount) {
       return (
         `Insufficient balance.\n` +
@@ -600,7 +600,7 @@ function _checkBalanceRules(transaction_type, sourceAccount, amount) {
     const creditLimit = Number(sourceAccount.credit_card_limit) || 0;
     if (creditLimit <= 0) return null; // no limit set — skip check
 
-    const balance         = Number(sourceAccount.current_balance); // negative: amount owed stored as negative
+    const balance         = Number(sourceAccount.current_value); // negative: amount owed stored as negative
     const availableCredit = creditLimit + balance;                 // e.g. limit=1000, balance=−600 → available=400
 
     if (amount > availableCredit) {
@@ -1045,7 +1045,7 @@ async function _saveEdit() {
   // Post-reversal balance for source_account:
   // Phase 1 of the backend edit reverses the old transaction before Phase 2 applies new values.
   // We only undo the old debit/credit if the source_account hasn't changed.
-  let fromPostRevBal = fromAccEdit ? Number(fromAccEdit.current_balance) : 0;
+  let fromPostRevBal = fromAccEdit ? Number(fromAccEdit.current_value) : 0;
   if (oldTx && String(oldTx.source_account) === String(source_account)) {
     const oldAmt = Number(oldTx.amount) || 0;
     if (oldTx.transaction_type === 'money-in')       fromPostRevBal -= oldAmt; // reversal removes the credit
@@ -1053,7 +1053,7 @@ async function _saveEdit() {
     if (oldTx.transaction_type === 'money-transfer') fromPostRevBal += oldAmt; // reversal restores the debit
   }
   // Proxy object with post-reversal balance — passed to _checkBalanceRules instead of fromAccEdit.
-  const fromAccPR = fromAccEdit ? { ...fromAccEdit, current_balance: fromPostRevBal } : fromAccEdit;
+  const fromAccPR = fromAccEdit ? { ...fromAccEdit, current_value: fromPostRevBal } : fromAccEdit;
 
   const balanceErrorEdit = _checkBalanceRules(transaction_type, fromAccPR, parseFloat(amount));
   if (balanceErrorEdit) { errEl.textContent = balanceErrorEdit; return; }
@@ -1075,7 +1075,7 @@ async function _saveEdit() {
     const newCredited = newFxRate > 0 ? parseFloat(amount) * newFxRate : parseFloat(amount);
 
     // Post-reversal balance of target_account: undo old credited amount (if same target_account).
-    let toPostRevBal = Number(toAccEdit.current_balance);
+    let toPostRevBal = Number(toAccEdit.current_value);
     if (oldTx && String(oldTx.target_account) === String(target_account)) {
       const oldFx       = Number(oldTx.fx_rate) || 0;
       const oldCredited = oldFx > 0 ? Number(oldTx.amount) * oldFx : Number(oldTx.amount);
@@ -1233,7 +1233,7 @@ function _renderTxImportPanel() {
       <div class="field form-grid-span-2">
         <label for="txImportFile">CSV file</label>
         <input type="file" id="txImportFile" accept=".csv">
-        <div class="field-hint">Columns: date_time, tx_type, source_account, target_account, location, amount, currency, to_amount, to_currency, fx_rate, major_category, minor_category, tags, description</div>
+        <div class="field-hint">Columns: tx_date_time, tx_type, source_account, target_account, counterparty_name, amount, currency, fx_rate, major_category, minor_category, tags, tx_location_country, description</div>
       </div>
     </div>
     <div id="txImportPreview"></div>
@@ -1276,7 +1276,7 @@ function _parseTxCsv(text) {
     headers.forEach((h, idx) => { row[h] = (vals[idx] || '').trim(); });
 
     const rowErrors = [];
-    if (!row.date_time)       rowErrors.push('missing date_time');
+    if (!row.tx_date_time)    rowErrors.push('missing tx_date_time');
     if (!row.tx_type)         rowErrors.push('missing tx_type');
     if (!row.amount)          rowErrors.push('missing amount');
     if (!row.currency)        rowErrors.push('missing currency');
@@ -1296,7 +1296,7 @@ function _parseTxCsv(text) {
 
     if (rowErrors.length) { errors.push(`Row ${i + 1}: ${rowErrors.join('; ')}`); continue; }
 
-    const dt = row.date_time;
+    const dt = row.tx_date_time;
     const transaction_date_utc = /Z$/.test(dt) ? dt
       : /T\d{2}:\d{2}:\d{2}$/.test(dt) ? dt + 'Z'
       : /T\d{2}:\d{2}$/.test(dt)        ? dt + ':00Z'
@@ -1313,7 +1313,8 @@ function _parseTxCsv(text) {
       target_account:   targetId,
       major_category:   row.major_category,
       minor_category:   row.minor_category,
-      counterparty:     row.location || '',
+      counterparty:     row.counterparty_name || '',
+      country:          row.tx_location_country || '',
       notes:            row.description || '',
       tags:             row.tags || '',
       fx_rate:          fxRate || undefined,
@@ -1382,6 +1383,7 @@ async function _submitTxImport(transactions) {
     }
 
     const created = res.created || 0;
+    const skipped = res.skipped || 0;
     const failed  = res.failed  || 0;
 
     if (failed === 0) {
@@ -1390,7 +1392,11 @@ async function _submitTxImport(transactions) {
       const r = await ExpenseAPI.listTransactions();
       if (r.ok) { state.transactions = r.data || []; state.txPage = 1; }
       renderTransactions();
-      showMsg(`${created} transaction${created !== 1 ? 's' : ''} imported.`);
+      const msg = [
+        created ? `${created} transaction${created !== 1 ? 's' : ''} imported` : '',
+        skipped ? `${skipped} already existed` : '',
+      ].filter(Boolean).join(' · ');
+      showMsg(msg || 'Nothing to import.');
     } else {
       // Keep panel open — show per-row results so user can see what failed and why
       const resultRows = (res.results || []).map(r => `
@@ -1398,12 +1404,14 @@ async function _submitTxImport(transactions) {
           <td style="font-size:12px;color:var(--muted)">${esc(r.label || '')}</td>
           <td>${r.ok
             ? `<span class="badge badge-in">created</span>`
-            : `<span class="badge badge-out">${esc(r.error || 'unknown')}</span>`}
+            : r.error === 'duplicate_transaction'
+              ? `<span class="badge" style="color:var(--muted)">already exists</span>`
+              : `<span class="badge badge-out">${esc(r.error || 'unknown')}</span>`}
           </td>
         </tr>`).join('');
       const preview = el('txImportPreview');
       if (preview) preview.innerHTML = `
-        <div style="margin-bottom:8px;font-size:13px">${created} created · <span style="color:var(--ember)">${failed} failed</span></div>
+        <div style="margin-bottom:8px;font-size:13px">${created} created${skipped ? ` · ${skipped} already existed` : ''} · <span style="color:var(--ember)">${failed} failed</span></div>
         <div class="table-wrap" style="margin-bottom:8px">
           <table>
             <thead><tr><th>Transaction</th><th>Result</th></tr></thead>
@@ -1416,7 +1424,7 @@ async function _submitTxImport(transactions) {
         const r = await ExpenseAPI.listTransactions();
         if (r.ok) { state.transactions = r.data || []; state.txPage = 1; }
       }
-      showMsg(`${created} imported · ${failed} failed`, 'warn');
+      showMsg(`${created} imported · ${skipped} skipped · ${failed} failed`, 'warn');
     }
   } catch (_) {
     if (errEl) errEl.textContent = 'Connection error.';

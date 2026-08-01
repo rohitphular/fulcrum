@@ -11,6 +11,7 @@ Schema reference: [data-model.md § Category](data-model.md#category).
 - Archive without delete (`is_active = false` hides from transaction forms)
 - Auto-seed a default category list on first run when the store is empty
 - Declare per-category account-type hints that the transaction layer enforces
+- CSV bulk import — upload a CSV file in the import panel; preview before committing
 
 ## Rules
 
@@ -20,7 +21,7 @@ Schema reference: [data-model.md § Category](data-model.md#category).
 | `major_category`, `minor_category` | Both required; non-empty strings |
 | `description`, `tag_keywords` | Optional |
 | `tag_keywords` storage | Lowercased on save; stored as a comma-separated string |
-| Uniqueness | NOT enforced. Duplicate `(type, major, minor)` rows are permitted; the user is responsible for keeping the list clean. |
+| Uniqueness | Enforced on `(transaction_type, major_category, minor_category)`. Duplicate on individual create → `duplicate_category`. Duplicate on bulk import → counted as `skipped`, not `failed`. |
 | Delete cascade | None. Deleting a category does not modify any existing transactions — their stored `major`/`minor` strings remain. The category simply stops appearing in dropdowns. |
 | Archive | `is_active = false` keeps the row but excludes it from transaction form dropdowns. Archived categories still appear (greyed/disabled) in the dropdowns so historical references stay interpretable. |
 
@@ -62,9 +63,30 @@ The list is not authoritative — users freely edit, archive, or delete any seed
 | Operation | Behaviour |
 |---|---|
 | `list_categories` | Return all rows; seed defaults if empty |
-| `create_category` | Validate required fields; append a new row |
+| `create_category` | Validate required fields; duplicate check → `duplicate_category`; append |
+| `create_categories_bulk` | Accept `categories[]`; dedup within batch and against sheet; return `{ created, skipped, failed, results }` |
 | `update_category` | Validate required fields; overwrite the row |
 | `delete_category` | Delete the row by identity (no transaction-side effects) |
+
+## CSV import
+
+The import panel (accessible via the **Import** button in the section header) accepts a CSV with these columns:
+
+| Column | Required | Notes |
+|---|---|---|
+| `transaction_type` | Yes | `money-in`, `money-out`, or `money-transfer` |
+| `major_category` | Yes | |
+| `minor_category` | Yes | |
+| `description` | No | |
+| `tag_keywords` | No | Comma-separated |
+| `source_account_types` | No | Comma-separated sub-types |
+| `target_account_types` | No | Comma-separated sub-types |
+| `source_account_mandatory` | No | `true` / `false` |
+| `target_account_mandatory` | No | `true` / `false` |
+| `workflow_type` | No | e.g. `debt-repayment` |
+| `sort_order` | No | Integer |
+
+Preview is shown before submission. Results summary: `N imported · M skipped (already exist) · K failed`.
 
 ## Form behaviour
 

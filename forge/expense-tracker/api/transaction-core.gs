@@ -39,6 +39,10 @@ function createTransaction(body) {
   if (typeof wfType !== 'string') return wfType;
 
   const sheet = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
+
+  // Duplicate guard — reject if an identical row already exists
+  const dupCheck = _checkDuplicate(sheet, body);
+  if (dupCheck) return dupCheck;
   const id    = generateTransactionId(sheet, body.transaction_date_utc);
 
   // Augment notes with the conversion rate used (no-op when not cross-currency).
@@ -226,4 +230,37 @@ function createTransactionsBulk(body) {
     failed:  failed.length,
     results: results,
   };
+}
+
+// Returns { ok: false, error: 'duplicate_transaction' } if a row with the same
+// (date, type, amount, source_account, target_account) already exists.
+function _checkDuplicate(sheet, body) {
+  var rows = sheet.getDataRange().getValues();
+  if (rows.length < 2) return null;
+
+  var ciDate   = txColIndex('transaction_date_utc');
+  var ciType   = txColIndex('transaction_type');
+  var ciAmt    = txColIndex('amount');
+  var ciSrc    = txColIndex('source_account');
+  var ciTgt    = txColIndex('target_account');
+
+  var inDate   = String(body.transaction_date_utc || '');
+  var inType   = String(body.transaction_type     || '');
+  var inAmt    = Number(body.amount);
+  var inSrc    = String(body.source_account       || '');
+  var inTgt    = String(body.target_account       || '');
+
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    if (
+      String(r[ciDate]) === inDate   &&
+      String(r[ciType]) === inType   &&
+      Number(r[ciAmt])  === inAmt    &&
+      String(r[ciSrc])  === inSrc    &&
+      String(r[ciTgt])  === inTgt
+    ) {
+      return { ok: false, error: 'duplicate_transaction' };
+    }
+  }
+  return null;
 }

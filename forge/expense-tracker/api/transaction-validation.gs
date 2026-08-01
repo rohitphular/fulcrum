@@ -110,19 +110,21 @@ function _checkAccountTypeHint(accountId, allowedTypesStr, label) {
   const allowed = splitToList(allowedTypesStr).map(function(s) { return s.toLowerCase(); });
   if (!allowed.length) return null;
 
-  const sheet  = getOrCreateSheet(ACCOUNTS_SHEET, getAccountSheetColumns());
-  const values = sheet.getDataRange().getValues();
-  const ciId   = acctColIndex('id');
-  const ciType = acctColIndex('type');
+  const sheet     = getOrCreateSheet(ACCOUNTS_SHEET, getAccountSheetColumns());
+  const values    = sheet.getDataRange().getValues();
+  const ciId      = acctColIndex('id');
+  const ciType    = acctColIndex('type');
+  const ciSubType = acctColIndex('sub_type');
 
   for (let i = 1; i < values.length; i++) {
     if (String(values[i][ciId]) !== String(accountId)) continue;
-    const actualType = String(values[i][ciType] || '').trim().toLowerCase();
-    if (!allowed.includes(actualType)) {
+    const actualType    = String(values[i][ciType]    || '').trim().toLowerCase();
+    const actualSubType = String(values[i][ciSubType] || '').trim().toLowerCase();
+    if (!allowed.includes(actualType) && !allowed.includes(actualSubType)) {
       return {
         ok: false,
         error: label + '_account_type_mismatch',
-        detail: 'Expected one of [' + allowed.join(', ') + '] but got ' + (actualType || 'unknown'),
+        detail: 'Expected one of [' + allowed.join(', ') + '] but got type=' + (actualType || 'unknown') + ' sub_type=' + (actualSubType || 'unknown'),
       };
     }
     return null;

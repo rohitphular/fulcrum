@@ -3,6 +3,8 @@ import { el, esc } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { ExpenseAPI } from '../core/api.js';
 
+let _catImportParsed = null;
+
 // ── Constants — fallbacks used before schema loads ────────────────────────────
 
 const _ASSET_FALLBACK  = ['current', 'savings', 'cash', 'investment'];
@@ -51,8 +53,12 @@ export function renderCategories() {
   content.innerHTML = `
     <div class="sec-head">
       <div class="sec-head-left"><h2>Categories</h2></div>
-      <button class="btn btn-primary btn-sm" id="catAddBtn">${anyFormOpen ? '× Close' : '+ Add'}</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" id="catImportBtn">${state.catImportOpen ? '× Close' : 'Import'}</button>
+        <button class="btn btn-primary btn-sm" id="catAddBtn">${anyFormOpen ? '× Close' : '+ Add'}</button>
+      </div>
     </div>
+    ${state.catImportOpen ? _renderCatImportPanel() : ''}
     ${state.catAddOpen ? _renderForm(null,    'add')  : ''}
     ${viewCat          ? _renderForm(viewCat, 'view') : ''}
     ${editCat          ? _renderForm(editCat, 'edit') : ''}
@@ -290,9 +296,177 @@ function _catTypeBadge(type) {
   return `<span class="badge ${cls}">${label}</span>`;
 }
 
+// ── CSV import ────────────────────────────────────────────────────────────────
+
+function _renderCatImportPanel() {
+  return `
+  <div class="card" style="margin-bottom:20px">
+    <div class="cat-form-header">Import categories from CSV</div>
+    <div class="form-grid" style="margin-bottom:16px;align-items:start">
+      <div class="field form-grid-span-2">
+        <label for="catImportFile">CSV file</label>
+        <input type="file" id="catImportFile" accept=".csv">
+        <div class="field-hint">Columns: transaction_type, major_category, minor_category, description, is_active, tag_keywords, counterparty_examples, source_account_types, target_account_types, source_account_mandatory, target_account_mandatory, sort_order, workflow_type</div>
+      </div>
+    </div>
+    <div id="catImportPreview"></div>
+    <div class="form-actions" style="margin-top:16px">
+      <button class="btn btn-primary" id="catImportConfirm" disabled>Import</button>
+      <button class="btn btn-secondary" id="catImportCancel">Cancel</button>
+    </div>
+    <div class="pin-error" id="catImportError"></div>
+  </div>`;
+}
+
+function _parseCatCsvRow(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
+    else { cur += c; }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function _parseCatCsv(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) return { categories: [], errors: ['File is empty.'] };
+
+  const headers = _parseCatCsvRow(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, '_'));
+  const categories = [], errors = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const vals = _parseCatCsvRow(lines[i]);
+    const row  = {};
+    headers.forEach((h, idx) => { row[h] = (vals[idx] || '').trim(); });
+
+    if (!row.transaction_type) { errors.push(`Row ${i + 1}: missing transaction_type`); continue; }
+    if (!row.major_category)   { errors.push(`Row ${i + 1}: missing major_category`);   continue; }
+    if (!row.minor_category)   { errors.push(`Row ${i + 1}: missing minor_category`);   continue; }
+    if (!row.workflow_type)    { errors.push(`Row ${i + 1}: missing workflow_type`);     continue; }
+
+    categories.push({
+      transaction_type:        row.transaction_type,
+      major_category:          row.major_category,
+      minor_category:          row.minor_category,
+      description:             row.description             || '',
+      is_active:               row.is_active !== 'FALSE' && row.is_active !== 'false',
+      tag_keywords:            row.tag_keywords            || '',
+      counterparty_examples:   row.counterparty_examples   || '',
+      source_account_types:    row.source_account_types    || '',
+      target_account_types:    row.target_account_types    || '',
+      source_account_mandatory: row.source_account_mandatory === 'TRUE' || row.source_account_mandatory === 'true',
+      target_account_mandatory: row.target_account_mandatory === 'TRUE' || row.target_account_mandatory === 'true',
+      sort_order:              Number(row.sort_order) || 0,
+      workflow_type:           row.workflow_type,
+    });
+  }
+  return { categories, errors };
+}
+
+function _renderCatImportPreview(parsed) {
+  const { categories, errors } = parsed;
+  const errHtml = errors.length
+    ? `<div class="pin-error" style="margin-bottom:12px">${errors.map(e => esc(e)).join('<br>')}</div>`
+    : '';
+  if (!categories.length) return errHtml + '<p class="placeholder">No valid rows found.</p>';
+
+  const rows = categories.map(c => `
+    <tr>
+      <td style="font-size:12px;color:var(--muted)">${esc(c.transaction_type)}</td>
+      <td>${esc(c.major_category)}</td>
+      <td>${esc(c.minor_category)}</td>
+      <td style="font-size:12px;color:var(--muted)">${esc(c.workflow_type)}</td>
+    </tr>`).join('');
+
+  return `${errHtml}
+    <div style="margin-bottom:8px;font-size:13px;color:var(--muted)">${categories.length} categor${categories.length !== 1 ? 'ies' : 'y'} ready to import</div>
+    <div class="table-wrap" style="margin-bottom:8px">
+      <table class="acc-table">
+        <thead><tr><th>Type</th><th>Major</th><th>Minor</th><th>Workflow</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+async function _submitCatImport(categories) {
+  const btn   = el('catImportConfirm');
+  const errEl = el('catImportError');
+  if (btn)   { btn.disabled = true; btn.textContent = 'Importing…'; }
+  if (errEl) errEl.textContent = '';
+  showLoading();
+  try {
+    const res = await ExpenseAPI.createCategoriesBulk({ categories });
+    if (!res.ok && !res.results) {
+      if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
+      if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
+      return;
+    }
+    const created = res.created || 0;
+    const updated = res.updated || 0;
+    const failed  = res.failed  || 0;
+    _catImportParsed = null;
+    state.catImportOpen = false;
+    const r = await ExpenseAPI.listCategories();
+    if (r.ok) state.categories = r.data || [];
+    renderCategories();
+    const parts = [];
+    if (created) parts.push(`${created} imported`);
+    if (updated) parts.push(`${updated} updated`);
+    if (failed)  parts.push(`${failed} failed`);
+    showMsg(parts.join(' · ') || 'Nothing to import');
+  } catch (_) {
+    if (errEl) errEl.textContent = 'Connection error.';
+    if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
+  } finally {
+    hideLoading();
+  }
+}
+
 // ── Events ────────────────────────────────────────────────────────────────────
 
 function _attachCatEvents() {
+  el('catImportBtn')?.addEventListener('click', () => {
+    if (state.catImportOpen) {
+      state.catImportOpen = false;
+      _catImportParsed = null;
+    } else {
+      state.catImportOpen = true;
+      state.catAddOpen = false;
+      state.catViewRow = null;
+      state.catEditRow = null;
+    }
+    renderCategories();
+  });
+
+  el('catImportFile')?.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const parsed = _parseCatCsv(ev.target.result);
+      _catImportParsed = parsed.categories.length ? parsed.categories : null;
+      const preview = el('catImportPreview');
+      if (preview) preview.innerHTML = _renderCatImportPreview(parsed);
+      const btn = el('catImportConfirm');
+      if (btn) btn.disabled = !_catImportParsed;
+    };
+    reader.readAsText(file);
+  });
+
+  el('catImportConfirm')?.addEventListener('click', () => {
+    if (_catImportParsed) _submitCatImport(_catImportParsed);
+  });
+
+  el('catImportCancel')?.addEventListener('click', () => {
+    state.catImportOpen = false;
+    _catImportParsed = null;
+    renderCategories();
+  });
+
   el('catAddBtn')?.addEventListener('click', () => {
     if (state.catAddOpen || state.catViewRow !== null || state.catEditRow !== null) {
       state.catAddOpen = false;
@@ -386,7 +560,10 @@ async function _saveNewCategory() {
       await _reloadCategories();
       renderCategories();
     } else {
-      if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
+      const msg = res.error === 'duplicate_category'
+        ? 'This category already exists.'
+        : 'Error: ' + (res.error || 'unknown');
+      if (errEl) errEl.textContent = msg;
       if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
     }
   } catch (_) {

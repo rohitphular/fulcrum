@@ -617,7 +617,10 @@ async function _saveNew() {
       renderAccounts();
       renderDashboard();
     } else {
-      if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
+      const msg = res.error === 'duplicate_account'
+        ? 'An account with this name already exists.'
+        : 'Error: ' + (res.error || 'unknown');
+      if (errEl) errEl.textContent = msg;
       if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
     }
   } catch (_) {
@@ -759,6 +762,7 @@ async function _submitImport(accounts) {
     }
 
     const created = res.created || 0;
+    const skipped = res.skipped || 0;
     const failed  = res.failed  || 0;
 
     if (failed === 0) {
@@ -767,7 +771,11 @@ async function _submitImport(accounts) {
       await _refreshAccounts();
       renderAccounts();
       renderDashboard();
-      showMsg(`${created} account${created !== 1 ? 's' : ''} imported.`);
+      const msg = [
+        created ? `${created} account${created !== 1 ? 's' : ''} imported` : '',
+        skipped ? `${skipped} already existed` : '',
+      ].filter(Boolean).join(' · ');
+      showMsg(msg || 'Nothing to import.');
     } else {
       // Keep panel open — show per-row results so user can see what failed and why
       const resultRows = (res.results || []).map(r => `
@@ -775,12 +783,14 @@ async function _submitImport(accounts) {
           <td>${esc(r.name)}</td>
           <td>${r.ok
             ? `<span class="badge badge-in">created</span>`
-            : `<span class="badge badge-out">${esc(r.error || 'unknown')}</span>`}
+            : r.error === 'duplicate_account'
+              ? `<span class="badge" style="color:var(--muted)">already exists</span>`
+              : `<span class="badge badge-out">${esc(r.error || 'unknown')}</span>`}
           </td>
         </tr>`).join('');
       const preview = el('accImportPreview');
       if (preview) preview.innerHTML = `
-        <div style="margin-bottom:8px;font-size:13px">${created} created · <span style="color:var(--ember)">${failed} failed</span></div>
+        <div style="margin-bottom:8px;font-size:13px">${created} created${skipped ? ` · ${skipped} already existed` : ''} · <span style="color:var(--ember)">${failed} failed</span></div>
         <div class="table-wrap" style="margin-bottom:8px">
           <table class="acc-table">
             <thead><tr><th>Name</th><th>Result</th></tr></thead>
@@ -790,7 +800,7 @@ async function _submitImport(accounts) {
       _importParsed = null;
       if (btn) { btn.disabled = true; btn.textContent = 'Import'; }
       if (created > 0) { await _refreshAccounts(); renderDashboard(); }
-      showMsg(`${created} imported · ${failed} failed`, 'warn');
+      showMsg(`${created} imported · ${skipped} skipped · ${failed} failed`, 'warn');
     }
   } catch (_) {
     if (errEl) errEl.textContent = 'Connection error.';

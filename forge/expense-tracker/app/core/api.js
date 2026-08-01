@@ -14,6 +14,7 @@ export const ExpenseAPI = {
   upsertRate:        f    => SheetsClient.post({ action: 'upsert_rate',  ...f }),
   deleteRate:        f    => SheetsClient.post({ action: 'delete_rate',  ...f }),
   createCategory:    f    => SheetsClient.post({ action: 'create_category', ...f }),
+  createCategoriesBulk: f => SheetsClient.post({ action: 'create_categories_bulk', ...f }),
   updateCategory:    f    => SheetsClient.post({ action: 'update_category', ...f }),
   deleteCategory:    f    => SheetsClient.post({ action: 'delete_category', ...f }),
   createAccount:     f    => SheetsClient.post({ action: 'create_account', ...f }),

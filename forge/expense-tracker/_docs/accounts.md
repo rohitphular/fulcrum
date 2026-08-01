@@ -27,9 +27,9 @@ Schema reference: [data-model.md § Account](data-model.md#account).
 |---|---|---|
 | User input | Positive — enter what you owe | `400` |
 | Stored (`current_value`) | Negative — store negates on save | `−400` |
-| UI display | `abs(current_value)` labelled "owed" | `£400 owed` |
+| UI display | `−` prefix on the raw (already-negative) stored value | `−£400` |
 
-The user never sees a negative number. The store negates on write and `abs()` on read. This follows standard double-entry convention: liabilities cancel against assets in a single `SUM(all current_value)` to produce Net Worth.
+The stored value is negative; the UI renders it directly with a `−` prefix so the display reads `−£400`. This follows standard double-entry convention: liabilities cancel against assets in a single `SUM(all current_value)` to produce Net Worth. The edit form pre-fills the field with the `−` prefix so the user sees the owed amount at a glance.
 
 ### Immutable after creation
 
@@ -69,7 +69,8 @@ Four cards above the table, always in base currency:
 | Operation | Behaviour |
 |---|---|
 | `list_accounts` | Return all rows; no defaults seeded |
-| `create_account` | Validate required fields; negate value for liabilities; assign `id` and `created_at`; append |
+| `create_account` | Validate required fields; duplicate name check (case-insensitive) → `duplicate_account`; negate value for liabilities; assign `id` and `created_at`; append |
+| `create_accounts_bulk` | Accept `accounts[]`; call `create_account` for each; return `{ created, skipped, failed, results }` — duplicates go in `skipped`, not `failed` |
 | `update_account` | Validate editable fields only; reject `field_not_editable:<name>` for any locked field |
 | `delete_account` | FK-guarded delete by row identity |
 | `get_account_schema` | Return the type taxonomy (3 types with sub-type enums) — frontend uses this to drive forms without hard-coding |

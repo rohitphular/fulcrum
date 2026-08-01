@@ -14,6 +14,7 @@ Schema reference: [data-model.md § Transaction](data-model.md#transaction). Bal
 - Sortable, paginated table; mobile uses card layout
 - Date-range scoping (shared with the dashboard)
 - CSV / JSON export of the date-range-filtered set
+- CSV bulk import — upload, preview, then submit; duplicates shown as "already exists" badges and counted separately
 - Warning banner separating malformed rows from the main table
 
 ## Transaction types
@@ -54,7 +55,7 @@ target_account_types       : comma-separated allowed types
 When a category with these hints is selected:
 
 1. Backend validates that the selected source/target account is present (if `mandatory`).
-2. Backend validates that the selected account's `type` is in the allowed list (if specified).
+2. Backend validates that the selected account's `type` **or** `sub_type` is in the allowed list (if specified). The values in `source_account_types`/`target_account_types` may be top-level types (`asset`, `liability`) or sub-types (`current`, `credit_card`) — either will match.
 3. Frontend filters the source/target dropdowns to the allowed types.
 
 Examples from the default seed:
@@ -149,9 +150,31 @@ Filter chips on the panel do NOT affect the export — only the date range does.
 | Operation | Behaviour |
 |---|---|
 | `list_transactions` | Return all rows |
-| `create_transaction` | Validate; assign `id`; append; apply balance adjustments per [balance-lifecycle.md](balance-lifecycle.md) Create |
+| `create_transaction` | Validate; duplicate check on `(date, type, amount, source, target)` → `duplicate_transaction`; assign `id`; append; apply balance adjustments |
+| `create_transactions_bulk` | Accept `transactions[]`; call `create_transaction` for each; return `{ created, skipped, failed, results }` — duplicates go in `skipped` |
 | `update_transaction` | Validate; reverse old row's balance effects (Phase 1); apply new row's effects (Phase 2); overwrite the row |
 | `delete_transaction` | Reverse balance effects; delete the row |
+
+## CSV import
+
+The import panel accepts a CSV file. Canonical column names (no aliases):
+
+| Column | Required | Notes |
+|---|---|---|
+| `tx_date_time` | Yes | ISO date/time of the transaction |
+| `transaction_type` | Yes | `money-in`, `money-out`, `money-transfer` |
+| `amount` | Yes | Positive number |
+| `source_account` | Conditional | Account name; required when type ≠ `money-in` |
+| `target_account` | Conditional | Account name; required when type = `money-in` or `money-transfer` |
+| `major_category` | Conditional | Required when type ∈ {`money-in`, `money-out`} |
+| `minor_category` | Conditional | Required when type ∈ {`money-in`, `money-out`} |
+| `counterparty_name` | No | Maps to `counterparty` |
+| `tx_location_country` | No | Maps to `country` |
+| `fx_rate` | Conditional | Required on cross-currency transfers |
+| `tags` | No | Semicolon-separated |
+| `notes` | No | |
+
+Preview is shown before submission. Duplicate rows (matched on date + type + amount + source + target) are shown with an "already exists" badge and counted in `skipped`, not `failed`. Results summary: `N imported · M already existed`.
 
 ## Add / edit form layout
 

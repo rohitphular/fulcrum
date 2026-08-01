@@ -78,6 +78,22 @@ function createCategory(body) {
 
   var cols  = getCategorySheetColumns();
   var sheet = getOrCreateSheet(CATEGORIES_SHEET, cols);
+
+  // Duplicate guard — reject if (transaction_type, major_category, minor_category) already exists
+  var ciType  = catColIndex('transaction_type');
+  var ciMajor = catColIndex('major_category');
+  var ciMinor = catColIndex('minor_category');
+  var existingRows = sheet.getDataRange().getValues();
+  for (var i = 1; i < existingRows.length; i++) {
+    if (
+      String(existingRows[i][ciType])  === String(body.transaction_type || '').trim() &&
+      String(existingRows[i][ciMajor]) === String(body.major_category   || '').trim() &&
+      String(existingRows[i][ciMinor]) === String(body.minor_category   || '').trim()
+    ) {
+      return { ok: false, error: 'duplicate_category' };
+    }
+  }
+
   var row   = new Array(cols.length).fill('');
 
   function setCol(key, value) {
@@ -145,6 +161,57 @@ function deleteCategory(body) {
   if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
   sheet.deleteRow(rowNum);
   return { ok: true };
+}
+
+function createCategoriesBulk(body) {
+  if (!Array.isArray(body.categories) || body.categories.length === 0)
+    return { ok: false, error: 'missing_categories' };
+
+  var cols   = getCategorySheetColumns();
+  var sheet  = getOrCreateSheet(CATEGORIES_SHEET, cols);
+  var values = sheet.getDataRange().getValues();
+
+  var ciType  = catColIndex('transaction_type');
+  var ciMajor = catColIndex('major_category');
+  var ciMinor = catColIndex('minor_category');
+
+  // Map key → sheet row number (1-indexed) so we can update existing rows
+  var existing = {};
+  for (var i = 1; i < values.length; i++) {
+    var key = String(values[i][ciType]) + '|' + String(values[i][ciMajor]) + '|' + String(values[i][ciMinor]);
+    existing[key] = i + 1;
+  }
+
+  var results = [];
+  body.categories.forEach(function(cat) {
+    var key = String(cat.transaction_type || '') + '|' + String(cat.major_category || '') + '|' + String(cat.minor_category || '');
+
+    var catBody = {};
+    Object.keys(cat).forEach(function(k) { catBody[k] = cat[k]; });
+    catBody.pin = body.pin;
+
+    if (typeof existing[key] === 'number') {
+      // Category exists — update in-place so the CSV can override the seed
+      catBody.row_num = existing[key];
+      var r = updateCategory(catBody);
+      results.push({ name: key, ok: r.ok, updated: true, error: r.error || null });
+    } else {
+      var r = createCategory(catBody);
+      results.push({ name: key, ok: r.ok, updated: false, error: r.error || null });
+      if (r.ok) existing[key] = true; // block within-batch duplicates
+    }
+  });
+
+  var failed  = results.filter(function(r) { return !r.ok; });
+  var updated = results.filter(function(r) { return r.ok && r.updated; });
+  var created = results.filter(function(r) { return r.ok && !r.updated; });
+  return {
+    ok:      failed.length === 0,
+    created: created.length,
+    updated: updated.length,
+    failed:  failed.length,
+    results: results,
+  };
 }
 
 // onEdit cascade — rebuilds category dropdowns in the transactions sheet when

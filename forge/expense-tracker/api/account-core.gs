@@ -26,6 +26,17 @@ function createAccount(body) {
 
   var cols   = getAccountSheetColumns();
   var sheet  = getOrCreateSheet(ACCOUNTS_SHEET, cols);
+
+  // Duplicate guard — reject if an account with the same name already exists
+  var nameColIdx  = acctColIndex('name');
+  var existingRows = sheet.getDataRange().getValues();
+  var normName     = String(body.name).trim().toLowerCase();
+  for (var i = 1; i < existingRows.length; i++) {
+    if (String(existingRows[i][nameColIdx] || '').trim().toLowerCase() === normName) {
+      return { ok: false, error: 'duplicate_account' };
+    }
+  }
+
   var id     = generateAccountId(sheet);
   var now    = new Date().toISOString();
   var type   = String(body.type).trim();
@@ -71,10 +82,12 @@ function createAccountsBulk(body) {
     results.push({ name: acct.name || '', ok: r.ok, error: r.error || null, id: r.id || null });
   });
 
-  var failed = results.filter(function(r) { return !r.ok; });
+  var failed  = results.filter(function(r) { return !r.ok && r.error !== 'duplicate_account'; });
+  var skipped = results.filter(function(r) { return r.error === 'duplicate_account'; });
   return {
     ok:      failed.length === 0,
-    created: results.length - failed.length,
+    created: results.length - failed.length - skipped.length,
+    skipped: skipped.length,
     failed:  failed.length,
     results: results,
   };
