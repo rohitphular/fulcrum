@@ -9,13 +9,15 @@ import { renderAdvisor } from '../sections/advisor.js';
 
 const SECTIONS = ['dashboard', 'transactions', 'accounts', 'categories', 'rates', 'advisor'];
 
+document.addEventListener('et:show-section', e => showSection(e.detail));
+
 export function showSection(id) {
   if (!SECTIONS.includes(id)) id = 'dashboard';
   SECTIONS.forEach(s => el(s).classList.toggle('hidden', s !== id));
   el('tabNav').querySelectorAll('.tab-btn').forEach(btn =>
     btn.classList.toggle('active', btn.dataset.section === id)
   );
-  el('dateRangeBar').style.display = id === 'dashboard' ? '' : 'none';
+  el('dateRangeBar').style.display = id === 'transactions' ? '' : 'none';
   sessionStorage.setItem('et_section', id);
 
   if (id === 'dashboard')    renderDashboard();

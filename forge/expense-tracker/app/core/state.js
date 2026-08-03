@@ -28,9 +28,6 @@ export const state = {
   txPage:    1,
   txPerPage: 50,
 
-  charts:        {},
-  catDrillMajor: null,
-
   catFilter:       'all',
   catActiveFilter: 'active',
   catAddOpen:   false,
@@ -57,6 +54,14 @@ export const state = {
   txEditRow:    null,
   txDeleteRow:  null,
   txViewRow:    null,
+
+  dashId:            '01-mom-cumulative',
+  dashPeriod:        'this_month',
+  dashCustomFrom:    '',
+  dashCustomTo:      '',
+  dashTab:           'transactions',
+  dashChartInstance: null,
+  dashDrillMajor:    null,   // active major category for 11-category-drilldown (null = top level)
 
   advisorMessages: [],
 };

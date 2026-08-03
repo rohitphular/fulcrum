@@ -372,6 +372,41 @@ async function _saveTransaction(form) {
 
 Always dispatch `<module>:reload` after a successful mutation — never call `loadAll()` or `renderXxx()` directly after a save.
 
+### Dashboard sub-sections
+
+The dashboard section (`sections/dashboard.js`) is a coordinator — it owns the selector, period picker, and tab strip, and delegates rendering to one of 28 sub-modules in `sections/dashboards/`.
+
+Each sub-module exports a single function:
+
+```js
+// sections/dashboards/08-category-pie.js
+export function render(containerId, options) {
+  const container = el(containerId);
+  container.innerHTML = _buildHtml(options);  // set innerHTML first
+  _attachEvents(containerId, options);         // then attach events
+  return _buildChart(containerId, options);   // then create chart; return instance
+}
+```
+
+`dashboard.js` calls `render()` and stores the returned instance in `state.dashChartInstance`. Before every render, it calls `state.dashChartInstance.destroy()` to avoid canvas context leaks.
+
+**Chart.js color values** must be read from CSS at runtime via `getComputedStyle(document.documentElement).getPropertyValue('--teal').trim()`. CSS `var(--token)` strings cannot be passed directly to Chart.js dataset properties.
+
+**Dark mode**: when the theme changes, re-render the active dashboard so Chart.js picks up the new CSS variable values. Wire this in the existing `setTheme()` call in `main.js`.
+
+State keys for the dashboard section (add to `core/state.js`):
+
+```js
+dashId:            '01-mom-cumulative',
+dashPeriod:        'this_month',
+dashCustomFrom:    '',
+dashCustomTo:      '',
+dashTab:           'transactions',
+dashChartInstance: null,
+```
+
+---
+
 ### Pagination
 
 Pagination state lives in `state` (`txPage`, `txPerPage`). Calculate `start` / `end` indices inside the render function:

@@ -217,7 +217,25 @@ state.txViewRow    // number | null — row being viewed
 state.txEditRow    // number | null — row being edited
 state.txDeleteRow  // number | null — inline delete confirm
 state.txDeleteBlocked  // { referenced_count: N } | null
+
+// Dashboard section — domain prefix: dash
+state.dashId           // string — active dashboard slug
+state.dashPeriod       // string — active period preset
+state.dashCustomFrom   // string — custom range start (YYYY-MM-DD)
+state.dashCustomTo     // string — custom range end (YYYY-MM-DD)
+state.dashTab          // string — 'transactions' | 'accounts'
+state.dashChartInstance  // Chart | null — active Chart.js instance
 ```
+
+**Domain prefix register** — one prefix per section/concept:
+
+| Prefix | Section |
+|---|---|
+| `tx` | Transactions |
+| `acc` | Accounts |
+| `cat` | Categories |
+| `rate` | Rates |
+| `dash` | Dashboard |
 
 Map lookups are `<domain>Map`: `accountMap`, `rateMap`.
 

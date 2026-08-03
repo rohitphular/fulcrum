@@ -131,12 +131,12 @@ async function init() {
       el('dateRangeBar').querySelectorAll('.range-btn').forEach(b =>
         b.classList.toggle('active', b.dataset.range === state.dateRange)
       );
-      if (state.transactions.length) renderDashboard();
+      if (state.transactions.length) renderTransactions();
     });
   });
 
-  el('customFrom')?.addEventListener('change', e => { state.customFrom = e.target.value; if (state.transactions.length) renderDashboard(); });
-  el('customTo')?.addEventListener('change',   e => { state.customTo   = e.target.value; if (state.transactions.length) renderDashboard(); });
+  el('customFrom')?.addEventListener('change', e => { state.customFrom = e.target.value; if (state.transactions.length) renderTransactions(); });
+  el('customTo')?.addEventListener('change',   e => { state.customTo   = e.target.value; if (state.transactions.length) renderTransactions(); });
 
   const savedRange = sessionStorage.getItem('et_date_range');
   if (savedRange) {

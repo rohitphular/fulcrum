@@ -485,6 +485,131 @@ if (window.__configMissing || !window.CONFIG?.SCRIPT_URL) {
 
 ---
 
+## Dashboard & Chart patterns
+
+### Chart.js integration
+
+Chart.js is loaded as a UMD global via CDN — it is not imported as an ES module.
+
+```html
+<!-- index.html — after config.js, before main.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+```
+
+Access it as `window.Chart` from within ES module files.
+
+### CSS token reading for chart colors
+
+Chart.js dataset `backgroundColor` and `borderColor` values **cannot use `var(--token)` strings** — they must be read from CSS at runtime via `getComputedStyle`. Do this at the top of every `render()` call so dark-mode changes are picked up automatically.
+
+```js
+const style = getComputedStyle(document.documentElement);
+const C = {
+  teal:   style.getPropertyValue('--teal').trim(),
+  ember:  style.getPropertyValue('--ember').trim(),
+  muted:  style.getPropertyValue('--muted').trim(),
+  ink:    style.getPropertyValue('--ink').trim(),
+};
+
+// Pass C.teal to borderColor, C.ember to error states, etc.
+```
+
+Re-run this block before recreating the chart when the theme changes.
+
+### Chart.js global defaults (set once in the dashboard section entry point)
+
+```js
+if (window.Chart) {
+  const style = getComputedStyle(document.documentElement);
+  window.Chart.defaults.font.family = style.getPropertyValue('--grotesk').trim() || 'inherit';
+  window.Chart.defaults.font.size   = 12;
+  window.Chart.defaults.color       = style.getPropertyValue('--ink').trim();
+}
+```
+
+### Canvas container markup
+
+```html
+<div class="chart-container">
+  <canvas id="dashCanvas"></canvas>
+</div>
+```
+
+```css
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 260px;          /* mobile default */
+}
+
+@media (min-width: 481px) {
+  .chart-container { height: 340px; }
+}
+```
+
+`responsive: true` and `maintainAspectRatio: false` must be set on every chart.
+
+### Canvas lifecycle
+
+Always destroy an existing chart before recreating it (switching dashboards, period changes, theme changes):
+
+```js
+if (state.dashChartInstance) {
+  state.dashChartInstance.destroy();
+  state.dashChartInstance = null;
+}
+el('dashboardContent').innerHTML = '';
+// ... then create new chart and store in state.dashChartInstance
+```
+
+Failing to call `destroy()` causes Chart.js to leak canvas contexts and throw `"Canvas is already in use"` errors.
+
+### Mobile chart constraints (mandatory on all charts)
+
+| Constraint | Value |
+|---|---|
+| `responsive` | `true` |
+| `maintainAspectRatio` | `false` |
+| Tooltip mode | `'nearest'` with `intersect: false` |
+| Legend position | `'bottom'` (never `'right'`) |
+| X-axis `maxRotation` | `0` |
+| Tick font size | `12` |
+| Legend font size | `13` |
+| Tap target minimum | `44 × 44px` |
+| Horizontal bars | Required for > 5 labelled items |
+| Line point radius | `3` desktop, `5` mobile |
+
+### Dashboard section CSS classes
+
+| Class | Purpose |
+|---|---|
+| `.chart-container` | Canvas wrapper — sets height, position: relative |
+| `.dash-tabs` | Tab strip flexbox row |
+| `.dash-tab` | Individual tab button — 44px min height |
+| `.dash-tab.active` | Active tab — ember underline or fill |
+| `.dash-period-picker` | Period select + custom date inputs wrapper |
+| `.stat-cards` | Grid of summary stat cards |
+| `.stat-card` | Individual stat card — label + value |
+| `.stat-card-value` | Large number in a stat card |
+| `.dash-table` | HTML table below a chart (category breakdown, etc.) |
+
+Stat cards grid:
+
+```css
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 480px) {
+  .stat-cards { grid-template-columns: repeat(2, 1fr); }
+}
+```
+
+---
+
 ## HTML Shell Template
 
 Minimal multi-tab shell:

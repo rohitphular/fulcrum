@@ -149,6 +149,30 @@ export const getSymbol = (c)       => _getSymbol(c, state.rates);
 
 ---
 
+## `dashboard-utils.js` — dashboard computation helpers
+
+Module-scoped utility library for the dashboard section. Lives at `sections/dashboards/dashboard-utils.js` (not in `_shared/` — it is expense-tracker specific).
+
+All monetary computation uses the state-aware wrappers from `core/utils.js` (`fmtBase`, `fmtNative`, `getSymbol`) — these automatically read `state.rateMap`, `state.rates`, and `state.quoteCurrency`.
+
+| Function | Signature | Returns |
+|---|---|---|
+| `getPeriodBounds(period, customFrom, customTo)` | period string + optional custom date strings | `{ from: Date, to: Date, compareFrom: Date, compareTo: Date }` |
+| `filterTxByRange(txs, from, to)` | txs array, Date bounds | filtered array |
+| `groupByDay(txs, from, to)` | filtered txs, range | `Map<'YYYY-MM-DD', tx[]>` |
+| `groupByWeek(txs, from, to)` | | `Map<'YYYY-WNN', tx[]>` |
+| `groupByMonth(txs, from, to)` | | `Map<'YYYY-MM', tx[]>` |
+| `groupByQuarter(txs, from, to)` | | `Map<'YYYY-QN', tx[]>` |
+| `sumAmountBase(txs)` | txs array | number — sum in quote currency via `toBase` |
+| `cumulativeByDay(txs, from, to)` | | `{ labels: string[], values: number[] }` |
+| `accountBalanceByMonth(accounts, txs, months)` | | `Map<'YYYY-MM', { [accountId]: number }>` |
+| `splitTags(txs)` | | `{ tag: string, tx: object }[]` — one entry per tag per tx |
+| `parsePeriodLabel(period)` | period string | human-readable label e.g. `"Jul 2026"` |
+
+These functions are pure (except for `toBase` reading `state` via the wrapper) and can be unit-tested in isolation by passing explicit `rateMap`/`quoteCurrency` to the underlying `toBase` call.
+
+---
+
 ## Planned utility modules
 
 These do not yet exist as separate files. When a second module needs them, extract into dedicated files rather than duplicating:

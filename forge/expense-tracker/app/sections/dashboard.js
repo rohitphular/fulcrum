@@ -1,283 +1,239 @@
 /* global Chart */
 import { state } from '../core/state.js';
-import { el, getSymbol, toBase } from '../core/utils.js';
-import { getRangeBounds, filteredTx } from '../core/daterange.js';
+import { el, esc, getSymbol } from '../core/utils.js';
+import { getPeriodBounds, filterTxByRange, findMissingRates } from './dashboards/dashboard-utils.js';
 
-export function destroyAllCharts() {
-  Object.values(state.charts).forEach(c => { try { c.destroy(); } catch (_) {} });
-  state.charts = {};
-}
+const DASHBOARDS = [
+  // Spending comparisons
+  { id: '01-mom-cumulative',    label: 'Month-on-Month daily cumulative', group: 'Spending comparisons', tabs: true  },
+  { id: '02-yoy-monthly',       label: 'Year-on-Year monthly',            group: 'Spending comparisons', tabs: true  },
+  { id: '03-wow-daily',         label: 'Week-on-Week daily',              group: 'Spending comparisons', tabs: true  },
+  { id: '04-qtd-comparison',    label: 'Quarter-to-date comparison',      group: 'Spending comparisons', tabs: true  },
+  { id: '05-ytd-comparison',    label: 'Year-to-date comparison',         group: 'Spending comparisons', tabs: true  },
+  { id: '06-last-12-months',    label: 'Last 12 months',                  group: 'Spending comparisons', tabs: true  },
+  { id: '07-last-8-weeks',      label: 'Last 8 weeks',                    group: 'Spending comparisons', tabs: false  },
+  // Categories
+  { id: '08-category-pie',      label: 'Category breakdown',              group: 'Categories',           tabs: false },
+  { id: '09-category-trend',    label: 'Category trend over time',        group: 'Categories',           tabs: false },
+  { id: '10-top-categories',    label: 'Top categories',                  group: 'Categories',           tabs: false },
+  { id: '11-category-drilldown', label: 'Category drilldown',             group: 'Categories',           tabs: false },
+  { id: '12-tag-pie',           label: 'Tag breakdown',                   group: 'Categories',           tabs: false },
+  { id: '13-tag-trend',         label: 'Tag trend over time',             group: 'Categories',           tabs: false },
+  // Net worth
+  { id: '14-networth-trend',    label: 'Net worth trend',                 group: 'Net worth',            tabs: false },
+  { id: '15-account-balances',  label: 'Account balances',               group: 'Net worth',            tabs: false },
+  { id: '16-asset-vs-liability', label: 'Assets vs liabilities',          group: 'Net worth',            tabs: false },
+  { id: '17-liability-paydown', label: 'Liability paydown',               group: 'Net worth',            tabs: false },
+  // Cash flow
+  { id: '18-income-vs-expenses', label: 'Income vs expenses',             group: 'Cash flow',            tabs: false },
+  { id: '19-cashflow-waterfall', label: 'Cashflow waterfall',             group: 'Cash flow',            tabs: false },
+  { id: '20-savings-rate',      label: 'Savings rate',                    group: 'Cash flow',            tabs: false },
+  { id: '21-income-sources',    label: 'Income sources',                  group: 'Cash flow',            tabs: false },
+  // Counterparties
+  { id: '22-top-counterparties', label: 'Top counterparties',             group: 'Counterparties',       tabs: false },
+  { id: '23-recurring-payments', label: 'Recurring payments',             group: 'Counterparties',       tabs: false },
+  // Geography
+  { id: '24-spend-by-country',  label: 'Spend by country',               group: 'Geography',            tabs: false },
+  { id: '25-spend-by-city',     label: 'Spend by city',                  group: 'Geography',            tabs: false },
+  // Loans
+  { id: '26-loan-progress',     label: 'Loan progress',                   group: 'Loans',                tabs: false },
+  { id: '27-debt-to-income',    label: 'Debt-to-income',                  group: 'Loans',                tabs: false },
+  // FX
+  { id: '28-forex-spend',       label: 'Foreign currency spend',          group: 'FX & currency',        tabs: false },
+];
+
+const PERIOD_OPTIONS = [
+  { value: 'this_week',    label: 'This week'      },
+  { value: 'last_week',    label: 'Last week'      },
+  { value: 'this_month',   label: 'This month'     },
+  { value: 'last_month',   label: 'Last month'     },
+  { value: 'last_3',       label: 'Last 3 months'  },
+  { value: 'last_6',       label: 'Last 6 months'  },
+  { value: 'last_12',      label: 'Last 12 months' },
+  { value: 'this_quarter', label: 'This quarter'   },
+  { value: 'last_quarter', label: 'Last quarter'   },
+  { value: 'ytd',          label: 'Year to date'   },
+  { value: 'last_year',    label: 'Last year'      },
+  { value: 'custom',       label: 'Custom range'   },
+];
+
+const _renderers = {};
 
 export function renderDashboard() {
-  destroyAllCharts();
-  const filtered  = filteredTx();
-  const income    = filtered.filter(tx => tx.transaction_type === 'money-in');
-  const expenses  = filtered.filter(tx => tx.transaction_type === 'money-out');
-  const transfers = filtered.filter(tx => tx.transaction_type === 'money-transfer');
+  _destroyChart();
+  _applyChartDefaults();
 
-  const totalIncome   = income.reduce((s, tx)   => s + toBase(tx.amount, tx.currency, tx.fx_rate), 0);
-  const totalExpenses = expenses.reduce((s, tx) => s + toBase(tx.amount, tx.currency, tx.fx_rate), 0);
-  const net           = totalIncome - totalExpenses;
-  const savingsRate   = totalIncome > 0 ? (net / totalIncome * 100) : 0;
+  const container = el('dashboardContent');
+  container.innerHTML = _buildShellHtml();
+  _attachShellEvents();
+  _renderActiveDashboard();
+}
+
+// ── Shell HTML ─────────────────────────────────────────────────────────────────
+
+function _buildShellHtml() {
+  const dash = DASHBOARDS.find(d => d.id === state.dashId) || DASHBOARDS[0];
+
+  // Group selector by group
+  const groupMap = new Map();
+  DASHBOARDS.forEach(d => {
+    if (!groupMap.has(d.group)) groupMap.set(d.group, []);
+    groupMap.get(d.group).push(d);
+  });
+  const selectorHtml = [...groupMap.entries()].map(([group, items]) =>
+    `<optgroup label="${esc(group)}">${items.map(d =>
+      `<option value="${esc(d.id)}"${d.id === state.dashId ? ' selected' : ''}>${esc(d.label)}</option>`
+    ).join('')}</optgroup>`
+  ).join('');
+
+  const periodHtml = PERIOD_OPTIONS.map(p =>
+    `<option value="${esc(p.value)}"${p.value === state.dashPeriod ? ' selected' : ''}>${esc(p.label)}</option>`
+  ).join('');
+
+  const customHidden = state.dashPeriod !== 'custom' ? ' hidden' : '';
+
+  const tabStrip = dash.tabs
+    ? `<div class="dash-tabs">
+        <button class="dash-tab${state.dashTab === 'transactions' ? ' active' : ''}" data-action="dash-tab" data-tab="transactions">Transactions</button>
+        <button class="dash-tab${state.dashTab === 'accounts'     ? ' active' : ''}" data-action="dash-tab" data-tab="accounts">Accounts</button>
+      </div>`
+    : '';
+
+  return `
+    <div class="dash-controls">
+      <div class="dash-top-row">
+        <select class="dash-selector" id="dashSelector">${selectorHtml}</select>
+        <select class="dash-period-select" id="dashPeriodSelect">${periodHtml}</select>
+      </div>
+      <div class="dash-custom-dates${customHidden}" id="dashCustomDates">
+        <input type="date" id="dashCustomFrom" value="${esc(state.dashCustomFrom)}">
+        <span class="dash-custom-sep">–</span>
+        <input type="date" id="dashCustomTo" value="${esc(state.dashCustomTo)}">
+      </div>
+      ${tabStrip}
+    </div>
+    <div id="dashInner"></div>`;
+}
+
+// ── Events ─────────────────────────────────────────────────────────────────────
+
+function _attachShellEvents() {
+  const container = el('dashboardContent');
+
+  container.addEventListener('change', e => {
+    const id = e.target.id;
+
+    if (id === 'dashSelector') {
+      state.dashId  = e.target.value;
+      state.dashTab = 'transactions';
+      renderDashboard();
+      return;
+    }
+    if (id === 'dashPeriodSelect') {
+      state.dashPeriod = e.target.value;
+      const customDates = el('dashCustomDates');
+      if (customDates) customDates.classList.toggle('hidden', state.dashPeriod !== 'custom');
+      if (state.dashPeriod !== 'custom') _renderActiveDashboard();
+      return;
+    }
+    if (id === 'dashCustomFrom') {
+      state.dashCustomFrom = e.target.value;
+      if (state.dashCustomFrom && state.dashCustomTo) _renderActiveDashboard();
+      return;
+    }
+    if (id === 'dashCustomTo') {
+      state.dashCustomTo = e.target.value;
+      if (state.dashCustomFrom && state.dashCustomTo) _renderActiveDashboard();
+    }
+  });
+
+  container.addEventListener('click', e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const { action } = btn.dataset;
+
+    if (action === 'dash-tab') {
+      state.dashTab = btn.dataset.tab;
+      _destroyChart();
+      container.querySelectorAll('.dash-tab').forEach(t =>
+        t.classList.toggle('active', t.dataset.tab === state.dashTab)
+      );
+      _renderActiveDashboard();
+      return;
+    }
+
+    if (action === 'go-rates') {
+      e.preventDefault();
+      document.dispatchEvent(new CustomEvent('et:show-section', { detail: 'rates' }));
+    }
+  });
+}
+
+// ── Render active dashboard ───────────────────────────────────────────────────
+
+async function _renderActiveDashboard() {
+  const inner = el('dashInner');
+  if (!inner) return;
+
+  inner.innerHTML = '<div class="dash-placeholder">Loading…</div>';
+  _destroyChart();
+
+  const { from, to } = getPeriodBounds(state.dashPeriod, state.dashCustomFrom, state.dashCustomTo);
+  const txs           = filterTxByRange(state.transactions, from, to);
   const sym           = getSymbol(state.quoteCurrency);
-  const fmt = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const missingRates  = findMissingRates(txs, state.accounts);
 
-  el('dashboardContent').innerHTML = `
-    <div class="summary-grid">
-      <div class="summary-card">
-        <div class="summary-card-label">Income</div>
-        <div class="summary-card-value positive">${fmt(totalIncome)}</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-card-label">Expenses</div>
-        <div class="summary-card-value negative">${fmt(totalExpenses)}</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-card-label">Net</div>
-        <div class="summary-card-value ${net >= 0 ? 'positive' : 'negative'}">${net < 0 ? '−' : ''}${fmt(net)}</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-card-label">Savings rate</div>
-        <div class="summary-card-value ${savingsRate >= 0 ? 'positive' : 'negative'}">${savingsRate.toFixed(1)}%</div>
-      </div>
-    </div>
-    ${transfers.length ? `<div class="transfer-row">
-      <span>Transfers: <strong>${transfers.length}</strong> rows</span>
-      <span>Volume: <strong>${fmt(transfers.reduce((s,tx) => s + toBase(tx.amount, tx.currency, tx.fx_rate), 0))}</strong></span>
-    </div>` : ''}
-    <div class="chart-wrap">
-      <div class="chart-title">Income vs Expenses by month</div>
-      <div class="chart-container"><canvas id="monthlyChart"></canvas></div>
-    </div>
-    <div class="chart-wrap">
-      <div class="chart-title" id="catChartTitle">Spend by major category</div>
-      <div id="catChartBackWrap"></div>
-      <div class="chart-container"><canvas id="catChart"></canvas></div>
-    </div>
-    <div class="chart-wrap">
-      <div class="chart-title">Spend by account</div>
-      <div class="chart-container"><canvas id="accountChart"></canvas></div>
-    </div>
-  `;
+  const rateWarn = missingRates.length
+    ? `<div class="dash-warn">⚠ No exchange rate for <strong>${esc(missingRates.join(', '))}</strong> — affected transactions excluded from totals. <a href="#" data-action="go-rates">Add rates →</a></div>`
+    : '';
 
-  renderMonthlyChart(income, expenses);
-  renderCategoryChart(expenses);
-  renderAccountChart(filtered);
-}
+  const renderer = await _loadRenderer(state.dashId);
 
-function chartColors() {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  return {
-    teal:      isDark ? '#26C0B0' : '#0F9D8C',
-    ember:     isDark ? '#F07055' : '#DC5B3B',
-    grid:      isDark ? '#21262D' : '#DCE2EA',
-    tick:      isDark ? '#8B96A8' : '#6B7787',
-    tooltipBg: isDark ? '#161B22' : '#ffffff',
-    tooltipFg: isDark ? '#E2E8F0' : '#16202C',
-  };
-}
-
-function baseChartOpts(sym) {
-  const c    = chartColors();
-  const mono = "'IBM Plex Mono', monospace";
-  return {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: c.tooltipBg,
-        borderColor: c.grid, borderWidth: 1,
-        titleColor: c.tick, bodyColor: c.tooltipFg,
-        titleFont: { family: mono, size: 10 },
-        bodyFont:  { family: mono, size: 12 },
-      },
-    },
-    scales: {
-      x: {
-        ticks: { color: c.tick, font: { family: mono, size: 9 }, maxRotation: 45, maxTicksLimit: 12 },
-        grid:  { color: c.grid }, border: { display: false },
-      },
-      y: {
-        ticks: {
-          color: c.tick, font: { family: mono, size: 9 }, maxTicksLimit: 5,
-          callback: v => sym + (v >= 1000 ? Math.round(v/1000)+'k' : Math.round(v)),
-        },
-        grid:  { color: c.grid }, border: { display: false },
-      },
-    },
-  };
-}
-
-function renderMonthlyChart(income, expenses) {
-  const sym  = getSymbol(state.quoteCurrency);
-  const c    = chartColors();
-  const mono = "'IBM Plex Mono', monospace";
-  const ctx  = el('monthlyChart');
-  if (!ctx) return;
-
-  const { from } = getRangeBounds();
-  const today    = new Date();
-  const months   = [];
-  const start    = new Date(from.getFullYear(), from.getMonth(), 1);
-  const cursor   = new Date(start);
-  while (cursor.getTime() <= today.getTime()) {
-    months.push(new Date(cursor));
-    cursor.setMonth(cursor.getMonth() + 1);
-  }
-  const display = months.length > 24 ? months.slice(-24) : months;
-
-  const incomeByMonth = {};
-  const expByMonth    = {};
-  const txMonthKey = tx => {
-    const d = new Date(tx.transaction_date_utc);
-    return isNaN(d) ? '' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  };
-  income.forEach(tx => {
-    const key = txMonthKey(tx);
-    if (key) incomeByMonth[key] = (incomeByMonth[key] || 0) + toBase(tx.amount, tx.currency, tx.fx_rate);
-  });
-  expenses.forEach(tx => {
-    const key = txMonthKey(tx);
-    if (key) expByMonth[key] = (expByMonth[key] || 0) + toBase(tx.amount, tx.currency, tx.fx_rate);
-  });
-
-  const labels     = display.map(d => d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }));
-  const incomeVals = display.map(d => { const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; return incomeByMonth[k] || 0; });
-  const expVals    = display.map(d => { const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; return expByMonth[k]    || 0; });
-
-  state.charts['monthlyChart'] = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Income',   data: incomeVals, backgroundColor: c.teal,  borderRadius: 3 },
-        { label: 'Expenses', data: expVals,    backgroundColor: c.ember, borderRadius: 3 },
-      ],
-    },
-    options: {
-      ...baseChartOpts(sym),
-      plugins: {
-        ...baseChartOpts(sym).plugins,
-        legend: { display: true, labels: { color: c.tick, font: { family: mono, size: 11 }, boxWidth: 12 } },
-        tooltip: {
-          ...baseChartOpts(sym).plugins.tooltip,
-          callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + sym + Math.round(ctx.parsed.y).toLocaleString('en-GB') },
-        },
-      },
-    },
-  });
-}
-
-function renderCategoryChart(expenses) {
-  const sym = getSymbol(state.quoteCurrency);
-  const c   = chartColors();
-  const ctx = el('catChart');
-  if (!ctx) return;
-
-  let labels, data;
-
-  if (state.catDrillMajor) {
-    const byMinor = {};
-    expenses.filter(tx => tx.major_category === state.catDrillMajor).forEach(tx => {
-      const key = tx.minor_category || 'Uncategorised';
-      byMinor[key] = (byMinor[key] || 0) + toBase(tx.amount, tx.currency, tx.fx_rate);
-    });
-    const sorted = Object.entries(byMinor).sort((a, b) => b[1] - a[1]);
-    labels = sorted.map(e => e[0]);
-    data   = sorted.map(e => e[1]);
-    el('catChartTitle').textContent = `${state.catDrillMajor} — by minor category`;
-    el('catChartBackWrap').innerHTML = `<button class="chart-back-btn" id="catChartBack">← All categories</button>`;
-    el('catChartBack').addEventListener('click', () => { state.catDrillMajor = null; renderCategoryChart(expenses); });
-  } else {
-    const byMajor = {};
-    expenses.forEach(tx => {
-      const key = tx.major_category || 'Uncategorised';
-      byMajor[key] = (byMajor[key] || 0) + toBase(tx.amount, tx.currency, tx.fx_rate);
-    });
-    const sorted = Object.entries(byMajor).sort((a, b) => b[1] - a[1]);
-    const top8   = sorted.slice(0, 8);
-    const rest   = sorted.slice(8).reduce((s, e) => s + e[1], 0);
-    if (rest > 0) top8.push(['Other', rest]);
-    labels = top8.map(e => e[0]);
-    data   = top8.map(e => e[1]);
-    el('catChartTitle').textContent = 'Spend by major category';
-    el('catChartBackWrap').innerHTML = '';
-  }
-
-  if (state.charts['catChart']) { state.charts['catChart'].destroy(); }
-
-  if (!data.length) {
-    ctx.parentElement.innerHTML = '<p class="chart-empty">No expense data for this period.</p>';
+  if (!renderer) {
+    inner.innerHTML = `${rateWarn}<div class="dash-placeholder">Dashboard <strong>${esc(state.dashId)}</strong> is not yet implemented.</div>`;
     return;
   }
 
-  const mono = "'IBM Plex Mono', monospace";
-  state.charts['catChart'] = new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets: [{ data, backgroundColor: c.ember, borderRadius: 4 }] },
-    options: {
-      ...baseChartOpts(sym),
-      indexAxis: 'y',
-      onClick: (event, elements) => {
-        if (!state.catDrillMajor && elements.length) {
-          state.catDrillMajor = labels[elements[0].index];
-          renderCategoryChart(expenses);
-        }
-      },
-      plugins: {
-        ...baseChartOpts(sym).plugins,
-        tooltip: {
-          ...baseChartOpts(sym).plugins.tooltip,
-          callbacks: { label: ctx => ' ' + sym + Math.round(ctx.parsed.x).toLocaleString('en-GB') },
-        },
-      },
-      scales: {
-        ...baseChartOpts(sym).scales,
-        y: { ticks: { color: c.tick, font: { family: mono, size: 9 } }, grid: { display: false }, border: { display: false } },
-      },
-    },
+  inner.innerHTML = `${rateWarn}<div id="dashChart"></div>`;
+
+  const chartInstance = await renderer.render('dashChart', {
+    txs,
+    accounts: state.accounts,
+    from,
+    to,
+    sym,
+    tab:    state.dashTab,
+    period: state.dashPeriod,
   });
+
+  if (chartInstance) state.dashChartInstance = chartInstance;
 }
 
-function renderAccountChart(filtered) {
-  const sym = getSymbol(state.quoteCurrency);
-  const c   = chartColors();
-  const ctx = el('accountChart');
-  if (!ctx) return;
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-  const byAccount = {};
-  filtered.filter(tx => tx.transaction_type === 'money-out').forEach(tx => {
-    const key = state.accountMap[tx.source_account]?.name || '—';
-    byAccount[key] = (byAccount[key] || 0) + toBase(tx.amount, tx.currency, tx.fx_rate);
-  });
-  const sorted = Object.entries(byAccount).sort((a, b) => b[1] - a[1]);
-  const labels = sorted.map(e => e[0]);
-  const data   = sorted.map(e => e[1]);
-
-  if (!data.length) {
-    ctx.parentElement.innerHTML = '<p class="chart-empty">No spend data for this period.</p>';
-    return;
+async function _loadRenderer(dashId) {
+  if (Object.prototype.hasOwnProperty.call(_renderers, dashId)) return _renderers[dashId];
+  try {
+    const mod = await import(`./dashboards/${dashId}.js`);
+    _renderers[dashId] = mod;
+    return mod;
+  } catch (_) {
+    _renderers[dashId] = null;
+    return null;
   }
+}
 
-  const mono = "'IBM Plex Mono', monospace";
-  state.charts['accountChart'] = new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets: [{ data, backgroundColor: c.teal, borderRadius: 4 }] },
-    options: {
-      ...baseChartOpts(sym),
-      indexAxis: 'y',
-      plugins: {
-        ...baseChartOpts(sym).plugins,
-        tooltip: {
-          ...baseChartOpts(sym).plugins.tooltip,
-          callbacks: { label: ctx => ' ' + sym + Math.round(ctx.parsed.x).toLocaleString('en-GB') },
-        },
-      },
-      scales: {
-        ...baseChartOpts(sym).scales,
-        y: { ticks: { color: c.tick, font: { family: mono, size: 9 } }, grid: { display: false }, border: { display: false } },
-      },
-    },
-  });
+function _destroyChart() {
+  if (state.dashChartInstance) {
+    try { state.dashChartInstance.destroy(); } catch (_) {}
+    state.dashChartInstance = null;
+  }
+}
+
+function _applyChartDefaults() {
+  if (!window.Chart) return;
+  const s = getComputedStyle(document.documentElement);
+  window.Chart.defaults.font.family = s.getPropertyValue('--grotesk').trim() || 'inherit';
+  window.Chart.defaults.font.size   = 12;
+  window.Chart.defaults.color       = s.getPropertyValue('--ink').trim();
 }
