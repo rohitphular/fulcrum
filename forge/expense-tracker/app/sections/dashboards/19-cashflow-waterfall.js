@@ -1,0 +1,196 @@
+/* global Chart */
+import { el, esc } from '../../core/utils.js';
+import { state } from '../../core/state.js';
+import {
+  computeDailyTotalAssets, sumAmountBase,
+  getCssColors, baseChartOptions,
+} from './dashboard-utils.js';
+
+const MAX_CATS = 10;
+
+// ── Starting balance ──────────────────────────────────────────────────────────
+// Sum of all active accounts at end of the day before the first of the month.
+
+function _startBalance(accounts, from) {
+  const active = accounts.filter(a => a.is_active);
+  if (!active.length) return 0;
+  // Last day of previous month = day before the first of `from`'s month
+  const prevEnd = new Date(from.getFullYear(), from.getMonth(), 0);
+  if (prevEnd < new Date(2000, 0, 1)) return 0; // guard against very early dates
+  const daily = computeDailyTotalAssets(active, state.transactions, prevEnd, prevEnd);
+  return daily[0] || 0;
+}
+
+// ── Expense grouping ──────────────────────────────────────────────────────────
+
+function _groupExpenses(outTxs) {
+  const catMap = new Map();
+  for (const tx of outTxs) {
+    const cat = tx.major_category || 'Uncategorised';
+    if (!catMap.has(cat)) catMap.set(cat, []);
+    catMap.get(cat).push(tx);
+  }
+  const sorted = [...catMap.entries()]
+    .map(([cat, txList]) => [cat, sumAmountBase(txList)])
+    .sort((a, b) => b[1] - a[1]);
+
+  const top  = sorted.slice(0, MAX_CATS);
+  const rest = sorted.slice(MAX_CATS);
+  if (rest.length) {
+    top.push(['Other expenses', rest.reduce((s, [, v]) => s + v, 0)]);
+  }
+  return top; // [[label, amount], ...]
+}
+
+// ── Waterfall segments ────────────────────────────────────────────────────────
+
+function _buildWaterfall(txs, accounts, from, C) {
+  const startBalance = _startBalance(accounts, from);
+
+  const inTxs  = txs.filter(t => t.transaction_type === 'money-in');
+  const outTxs = txs.filter(t => t.transaction_type === 'money-out');
+
+  const income    = sumAmountBase(inTxs);
+  const expGroups = _groupExpenses(outTxs);
+
+  const TRANSP = 'rgba(0,0,0,0)';
+  const GREEN  = 'rgba(52,211,153,0.85)';
+
+  const labels     = [];
+  const baseVals   = [];
+  const visVals    = [];
+  const barColors  = [];
+
+  let rt = startBalance; // running total
+
+  // Opening
+  labels.push('Opening'); baseVals.push(0); visVals.push(startBalance); barColors.push(C.teal);
+  rt = startBalance;
+
+  // Income
+  labels.push('Income'); baseVals.push(rt); visVals.push(income); barColors.push(GREEN);
+  rt += income;
+
+  // Expense categories (negative visible values float the bar downward)
+  for (const [cat, exp] of expGroups) {
+    labels.push(cat); baseVals.push(rt); visVals.push(-exp); barColors.push(C.ember);
+    rt -= exp;
+  }
+
+  // Closing
+  const closing = rt;
+  labels.push('Closing'); baseVals.push(0); visVals.push(closing);
+  barColors.push(closing >= 0 ? C.teal : C.ember);
+
+  return { labels, baseVals, visVals, barColors, income, expGroups, closing, startBalance };
+}
+
+// ── Chart options ─────────────────────────────────────────────────────────────
+
+function _buildChartOptions(sym, C) {
+  const base = baseChartOptions(sym, C);
+  return {
+    ...base,
+    plugins: {
+      ...base.plugins,
+      legend: { display: false },
+      tooltip: {
+        ...base.plugins.tooltip,
+        callbacks: {
+          title: ctx => ctx[0]?.label || '',
+          label: ctx => {
+            // Only show tooltip for the visible dataset (index 1), not the invisible base
+            if (ctx.datasetIndex === 0) return null;
+            return `  ${sym}${Math.abs(ctx.raw).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+          },
+        },
+      },
+    },
+    scales: {
+      ...base.scales,
+      x: {
+        ...base.scales.x,
+        stacked: true,
+        ticks: { ...base.scales.x.ticks, maxRotation: 30, font: { size: 11 } },
+      },
+      y: {
+        ...base.scales.y,
+        stacked: false,
+      },
+    },
+  };
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+export async function render(containerId, { txs, accounts, from, sym }) {
+  const container = el(containerId);
+  if (!container) {
+    console.warn('[dashboard-19] container not found:', containerId);
+    return null;
+  }
+
+  const C = getCssColors();
+  const { labels, baseVals, visVals, barColors, income, expGroups, closing, startBalance }
+    = _buildWaterfall(txs, accounts, from, C);
+
+  const totalExpense = expGroups.reduce((s, [, v]) => s + v, 0);
+  const net          = income - totalExpense;
+  const netClass     = net >= 0 ? 'positive' : 'negative';
+
+  const fmt = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const fmtSigned = v => (v >= 0 ? '+' : '−') + ' ' + fmt(Math.abs(v));
+
+  container.innerHTML = `
+    <div class="stat-cards">
+      <div class="stat-card">
+        <p class="stat-card-label">Opening balance</p>
+        <p class="stat-card-value">${esc(fmt(startBalance))}</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-card-label">Total income</p>
+        <p class="stat-card-value positive">${esc(fmt(income))}</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-card-label">Total expenses</p>
+        <p class="stat-card-value negative">${esc(fmt(totalExpense))}</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-card-label">Closing balance</p>
+        <p class="stat-card-value ${closing >= 0 ? 'positive' : 'negative'}">${esc(fmt(closing))}</p>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-container" style="height:300px"><canvas></canvas></div>
+    </div>`;
+
+  const canvas = container.querySelector('canvas');
+  if (!canvas) return null;
+
+  console.log(`[dashboard-19] start=${startBalance.toFixed(0)}, income=${income.toFixed(0)}, expense=${totalExpense.toFixed(0)}, closing=${closing.toFixed(0)}`);
+
+  return new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label:           '',
+          data:            baseVals,
+          backgroundColor: 'rgba(0,0,0,0)',
+          stack:           'wf',
+          borderWidth:     0,
+        },
+        {
+          label:           'Amount',
+          data:            visVals,
+          backgroundColor: barColors,
+          stack:           'wf',
+          borderRadius:    4,
+          borderSkipped:   false,
+        },
+      ],
+    },
+    options: _buildChartOptions(sym, C),
+  });
+}

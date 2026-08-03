@@ -123,20 +123,20 @@ export async function render(containerId, options) {
 | 12-tag-pie | Tag breakdown | Categories | — | ✓ done |
 | 13-tag-trend | Tag trend over time | Categories | — | ✓ done |
 | 14-networth-trend | Net worth trend | Net worth | — | ✓ done |
-| 15-account-balances | Account balances | Net worth | — | pending |
-| 16-asset-vs-liability | Assets vs liabilities | Net worth | — | pending |
-| 17-liability-paydown | Liability paydown | Net worth | — | pending |
-| 18-income-vs-expenses | Income vs expenses | Cash flow | — | pending |
-| 19-cashflow-waterfall | Cashflow waterfall | Cash flow | — | pending |
-| 20-savings-rate | Savings rate | Cash flow | — | pending |
-| 21-income-sources | Income sources | Cash flow | — | pending |
-| 22-top-counterparties | Top counterparties | Counterparties | — | pending |
-| 23-recurring-payments | Recurring payments | Counterparties | — | pending |
-| 24-spend-by-country | Spend by country | Geography | — | pending |
-| 25-spend-by-city | Spend by city | Geography | — | pending |
-| 26-loan-progress | Loan progress | Loans | — | pending |
-| 27-debt-to-income | Debt-to-income | Loans | — | pending |
-| 28-forex-spend | Foreign currency spend | FX & currency | — | pending |
+| 15-account-balances | Account balances | Net worth | — | ✓ done |
+| 16-asset-vs-liability | Assets vs liabilities | Net worth | — | ✓ done |
+| 17-liability-paydown | Liability paydown | Net worth | — | ✓ done |
+| 18-income-vs-expenses | Income vs expenses | Cash flow | — | ✓ done |
+| 19-cashflow-waterfall | Cashflow waterfall | Cash flow | — | ✓ done |
+| 20-savings-rate | Savings rate | Cash flow | — | ✓ done |
+| 21-income-sources | Income sources | Cash flow | — | ✓ done |
+| 22-top-counterparties | Top counterparties | Counterparties | — | ✓ done |
+| 23-recurring-payments | Recurring payments | Counterparties | — | ✓ done |
+| 24-spend-by-country | Spend by country | Geography | — | ✓ done |
+| 25-spend-by-city | Spend by city | Geography | — | ✓ done |
+| 26-loan-progress | Loan progress | Loans | — | ✓ done |
+| 27-debt-to-income | Debt-to-income | Loans | — | ✓ done |
+| 28-forex-spend | Foreign currency spend | FX & currency | — | ✓ done |
 
 Dual-tab dashboards (Transactions + Accounts tab strip): `01-mom-cumulative`, `02-yoy-monthly`, `03-wow-daily`, `04-qtd-comparison`, `05-ytd-comparison`, `06-last-12-months`.
 

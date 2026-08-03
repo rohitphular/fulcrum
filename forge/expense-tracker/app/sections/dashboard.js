@@ -58,6 +58,7 @@ const PERIOD_OPTIONS = [
 ];
 
 const _renderers = {};
+let _renderId = 0; // incremented on every render; stale async continuations bail out
 
 export function renderDashboard() {
   _destroyChart();
@@ -175,8 +176,13 @@ async function _renderActiveDashboard() {
   const inner = el('dashInner');
   if (!inner) return;
 
-  inner.innerHTML = '<div class="dash-placeholder">Loading…</div>';
+  // Stamp this render. Any earlier in-flight render that resumes after an await
+  // will see its id no longer matches and will bail out — preventing orphaned
+  // Chart.js instances from running RAF loops after the user has moved on.
+  const myId = ++_renderId;
+
   _destroyChart();
+  inner.innerHTML = '<div class="dash-placeholder"><span class="spinner"></span>Loading…</div>';
 
   const { from, to } = getPeriodBounds(state.dashPeriod, state.dashCustomFrom, state.dashCustomTo);
   const txs           = filterTxByRange(state.transactions, from, to);
@@ -188,6 +194,8 @@ async function _renderActiveDashboard() {
     : '';
 
   const renderer = await _loadRenderer(state.dashId);
+
+  if (myId !== _renderId) return; // superseded while loading module
 
   if (!renderer) {
     inner.innerHTML = `${rateWarn}<div class="dash-placeholder">Dashboard <strong>${esc(state.dashId)}</strong> is not yet implemented.</div>`;
@@ -205,6 +213,13 @@ async function _renderActiveDashboard() {
     tab:    state.dashTab,
     period: state.dashPeriod,
   });
+
+  if (myId !== _renderId) {
+    // Another render started while renderer.render() was running.
+    // Destroy the chart we just created so its RAF loop doesn't linger.
+    try { chartInstance?.destroy(); } catch (_) {}
+    return;
+  }
 
   if (chartInstance) state.dashChartInstance = chartInstance;
 }
