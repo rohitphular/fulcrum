@@ -15,7 +15,7 @@ Proportional spend attributed to each tag for the selected period. Useful for tr
 
 ## Key difference from 08 (category donut)
 
-**Full attribution, not split.** Each tag on a transaction receives the **full transaction amount**. A transaction tagged `rohit;reena` contributes its full amount to both `rohit` and `reena`. The donut therefore shows attributed spend, not a partitioned total — segment amounts can sum to more than total spend.
+**Split attribution, not full.** Each tag on a transaction receives `amount / tagCount`. A £90 transaction tagged `rohit;reena;aryan` contributes £30 to each tag. Segment amounts sum to exactly total spend regardless of how many tags transactions carry.
 
 Centre text shows **number of distinct tags**, not total spend.
 
@@ -30,10 +30,10 @@ Uses `options.txs` (pre-filtered by coordinator). Filters to `money-out` only.
 ## Tag aggregation
 
 `_aggregateTags(moneyOut)`:
-1. `splitTags(moneyOut)` → `{ tag, tx }[]` — one entry per tag per transaction.
+1. `splitTags(moneyOut)` → `{ tag, tx, tagCount }[]` — one entry per tag per transaction; `tagCount` is the number of tags on that tx.
 2. Normalises: `tag.toLowerCase().trim()`.
 3. Deduplicates per tag per transaction (if the same tag appears twice in one tx's tag string, it counts once).
-4. Groups by tag: collects all `tx` objects. `sumAmountBase(txs)` = full amount per tag.
+4. For each tag: accumulates `sumAmountBase([tx]) / tagCount` — each tag gets its proportional share.
 5. Returns `[{ label, amount, count }]` sorted by amount desc.
 
 Untagged transactions (blank `tags` field) are excluded.
@@ -77,7 +77,7 @@ Full `allRows` (not capped at MAX_SEGMENTS — shows all tags):
 |---|---|
 | Tag | Normalised tag name |
 | Txs | Transaction count for that tag |
-| Total | `sumAmountBase` — full attribution |
+| Total | Sum of `amount_base / tagCount` per tx — proportional split |
 | Avg | `total / count` |
 
 ---

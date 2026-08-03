@@ -6,6 +6,10 @@ import { computeDailyTotalAssets, getCssColors, baseChartOptions } from './dashb
 // Charts created inside expandable history panels — destroyed together on navigation.
 const _historyCharts = new Map(); // accId → Chart
 
+// Produce a safe HTML id token from an account id or name.
+// HTML ids must not contain spaces; replace non-alphanumeric chars with '_'.
+function _safeId(raw) { return String(raw).replace(/[^a-zA-Z0-9-]/g, '_'); }
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function _monthsSince(dateStr) {
@@ -68,7 +72,7 @@ function _renderHistoryChart(canvasId, loan, sym, C) {
   const canvas = el(canvasId);
   if (!canvas || !loan.repayTxs.length) return null;
 
-  const amounts    = loan.repayTxs.map(t => Math.abs(t.amount_base || 0));
+  const amounts    = loan.repayTxs.map(t => Math.abs(Number(t.amount_base) || 0));
   const cumulative = amounts.map((_, i) => amounts.slice(0, i + 1).reduce((s, v) => s + v, 0));
   const labels     = loan.repayTxs.map(t => {
     const d = new Date(t.transaction_date_utc);
@@ -116,7 +120,7 @@ function _renderHistoryChart(canvasId, loan, sym, C) {
 function _loanCardHtml(loan, sym) {
   const fmt    = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   const fmtAvg = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const accId  = loan.acc.id || loan.acc.name;
+  const accId  = _safeId(loan.acc.id || loan.acc.name);
 
   let progressHtml = '';
   if (loan.paidOff) {
@@ -165,7 +169,7 @@ function _loanCardHtml(loan, sym) {
   const txRows = [...loan.repayTxs].reverse().slice(0, 24).map(t => {
     const d   = new Date(t.transaction_date_utc);
     const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
-    const amt  = Math.abs(t.amount_base || 0);
+    const amt  = Math.abs(Number(t.amount_base) || 0);
     return `<tr>
       <td style="padding:7px 8px;font-size:var(--text-sm);color:var(--muted)">${esc(date)}</td>
       <td style="padding:7px 8px;font-size:var(--text-sm);text-align:right;font-weight:600">${esc(sym + amt.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}</td>
@@ -267,7 +271,7 @@ export async function render(containerId, { accounts, sym }) {
       if (!details.open) return;
       const accId = details.dataset.loanId;
       if (_historyCharts.has(accId)) return; // already created
-      const loan   = loans.find(l => String(l.acc.id || l.acc.name) === accId);
+      const loan   = loans.find(l => _safeId(l.acc.id || l.acc.name) === accId);
       if (!loan) return;
       const chart = _renderHistoryChart(`history-canvas-${accId}`, loan, sym, C);
       if (chart) _historyCharts.set(accId, chart);

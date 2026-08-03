@@ -2,7 +2,7 @@
 import { el, esc } from '../../core/utils.js';
 import { state } from '../../core/state.js';
 import {
-  monthRange, computeDailyTotalAssets,
+  monthRange, computeDailyTotalAssets, computeBalancesAt,
   getCssColors, baseChartOptions, fmtMonthKey,
 } from './dashboard-utils.js';
 
@@ -123,11 +123,14 @@ export async function render(containerId, { accounts, from, to, sym }) {
         ${pct12 !== null ? `<p class="stat-card-sub">${esc(pct12)}%</p>` : ''}
       </div>
     </div>
+    <p style="font-size:var(--text-xs);color:var(--muted);margin:4px 0 0;text-align:center">Tap a data point to see account balances at that month-end</p>
     <div class="chart-wrap">
       <div class="chart-container"><canvas></canvas></div>
-    </div>`;
+    </div>
+    <div id="dash14-drill" hidden style="margin-top:20px;padding:16px;background:var(--panel);border:1px solid var(--hair);border-radius:8px"></div>`;
 
-  const canvas = container.querySelector('canvas');
+  const canvas  = container.querySelector('canvas');
+  const drillEl = container.querySelector('#dash14-drill');
   if (!canvas) return null;
 
   console.log(`[dashboard-14] ${monthKeys.length} months, current=${current.toFixed(0)}, 12moRef=${networth12mo.toFixed(0)}`);
@@ -147,6 +150,52 @@ export async function render(containerId, { accounts, from, to, sym }) {
         pointHoverRadius: 8,
       }],
     },
-    options: _buildChartOptions(sym, C),
+    options: {
+      ..._buildChartOptions(sym, C),
+      onClick: (_, elements) => {
+        if (!elements.length || !drillEl) return;
+        const idx    = elements[0].index;
+        const mk     = monthKeys[idx];
+        const endDate = _monthEnd(mk);
+        const balMap  = computeBalancesAt(allAccounts, state.transactions, endDate);
+
+        const fmtV    = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        const thS     = `padding:8px;font-size:var(--text-xs);color:var(--muted);font-weight:600;white-space:nowrap`;
+        const tdS     = `padding:9px 8px;font-size:var(--text-sm);border-bottom:1px solid var(--hair)`;
+
+        const accRows = allAccounts
+          .map(a => ({ name: a.name, type: a.type, balance: balMap.get(a.id) || 0 }))
+          .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance))
+          .map(a => {
+            const cls = a.balance >= 0 ? 'positive' : 'negative';
+            return `<tr>
+              <td style="${tdS}">${esc(a.name)}</td>
+              <td style="${tdS};color:var(--muted)">${esc(a.type)}</td>
+              <td style="${tdS};text-align:right;white-space:nowrap" class="${cls}">${esc(fmtV(a.balance))}</td>
+            </tr>`;
+          }).join('');
+
+        drillEl.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h3 style="font-size:var(--text-sm);font-weight:600;margin:0">Account balances — ${esc(fmtMonthKey(mk))}</h3>
+            <button data-action="drill-close" style="background:none;border:none;color:var(--muted);font-size:var(--text-sm);cursor:pointer;padding:0 4px">✕</button>
+          </div>
+          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+            <table style="width:100%;border-collapse:collapse;min-width:280px">
+              <thead>
+                <tr style="border-bottom:2px solid var(--hair)">
+                  <th style="${thS};text-align:left">Account</th>
+                  <th style="${thS};text-align:left">Type</th>
+                  <th style="${thS};text-align:right">Balance</th>
+                </tr>
+              </thead>
+              <tbody>${accRows}</tbody>
+            </table>
+          </div>`;
+        drillEl.hidden = false;
+        drillEl.querySelector('[data-action="drill-close"]')?.addEventListener('click', () => { drillEl.hidden = true; });
+        drillEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      },
+    },
   });
 }

@@ -7,12 +7,13 @@ import {
 } from './dashboard-utils.js';
 
 // ── Module state ──────────────────────────────────────────────────────────────
-let _chart    = null;
-let _recurring = [];  // detected [{counterparty, amount, frequency, count, lastDate, category}]
-let _sortCol  = 'amount';
-let _sortDir  = 'desc';
-let _sym      = '';
-let _C        = {};
+let _chart        = null;
+let _historyChart = null; // payment-history chart in the drill panel
+let _recurring    = [];   // detected [{counterparty, amount, frequency, count, lastDate, category}]
+let _sortCol      = 'amount';
+let _sortDir      = 'desc';
+let _sym          = '';
+let _C            = {};
 
 function _setChart(c) {
   if (_chart && _chart !== c) { try { _chart.destroy(); } catch (_e) {} }
@@ -20,7 +21,10 @@ function _setChart(c) {
   state.dashChartInstance = c;
 }
 
-function _destroyChart() { _setChart(null); }
+function _destroyChart() {
+  _setChart(null);
+  if (_historyChart) { try { _historyChart.destroy(); } catch (_e) {} _historyChart = null; }
+}
 
 // ── Stats helpers ─────────────────────────────────────────────────────────────
 
@@ -50,10 +54,10 @@ function _detectRecurring(outTxs) {
     if (rows.length < 2) continue;
 
     const sorted  = [...rows].sort((a, b) => new Date(a.transaction_date_utc) - new Date(b.transaction_date_utc));
-    const amounts = sorted.map(t => t.amount_base || 0);
+    const amounts = sorted.map(t => Number(t.amount_base) || 0);
     const amtMean = _mean(amounts);
     if (amtMean <= 0) continue;
-    if (_stdDev(amounts) / amtMean > 0.05) continue; // too variable
+    if (_stdDev(amounts) / amtMean > 0.15) continue; // too variable
 
     const dates = sorted.map(t => new Date(t.transaction_date_utc));
     const gaps  = dates.slice(1).map((d, i) => _daysBetween(dates[i], d));
@@ -91,6 +95,7 @@ function _renderTable(tbodyId) {
   const sorted = [..._recurring].sort((a, b) => {
     switch (_sortCol) {
       case 'counterparty': return sign * a.counterparty.localeCompare(b.counterparty);
+      case 'category':     return sign * a.category.localeCompare(b.category);
       case 'frequency':    return sign * a.frequency.localeCompare(b.frequency);
       case 'amount':       return sign * (a.amount - b.amount);
       case 'last_date':    return sign * (a.lastDate - b.lastDate);
@@ -102,7 +107,7 @@ function _renderTable(tbodyId) {
   const fmtDate = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
   tbody.innerHTML = sorted.map(r => `
-    <tr style="border-bottom:1px solid var(--hair)">
+    <tr data-cp="${esc(r.counterparty.toLowerCase())}" style="border-bottom:1px solid var(--hair);cursor:pointer" title="Tap to see payment history">
       <td style="padding:10px 8px;font-size:var(--text-sm)">${esc(r.counterparty)}</td>
       <td style="padding:10px 8px;font-size:var(--text-sm);color:var(--muted)">${esc(r.category)}</td>
       <td style="padding:10px 8px;text-align:center">
@@ -173,6 +178,85 @@ function _renderBar(canvasId) {
       },
     },
   }));
+}
+
+// ── Payment history panel ─────────────────────────────────────────────────────
+
+function _showHistory(historyEl, cpKey) {
+  if (_historyChart) { try { _historyChart.destroy(); } catch (_e) {} _historyChart = null; }
+
+  const cpTxs = state.transactions
+    .filter(t =>
+      t.transaction_type === 'money-out' &&
+      ((t.counterparty || '').trim() || 'unknown').toLowerCase() === cpKey
+    )
+    .sort((a, b) => new Date(a.transaction_date_utc) - new Date(b.transaction_date_utc));
+
+  if (!cpTxs.length) {
+    historyEl.hidden = true;
+    return;
+  }
+
+  // Group by YYYY-MM for bar chart
+  const monthMap = new Map();
+  for (const t of cpTxs) {
+    const mk = t.transaction_date_utc.slice(0, 7);
+    if (!monthMap.has(mk)) monthMap.set(mk, 0);
+    monthMap.set(mk, monthMap.get(mk) + (Number(t.amount_base) || 0));
+  }
+  const monthKeys = [...monthMap.keys()].sort();
+  const monthVals = monthKeys.map(mk => monthMap.get(mk));
+
+  const fmtMk  = mk => { const [y, m] = mk.split('-'); return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(m)-1]} ${y.slice(2)}`; };
+  const fmtAmt = v => _sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+  const r = _recurring.find(rec => rec.counterparty.toLowerCase() === cpKey);
+
+  historyEl.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <p style="font-size:var(--text-xs);color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin:0">Payment history${r ? ` · ${r.frequency}` : ''}</p>
+      <button data-action="history-close" style="background:none;border:none;color:var(--muted);font-size:var(--text-sm);cursor:pointer;padding:0 4px">✕</button>
+    </div>
+    <div style="height:100px"><canvas id="dash23-hchart" style="width:100%;height:100%"></canvas></div>`;
+
+  historyEl.hidden = false;
+  historyEl.querySelector('[data-action="history-close"]')?.addEventListener('click', () => { historyEl.hidden = true; });
+
+  const canvas = el('dash23-hchart');
+  if (!canvas) return;
+  _historyChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels:   monthKeys.map(fmtMk),
+      datasets: [{ data: monthVals, backgroundColor: _C.teal + '88', borderRadius: 2 }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend:  { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${fmtAmt(ctx.raw)}` } },
+      },
+      scales: {
+        x: { ticks: { color: _C.muted, font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: _C.muted, font: { size: 10 }, callback: v => fmtAmt(v) }, grid: { color: _C.hair } },
+      },
+    },
+  });
+}
+
+function _attachRowClicks(containerId) {
+  const tbody     = el('dash23-tbody');
+  const historyEl = el('dash23-history');
+  if (!tbody || !historyEl) return;
+
+  tbody.addEventListener('click', e => {
+    const row = e.target.closest('tr[data-cp]');
+    if (!row) return;
+    const cpKey = row.dataset.cp;
+    _showHistory(historyEl, cpKey);
+    historyEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
 }
 
 // ── Sort event attachment ─────────────────────────────────────────────────────
@@ -261,7 +345,7 @@ export async function render(containerId, { txs, from, to, sym }) {
         <thead>
           <tr style="border-bottom:2px solid var(--hair)">
             ${_thHtml('counterparty', 'Payee', 'left')}
-            ${_thHtml('frequency',    'Category', 'left')}
+            ${_thHtml('category',     'Category', 'left')}
             ${_thHtml('frequency',    'Frequency', 'center')}
             ${_thHtml('amount',       'Amount', 'right')}
             ${_thHtml('last_date',    'Last paid', 'right')}
@@ -270,6 +354,7 @@ export async function render(containerId, { txs, from, to, sym }) {
         <tbody id="dash23-tbody"></tbody>
       </table>
     </div>
+    <div id="dash23-history" hidden style="margin-bottom:16px;padding:16px;background:var(--panel);border:1px solid var(--hair);border-radius:8px"></div>
     <div class="chart-container" style="height:${barH}px">
       <canvas id="dash23-canvas" style="width:100%;height:100%"></canvas>
     </div>`;
@@ -277,6 +362,7 @@ export async function render(containerId, { txs, from, to, sym }) {
   _renderTable('dash23-tbody');
   _renderBar('dash23-canvas');
   _attachSort(containerId);
+  _attachRowClicks(containerId);
 
   console.log(`[dashboard-23] recurring=${_recurring.length}, monthly_total=${totalMonthly.toFixed(0)}`);
 

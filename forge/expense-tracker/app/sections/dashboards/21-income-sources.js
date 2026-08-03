@@ -45,7 +45,7 @@ function _monthlyTotals(inTxs, monthKeys) {
 
 // ── Donut sub-view ────────────────────────────────────────────────────────────
 
-function _renderDonut(viewEl, segments, sym, C) {
+function _renderDonut(viewEl, segments, sym, C, field, fallback, inTxs) {
   const total = segments.reduce((s, [, v]) => s + v, 0);
   if (!total) {
     viewEl.innerHTML = `<p class="chart-empty">No income for selected period.</p>`;
@@ -73,10 +73,13 @@ function _renderDonut(viewEl, segments, sym, C) {
 
   viewEl.innerHTML = `
     ${concentrated ? `<p style="font-size:var(--text-xs);color:var(--ember);margin:0 0 8px">Concentrated income — ${esc(labels[0])} accounts for ${((topShare) * 100).toFixed(0)}%</p>` : ''}
+    <p style="font-size:var(--text-xs);color:var(--muted);margin:0 0 6px;text-align:center">Tap a segment to see transactions</p>
     <div class="chart-container" style="height:200px"><canvas id="dash21-canvas"></canvas></div>
-    <ul style="list-style:none;padding:0;margin:8px 0 0">${rows}</ul>`;
+    <ul style="list-style:none;padding:0;margin:8px 0 0">${rows}</ul>
+    <div id="dash21-drill" hidden style="margin-top:16px;padding:16px;background:var(--panel);border:1px solid var(--hair);border-radius:8px"></div>`;
 
-  const canvas = viewEl.querySelector('#dash21-canvas');
+  const canvas  = viewEl.querySelector('#dash21-canvas');
+  const drillEl = viewEl.querySelector('#dash21-drill');
   if (!canvas) { _setChart(null); return; }
 
   _setChart(new Chart(canvas, {
@@ -86,6 +89,54 @@ function _renderDonut(viewEl, segments, sym, C) {
       responsive: true,
       maintainAspectRatio: false,
       cutout: '60%',
+      onClick: (_, elements) => {
+        if (!elements.length || !drillEl || !inTxs || !field) return;
+        const label = labels[elements[0].index];
+        if (label === 'Other') return;
+        const segTxs = inTxs
+          .filter(t => ((t[field] || '').trim() || fallback) === label)
+          .sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+        const segTotal = sumAmountBase(segTxs);
+
+        const thS = `padding:8px;font-size:var(--text-xs);color:var(--muted);font-weight:600;white-space:nowrap`;
+        const tdS = `padding:9px 8px;font-size:var(--text-sm);border-bottom:1px solid var(--hair)`;
+
+        const bodyRows = segTxs.map(t => {
+          const d    = new Date(t.transaction_date_utc);
+          const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+          const info = field === 'counterparty' ? (t.major_category || '—') : (t.counterparty || '—');
+          return `<tr>
+            <td style="${tdS};color:var(--muted);white-space:nowrap">${esc(date)}</td>
+            <td style="${tdS}">${esc(info)}</td>
+            <td style="${tdS};text-align:right;white-space:nowrap" class="positive">${esc(fmt(sumAmountBase([t])))}</td>
+          </tr>`;
+        }).join('');
+
+        const colHeader = field === 'counterparty' ? 'Category' : 'From';
+        drillEl.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h3 style="font-size:var(--text-sm);font-weight:600;margin:0">${esc(label)}</h3>
+            <div style="display:flex;gap:8px;font-size:var(--text-xs);color:var(--muted)">
+              <span>${esc(String(segTxs.length))} txs · ${esc(fmt(segTotal))}</span>
+              <button data-action="drill-close" style="background:none;border:none;color:var(--muted);font-size:var(--text-sm);cursor:pointer;padding:0 4px">✕</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+            <table style="width:100%;border-collapse:collapse;min-width:280px">
+              <thead>
+                <tr style="border-bottom:2px solid var(--hair)">
+                  <th style="${thS};text-align:left">Date</th>
+                  <th style="${thS};text-align:left">${esc(colHeader)}</th>
+                  <th style="${thS};text-align:right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>${bodyRows || `<tr><td colspan="3" style="padding:12px;text-align:center;color:var(--muted)">No transactions</td></tr>`}</tbody>
+            </table>
+          </div>`;
+        drillEl.hidden = false;
+        drillEl.querySelector('[data-action="drill-close"]')?.addEventListener('click', () => { drillEl.hidden = true; });
+        drillEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      },
       plugins: {
         legend: {
           display: true,
@@ -193,10 +244,10 @@ function _attachTabs(containerId, inTxs, monthKeys, sym, C) {
 
       switch (btn.dataset.d21View) {
         case 'source':
-          _renderDonut(viewEl, _groupBy(inTxs, 'counterparty', 'Unknown source'), sym, C);
+          _renderDonut(viewEl, _groupBy(inTxs, 'counterparty', 'Unknown source'), sym, C, 'counterparty', 'Unknown source', inTxs);
           break;
         case 'category':
-          _renderDonut(viewEl, _groupBy(inTxs, 'major_category', 'Uncategorised'), sym, C);
+          _renderDonut(viewEl, _groupBy(inTxs, 'major_category', 'Uncategorised'), sym, C, 'major_category', 'Uncategorised', inTxs);
           break;
         case 'trend':
           _renderTrend(viewEl, inTxs, monthKeys, sym, C);
@@ -241,7 +292,7 @@ export async function render(containerId, { txs, from, to, sym }) {
 
   // Render default sub-view
   const viewEl = el('dash21-view');
-  _renderDonut(viewEl, _groupBy(inTxs, 'counterparty', 'Unknown source'), sym, C);
+  _renderDonut(viewEl, _groupBy(inTxs, 'counterparty', 'Unknown source'), sym, C, 'counterparty', 'Unknown source', inTxs);
 
   _attachTabs(containerId, inTxs, monthKeys, sym, C);
 

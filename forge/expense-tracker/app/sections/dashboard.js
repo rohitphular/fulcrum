@@ -37,7 +37,7 @@ const DASHBOARDS = [
   { id: '25-spend-by-city',     label: 'Spend by city',                  group: 'Geography',            tabs: false },
   // Loans
   { id: '26-loan-progress',     label: 'Loan progress',                   group: 'Loans',                tabs: false },
-  { id: '27-debt-to-income',    label: 'Debt-to-income',                  group: 'Loans',                tabs: false },
+  { id: '27-debt-to-income',    label: 'Debt-to-income',                  group: 'Loans',                tabs: true, tabLabels: { transactions: 'Income trend', accounts: 'DTI ratio' } },
   // FX
   { id: '28-forex-spend',       label: 'Foreign currency spend',          group: 'FX & currency',        tabs: false },
 ];
@@ -45,6 +45,10 @@ const DASHBOARDS = [
 const PERIOD_OPTIONS = [
   { value: 'this_week',    label: 'This week'      },
   { value: 'last_week',    label: 'Last week'      },
+  { value: 'last_7',       label: 'Last 7 days'    },
+  { value: 'last_30',      label: 'Last 30 days'   },
+  { value: 'last_60',      label: 'Last 60 days'   },
+  { value: 'last_90',      label: 'Last 90 days'   },
   { value: 'this_month',   label: 'This month'     },
   { value: 'last_month',   label: 'Last month'     },
   { value: 'last_3',       label: 'Last 3 months'  },
@@ -93,10 +97,11 @@ function _buildShellHtml() {
 
   const customHidden = state.dashPeriod !== 'custom' ? ' hidden' : '';
 
+  const tl = dash.tabLabels || {};
   const tabStrip = dash.tabs
     ? `<div class="dash-tabs">
-        <button class="dash-tab${state.dashTab === 'transactions' ? ' active' : ''}" data-action="dash-tab" data-tab="transactions">Transactions</button>
-        <button class="dash-tab${state.dashTab === 'accounts'     ? ' active' : ''}" data-action="dash-tab" data-tab="accounts">Accounts</button>
+        <button class="dash-tab${state.dashTab === 'transactions' ? ' active' : ''}" data-action="dash-tab" data-tab="transactions">${esc(tl.transactions || 'Transactions')}</button>
+        <button class="dash-tab${state.dashTab === 'accounts'     ? ' active' : ''}" data-action="dash-tab" data-tab="accounts">${esc(tl.accounts || 'Accounts')}</button>
       </div>`
     : '';
 
@@ -233,8 +238,7 @@ async function _loadRenderer(dashId) {
     _renderers[dashId] = mod;
     return mod;
   } catch (_) {
-    _renderers[dashId] = null;
-    return null;
+    return null; // don't cache failures — next selection will retry the import
   }
 }
 

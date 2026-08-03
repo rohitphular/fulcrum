@@ -1,18 +1,8 @@
 /* global Chart */
 import { el, esc } from '../../core/utils.js';
 import { state } from '../../core/state.js';
-import { computeDailyTotalAssets, getCssColors, baseChartOptions } from './dashboard-utils.js';
+import { computeBalancesAt, getCssColors, baseChartOptions } from './dashboard-utils.js';
 
-// ── Current balance per account ───────────────────────────────────────────────
-// Replays all transactions up to today for a single account to get its
-// current balance in the quote currency.
-
-function _currentBalance(account) {
-  const today      = new Date();
-  const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const daily      = computeDailyTotalAssets([account], state.transactions, todayLocal, todayLocal);
-  return daily[0] || 0;
-}
 
 // ── Section chart ─────────────────────────────────────────────────────────────
 
@@ -83,7 +73,12 @@ export async function render(containerId, { accounts, sym }) {
     return null;
   }
 
-  const liabilityTypes  = new Set(state.accountSchema?.liability_types  || []);
+  if (!state.accountSchema) {
+    container.innerHTML = `<div class="chart-wrap"><p class="chart-empty">Account schema not loaded — cannot classify liabilities vs assets. Try reloading the page.</p></div>`;
+    return null;
+  }
+
+  const liabilityTypes  = new Set(state.accountSchema.liability_types  || []);
   const investmentTypes = new Set(['investment']);
 
   const active = accounts.filter(a => a.is_active);
@@ -92,8 +87,11 @@ export async function render(containerId, { accounts, sym }) {
     return null;
   }
 
-  // Compute current balance per account
-  const withBalance = active.map(a => ({ ...a, balance: _currentBalance(a) }));
+  // Single-pass balance computation for all active accounts
+  const today      = new Date();
+  const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const balanceMap = computeBalancesAt(active, state.transactions, todayLocal);
+  const withBalance = active.map(a => ({ ...a, balance: balanceMap.get(a.id) || 0 }));
 
   // Partition
   const assets      = withBalance.filter(a => !liabilityTypes.has(a.type) && !investmentTypes.has(a.type)).sort((a, b) => b.balance - a.balance);

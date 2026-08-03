@@ -5,27 +5,29 @@ import { splitTags, sumAmountBase, getCssColors, buildPalette } from './dashboar
 const MAX_SEGMENTS = 7;
 
 // ── Tag aggregation ───────────────────────────────────────────────────────────
-// Each tag on a transaction receives the FULL transaction amount (not split).
+// Split attribution: each tag on a transaction receives (amount / tagCount).
+// A £90 tx tagged rohit;reena;aryan contributes £30 to each tag, not £90.
 // Tags are normalised: lowercase + trimmed.
 
 function _aggregateTags(moneyOut) {
   const pairs = splitTags(moneyOut);
 
-  // Map: normalisedTag → { label, txSet (for dedup), txs[] }
+  // Map: normalisedTag → { label, seen (dedup), amount, count }
   const map = new Map();
-  pairs.forEach(({ tag, tx }) => {
+  pairs.forEach(({ tag, tx, tagCount }) => {
     const key = tag.toLowerCase().trim();
     if (!key) return;
-    if (!map.has(key)) map.set(key, { label: key, seen: new Set(), txs: [] });
+    if (!map.has(key)) map.set(key, { label: key, seen: new Set(), amount: 0, count: 0 });
     const entry = map.get(key);
     if (!entry.seen.has(tx)) {    // deduplicate if same tag appears twice in one tx
       entry.seen.add(tx);
-      entry.txs.push(tx);
+      entry.amount += sumAmountBase([tx]) / tagCount;
+      entry.count++;
     }
   });
 
   return [...map.values()]
-    .map(({ label, txs }) => ({ label, amount: sumAmountBase(txs), count: txs.length }))
+    .map(({ label, amount, count }) => ({ label, amount, count }))
     .sort((a, b) => b.amount - a.amount);
 }
 
@@ -87,6 +89,65 @@ function _tableHtml(rows, sym) {
     </div>`;
 }
 
+// ── Drill panel — transactions for a specific tag ────────────────────────────
+
+function _renderDrillPanel(drillEl, moneyOut, tag, sym) {
+  const fmt = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+  // "Other tags" has no single tag — skip
+  if (tag === 'Other tags') {
+    drillEl.innerHTML = `<p style="font-size:var(--text-sm);color:var(--muted);padding:12px 0">"Other tags" aggregates multiple tags — select a specific segment to see transactions.</p>`;
+    drillEl.hidden = false;
+    return;
+  }
+
+  const tagTxs = moneyOut
+    .filter(t => String(t.tags || '').split(';').map(s => s.toLowerCase().trim()).includes(tag))
+    .sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+
+  const total = sumAmountBase(tagTxs);
+  const thS   = `padding:8px;font-size:var(--text-xs);color:var(--muted);font-weight:600;white-space:nowrap`;
+  const tdS   = `padding:9px 8px;font-size:var(--text-sm);border-bottom:1px solid var(--hair)`;
+
+  const bodyRows = tagTxs.map(t => {
+    const d    = new Date(t.transaction_date_utc);
+    const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+    const desc = t.description && t.description !== t.counterparty ? t.description : '';
+    return `<tr>
+      <td style="${tdS};color:var(--muted);white-space:nowrap">${esc(date)}</td>
+      <td style="${tdS}">${esc(t.counterparty || '—')}</td>
+      <td style="${tdS};color:var(--muted)">${esc(desc)}</td>
+      <td style="${tdS};text-align:right;white-space:nowrap">${esc(fmt(sumAmountBase([t])))}</td>
+    </tr>`;
+  }).join('');
+
+  drillEl.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h3 style="font-size:var(--text-sm);font-weight:600;margin:0">Transactions tagged <em>${esc(tag)}</em></h3>
+      <div style="display:flex;gap:8px;font-size:var(--text-xs);color:var(--muted)">
+        <span>${esc(String(tagTxs.length))} txs · ${esc(fmt(total))}</span>
+        <button data-action="drill-close" style="background:none;border:none;color:var(--muted);font-size:var(--text-sm);cursor:pointer;padding:0 4px">✕</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;border-collapse:collapse;min-width:360px">
+        <thead>
+          <tr style="border-bottom:2px solid var(--hair)">
+            <th style="${thS};text-align:left">Date</th>
+            <th style="${thS};text-align:left">Counterparty</th>
+            <th style="${thS};text-align:left">Description</th>
+            <th style="${thS};text-align:right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${bodyRows || `<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--muted)">No transactions</td></tr>`}</tbody>
+      </table>
+    </div>`;
+
+  drillEl.hidden = false;
+  drillEl.querySelector('[data-action="drill-close"]')?.addEventListener('click', () => { drillEl.hidden = true; });
+  drillEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function render(containerId, { txs, sym }) {
@@ -126,7 +187,7 @@ export async function render(containerId, { txs, sym }) {
       <div class="stat-card">
         <p class="stat-card-label">Tagged txs</p>
         <p class="stat-card-value">${esc(String(totalTxs))}</p>
-        <p class="stat-card-sub">of ${esc(String(moneyOut.length))} expenses</p>
+        <p class="stat-card-sub">of ${esc(String(moneyOut.length))} expenses — tap segment to drill</p>
       </div>
     </div>
     <div style="position:relative">
@@ -137,9 +198,11 @@ export async function render(containerId, { txs, sym }) {
       </div>
     </div>
     ${_legendHtml(segments, colors, sym)}
-    ${_tableHtml(allRows, sym)}`;
+    ${_tableHtml(allRows, sym)}
+    <div id="dash12-drill" hidden style="margin-top:20px;padding:16px;background:var(--panel);border:1px solid var(--hair);border-radius:8px"></div>`;
 
-  const canvas = container.querySelector('canvas');
+  const canvas   = container.querySelector('canvas');
+  const drillEl  = container.querySelector('#dash12-drill');
   if (!canvas) return null;
 
   console.log(`[dashboard-12] ${tagCount} tags, ${totalTxs} tagged txs`);
@@ -154,6 +217,11 @@ export async function render(containerId, { txs, sym }) {
       responsive:          true,
       maintainAspectRatio: false,
       cutout:              '55%',
+      onClick: (_, elements) => {
+        if (!elements.length || !drillEl) return;
+        const tag = labels[elements[0].index];
+        _renderDrillPanel(drillEl, moneyOut, tag, sym);
+      },
       plugins: {
         legend: { display: false },
         tooltip: {

@@ -23,16 +23,24 @@ function _groupByMinor(txs) {
 }
 
 // ── Period B derivation ───────────────────────────────────────────────────────
-// Period A = coordinator's filtered range.  Period B = immediately preceding calendar month.
+// Period B mirrors Period A's exact duration, immediately before Period A.
 
-function _prevMonth(from) {
-  const bFrom = new Date(from.getFullYear(), from.getMonth() - 1, 1);
-  const bTo   = new Date(from.getFullYear(), from.getMonth(), 0);
+function _prevPeriod(from, to) {
+  const durationMs = to.getTime() - from.getTime();
+  const bTo   = new Date(from.getTime() - 86400000);
+  const bFrom = new Date(bTo.getTime() - durationMs);
   return { bFrom, bTo };
 }
 
-function _monthKey(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+function _periodLabel(from, to) {
+  const days = Math.round((to.getTime() - from.getTime()) / 86400000);
+  const fmt  = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+  // Use "Month 'YY" shorthand only when the range is a full calendar month
+  if (days >= 28 && from.getDate() === 1) {
+    const mk = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, '0')}`;
+    return fmtMonthKey(mk);
+  }
+  return `${fmt(from)} – ${fmt(to)}`;
 }
 
 // ── Chart options (horizontal bar) ────────────────────────────────────────────
@@ -69,7 +77,7 @@ function _deltaListHtml(rows, labelB, sym) {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export async function render(containerId, { txs, sym, from }) {
+export async function render(containerId, { txs, sym, from, to }) {
   const container = el(containerId);
   if (!container) {
     console.warn('[dashboard-10] container not found:', containerId);
@@ -83,7 +91,7 @@ export async function render(containerId, { txs, sym, from }) {
     return null;
   }
 
-  const { bFrom, bTo } = _prevMonth(from);
+  const { bFrom, bTo } = _prevPeriod(from, to);
   const moneyOutB = filterTxByRange(state.transactions, bFrom, bTo)
     .filter(t => t.transaction_type === 'money-out');
 
@@ -97,8 +105,8 @@ export async function render(containerId, { txs, sym, from }) {
     .sort((a, b) => b.amtA - a.amtA)
     .slice(0, TOP_N);
 
-  const labelA = fmtMonthKey(_monthKey(from));
-  const labelB = fmtMonthKey(_monthKey(bFrom));
+  const labelA = _periodLabel(from, to);
+  const labelB = _periodLabel(bFrom, bTo);
 
   const C   = getCssColors();
   const fmt = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });

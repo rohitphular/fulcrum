@@ -8,7 +8,8 @@ import {
 const MAX_VISIBLE = 6;  // top N tags visible by default; rest togglable via legend
 
 // ── Monthly tag attribution ────────────────────────────────────────────────────
-// Full attribution: each tag on a tx receives the full tx amount (not split).
+// Split attribution: each tag on a tx receives (amount / tagCount).
+// A £90 tx tagged rohit;reena;aryan contributes £30 to each tag's monthly total.
 
 function _buildTagMonthly(moneyOut, monthKeys) {
   const byMonth   = groupByMonth(moneyOut);
@@ -18,11 +19,11 @@ function _buildTagMonthly(moneyOut, monthKeys) {
     (byMonth.get(mk) || []).forEach(tx => {
       const tags = (tx.tags || '').split(';').map(t => t.toLowerCase().trim()).filter(Boolean);
       if (!tags.length) return;
-      const amt = sumAmountBase([tx]);
+      const share = sumAmountBase([tx]) / tags.length;
       tags.forEach(tag => {
         if (!tagMonthMap.has(tag)) tagMonthMap.set(tag, new Map());
         const monthMap = tagMonthMap.get(tag);
-        monthMap.set(mk, (monthMap.get(mk) || 0) + amt);
+        monthMap.set(mk, (monthMap.get(mk) || 0) + share);
       });
     });
   });
@@ -96,14 +97,16 @@ export async function render(containerId, { txs, sym, from, to }) {
       <div class="stat-card">
         <p class="stat-card-label">Top tag</p>
         <p class="stat-card-value" style="font-size:var(--text-base)">${esc(topTag.tag)}</p>
-        <p class="stat-card-sub">${esc(fmt(topTag.total))}</p>
+        <p class="stat-card-sub">${esc(fmt(topTag.total))} — tap a point to drill</p>
       </div>
     </div>
     <div class="chart-wrap">
       <div class="chart-container"><canvas></canvas></div>
-    </div>`;
+    </div>
+    <div id="dash13-drill" hidden style="margin-top:20px;padding:16px;background:var(--panel);border:1px solid var(--hair);border-radius:8px"></div>`;
 
-  const canvas = container.querySelector('canvas');
+  const canvas  = container.querySelector('canvas');
+  const drillEl = container.querySelector('#dash13-drill');
   if (!canvas) return null;
 
   console.log(`[dashboard-13] ${tagCount} tags, ${monthKeys.length} months, visible=${Math.min(tagCount, MAX_VISIBLE)}`);
@@ -111,6 +114,68 @@ export async function render(containerId, { txs, sym, from, to }) {
   return new Chart(canvas, {
     type: 'line',
     data: { labels, datasets },
-    options: _buildChartOptions(sym, C),
+    options: {
+      ..._buildChartOptions(sym, C),
+      onClick: (_, elements) => {
+        if (!elements.length || !drillEl) return;
+        const dsIdx  = elements[0].datasetIndex;
+        const ptIdx  = elements[0].index;
+        const tag    = sorted[dsIdx]?.tag;
+        const mk     = monthKeys[ptIdx];
+        if (!tag || !mk) return;
+
+        const tagTxs = moneyOut.filter(t => {
+          if (!t.transaction_date_utc.startsWith(mk)) return false;
+          return String(t.tags || '').split(';').map(s => s.toLowerCase().trim()).includes(tag);
+        }).sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+
+        const thS = `padding:8px;font-size:var(--text-xs);color:var(--muted);font-weight:600;white-space:nowrap`;
+        const tdS = `padding:9px 8px;font-size:var(--text-sm);border-bottom:1px solid var(--hair)`;
+
+        const bodyRows = tagTxs.map(t => {
+          const d       = new Date(t.transaction_date_utc);
+          const date    = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+          const tags    = String(t.tags || '').split(';').map(s => s.trim()).filter(Boolean);
+          const share   = sumAmountBase([t]) / Math.max(tags.length, 1);
+          const fmtV    = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+          const shareTxt = tags.length > 1 ? ` (÷${tags.length})` : '';
+          return `<tr>
+            <td style="${tdS};color:var(--muted);white-space:nowrap">${esc(date)}</td>
+            <td style="${tdS}">${esc(t.counterparty || '—')}</td>
+            <td style="${tdS};text-align:right;white-space:nowrap">${esc(fmtV(share))}${esc(shareTxt)}</td>
+          </tr>`;
+        }).join('');
+
+        const shareTotal = tagTxs.reduce((s, t) => {
+          const tags = String(t.tags || '').split(';').filter(Boolean);
+          return s + sumAmountBase([t]) / Math.max(tags.length, 1);
+        }, 0);
+        const fmtV = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+        drillEl.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h3 style="font-size:var(--text-sm);font-weight:600;margin:0"><em>${esc(tag)}</em> — ${esc(fmtMonthKey(mk))}</h3>
+            <div style="display:flex;gap:8px;font-size:var(--text-xs);color:var(--muted)">
+              <span>${esc(String(tagTxs.length))} txs · ${esc(fmtV(shareTotal))}</span>
+              <button data-action="drill-close" style="background:none;border:none;color:var(--muted);font-size:var(--text-sm);cursor:pointer;padding:0 4px">✕</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+            <table style="width:100%;border-collapse:collapse;min-width:280px">
+              <thead>
+                <tr style="border-bottom:2px solid var(--hair)">
+                  <th style="${thS};text-align:left">Date</th>
+                  <th style="${thS};text-align:left">Counterparty</th>
+                  <th style="${thS};text-align:right">Amount (split)</th>
+                </tr>
+              </thead>
+              <tbody>${bodyRows || `<tr><td colspan="3" style="padding:12px;text-align:center;color:var(--muted)">No transactions</td></tr>`}</tbody>
+            </table>
+          </div>`;
+        drillEl.hidden = false;
+        drillEl.querySelector('[data-action="drill-close"]')?.addEventListener('click', () => { drillEl.hidden = true; });
+        drillEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      },
+    },
   });
 }

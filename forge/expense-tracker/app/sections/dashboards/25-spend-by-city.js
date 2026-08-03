@@ -1,23 +1,11 @@
 /* global Chart */
 import { el, esc } from '../../core/utils.js';
 import { state } from '../../core/state.js';
-import { sumAmountBase, getCssColors, baseChartOptions } from './dashboard-utils.js';
+import { sumAmountBase, getCssColors, baseChartOptions, normCountry, domesticCountry } from './dashboard-utils.js';
 
 const MAX_CITIES = 15;
 
-const COUNTRY_NORM = {
-  'uk': 'United Kingdom', 'gb': 'United Kingdom', 'england': 'United Kingdom',
-  'us': 'United States',  'usa': 'United States',  'america': 'United States',
-  'uae': 'UAE', 'in': 'India',
-};
-
-const DOMESTIC_COUNTRY = 'United Kingdom';
-
-function _normCountry(raw) {
-  if (!raw || !raw.trim()) return '';
-  const t = raw.trim();
-  return COUNTRY_NORM[t.toLowerCase()] || (t.charAt(0).toUpperCase() + t.slice(1));
-}
+function _normCountry(raw) { return normCountry(raw); }
 
 // ── City key + label ──────────────────────────────────────────────────────────
 // Composite "City, Country" to disambiguate same city in different countries.
@@ -48,7 +36,8 @@ function _groupByCity(outTxs) {
     const catFreq = {};
     for (const t of txs) { const c = t.major_category || '—'; catFreq[c] = (catFreq[c] || 0) + 1; }
     const topCat   = Object.entries(catFreq).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
-    const isDomestic = country === DOMESTIC_COUNTRY;
+    const home = domesticCountry();
+    const isDomestic = home !== null && country === home;
     const isUnknown  = label === 'Unknown' || label.endsWith('(city unknown)');
     return { label, total, count, avg: count ? total / count : 0, topCat, isDomestic, isUnknown };
   });
@@ -103,6 +92,57 @@ function _tableHtml(rows, sym) {
         <tbody>${bodyRows}</tbody>
       </table>
     </div>`;
+}
+
+// ── Transaction drill panel ───────────────────────────────────────────────────
+
+function _renderTxDrill(drillEl, outTxs, cityLabel, sym) {
+  const fmt = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const thS = `padding:8px;font-size:var(--text-xs);color:var(--muted);font-weight:600;white-space:nowrap`;
+  const tdS = `padding:9px 8px;font-size:var(--text-sm);border-bottom:1px solid var(--hair)`;
+
+  const cityTxs = outTxs
+    .filter(t => _cityKey(t) === cityLabel)
+    .sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+
+  const total = sumAmountBase(cityTxs);
+
+  const bodyRows = cityTxs.map(t => {
+    const d    = new Date(t.transaction_date_utc);
+    const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+    return `<tr>
+      <td style="${tdS};color:var(--muted);white-space:nowrap">${esc(date)}</td>
+      <td style="${tdS}">${esc(t.counterparty || '—')}</td>
+      <td style="${tdS};color:var(--muted)">${esc(t.major_category || '—')}</td>
+      <td style="${tdS};text-align:right;white-space:nowrap">${esc(fmt(sumAmountBase([t])))}</td>
+    </tr>`;
+  }).join('');
+
+  drillEl.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h3 style="font-size:var(--text-sm);font-weight:600;margin:0">${esc(cityLabel)}</h3>
+      <div style="display:flex;gap:8px;font-size:var(--text-xs);color:var(--muted)">
+        <span>${esc(String(cityTxs.length))} txs · ${esc(fmt(total))}</span>
+        <button data-action="drill-close" style="background:none;border:none;color:var(--muted);font-size:var(--text-sm);cursor:pointer;padding:0 4px">✕</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;border-collapse:collapse;min-width:360px">
+        <thead>
+          <tr style="border-bottom:2px solid var(--hair)">
+            <th style="${thS};text-align:left">Date</th>
+            <th style="${thS};text-align:left">Counterparty</th>
+            <th style="${thS};text-align:left">Category</th>
+            <th style="${thS};text-align:right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${bodyRows || `<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--muted)">No transactions</td></tr>`}</tbody>
+      </table>
+    </div>`;
+
+  drillEl.hidden = false;
+  drillEl.querySelector('[data-action="drill-close"]')?.addEventListener('click', () => { drillEl.hidden = true; });
+  drillEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -168,10 +208,15 @@ export async function render(containerId, { txs, sym }) {
     <div class="chart-container" style="height:${h}px">
       <canvas id="dash25-canvas" style="width:100%;height:100%"></canvas>
     </div>
-    ${_tableHtml(rows, sym)}`;
+    ${_tableHtml(rows, sym)}
+    <div id="dash25-drill" hidden style="margin-top:20px;padding:16px;background:var(--panel);border:1px solid var(--hair);border-radius:8px"></div>`;
 
-  const canvas = el('dash25-canvas');
+  const canvas  = el('dash25-canvas');
+  const drillEl = container.querySelector('#dash25-drill');
   if (!canvas) return null;
+
+  // Build a full-fidelity label→txs map for city click (rows uses truncated labels for display)
+  const fullLabels = rows.map(r => r.label); // original labels before truncation for chart display
 
   console.log(`[dashboard-25] cities=${rows.length}, domestic=${domTotal.toFixed(0)}, foreign=${foreignTotal.toFixed(0)}`);
 
@@ -185,6 +230,12 @@ export async function render(containerId, { txs, sym }) {
     options: {
       ...base,
       indexAxis: 'y',
+      onClick: (_, elements) => {
+        if (!elements.length || !drillEl) return;
+        const cityLabel = fullLabels[elements[0].index];
+        if (!cityLabel || cityLabel === 'Other') return;
+        _renderTxDrill(drillEl, outTxs, cityLabel, sym);
+      },
       plugins: {
         ...base.plugins,
         legend: { display: false },

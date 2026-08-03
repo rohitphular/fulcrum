@@ -159,6 +159,7 @@ export async function render(containerId, { txs, from, to, sym }) {
   container.innerHTML = `
     ${_statCardsHtml(rateArr, monthKeys, C)}
     ${hasPartial ? '<p style="font-size:var(--text-xs);color:var(--muted);margin:0 0 8px">* partial month</p>' : ''}
+    ${isMobile ? '<p style="font-size:var(--text-xs);color:var(--muted);margin:0 0 6px">Tap legend to show income / expenses</p>' : ''}
     <div class="chart-wrap">
       <div class="chart-container" style="height:280px"><canvas></canvas></div>
     </div>`;

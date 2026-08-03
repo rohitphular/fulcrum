@@ -31,15 +31,19 @@ function _groupExpenses(outTxs) {
     catMap.get(cat).push(tx);
   }
   const sorted = [...catMap.entries()]
-    .map(([cat, txList]) => [cat, sumAmountBase(txList)])
-    .sort((a, b) => b[1] - a[1]);
+    .map(([cat, txs]) => ({ cat, txs, amount: sumAmountBase(txs) }))
+    .sort((a, b) => b.amount - a.amount);
 
   const top  = sorted.slice(0, MAX_CATS);
   const rest = sorted.slice(MAX_CATS);
   if (rest.length) {
-    top.push(['Other expenses', rest.reduce((s, [, v]) => s + v, 0)]);
+    top.push({
+      cat: 'Other expenses',
+      txs: rest.flatMap(r => r.txs),
+      amount: rest.reduce((s, r) => s + r.amount, 0),
+    });
   }
-  return top; // [[label, amount], ...]
+  return top; // [{ cat, txs, amount }, ...]
 }
 
 // ── Waterfall segments ────────────────────────────────────────────────────────
@@ -47,14 +51,18 @@ function _groupExpenses(outTxs) {
 function _buildWaterfall(txs, accounts, from, C) {
   const startBalance = _startBalance(accounts, from);
 
-  const inTxs  = txs.filter(t => t.transaction_type === 'money-in');
-  const outTxs = txs.filter(t => t.transaction_type === 'money-out');
+  const inTxs      = txs.filter(t => t.transaction_type === 'money-in');
+  const outTxs     = txs.filter(t => t.transaction_type === 'money-out');
+  const xferTxs    = txs.filter(t => t.transaction_type === 'money-transfer');
 
-  const income    = sumAmountBase(inTxs);
-  const expGroups = _groupExpenses(outTxs);
+  const income      = sumAmountBase(inTxs);
+  const expGroups   = _groupExpenses(outTxs);
+  // Net transfer effect: positive = net inflow from external accounts, negative = net outflow.
+  // Internal transfers (both sides tracked) cancel out to zero here because amount_base is signed.
+  const netTransfer = sumAmountBase(xferTxs);
 
-  const TRANSP = 'rgba(0,0,0,0)';
   const GREEN  = 'rgba(52,211,153,0.85)';
+  const BLUE   = 'rgba(96,165,250,0.85)'; // transfers
 
   const labels     = [];
   const baseVals   = [];
@@ -72,9 +80,16 @@ function _buildWaterfall(txs, accounts, from, C) {
   rt += income;
 
   // Expense categories (negative visible values float the bar downward)
-  for (const [cat, exp] of expGroups) {
+  for (const { cat, amount: exp } of expGroups) {
     labels.push(cat); baseVals.push(rt); visVals.push(-exp); barColors.push(C.ember);
     rt -= exp;
+  }
+
+  // Net transfers (only shown when non-zero)
+  if (Math.round(Math.abs(netTransfer)) > 0) {
+    labels.push('Transfers'); baseVals.push(rt); visVals.push(netTransfer);
+    barColors.push(netTransfer >= 0 ? BLUE : C.muted);
+    rt += netTransfer;
   }
 
   // Closing
@@ -82,7 +97,7 @@ function _buildWaterfall(txs, accounts, from, C) {
   labels.push('Closing'); baseVals.push(0); visVals.push(closing);
   barColors.push(closing >= 0 ? C.teal : C.ember);
 
-  return { labels, baseVals, visVals, barColors, income, expGroups, closing, startBalance };
+  return { labels, baseVals, visVals, barColors, income, expGroups, netTransfer, closing, startBalance };
 }
 
 // ── Chart options ─────────────────────────────────────────────────────────────
@@ -134,7 +149,7 @@ export async function render(containerId, { txs, accounts, from, sym }) {
   const { labels, baseVals, visVals, barColors, income, expGroups, closing, startBalance }
     = _buildWaterfall(txs, accounts, from, C);
 
-  const totalExpense = expGroups.reduce((s, [, v]) => s + v, 0);
+  const totalExpense = expGroups.reduce((s, g) => s + g.amount, 0);
   const net          = income - totalExpense;
   const netClass     = net >= 0 ? 'positive' : 'negative';
 
@@ -162,10 +177,16 @@ export async function render(containerId, { txs, accounts, from, sym }) {
     </div>
     <div class="chart-wrap">
       <div class="chart-container" style="height:300px"><canvas></canvas></div>
-    </div>`;
+    </div>
+    <p style="font-size:var(--text-xs);color:var(--muted);margin:4px 0 0;text-align:center">Tap an expense bar to see transactions</p>
+    <div id="dash19-drill" hidden style="margin-top:20px;padding:16px;background:var(--panel);border:1px solid var(--hair);border-radius:8px"></div>`;
 
-  const canvas = container.querySelector('canvas');
+  const canvas  = container.querySelector('canvas');
+  const drillEl = container.querySelector('#dash19-drill');
   if (!canvas) return null;
+
+  // Map label index → expGroup for drill panel. Expense bars begin at index 2.
+  const EXP_OFFSET = 2; // Opening(0) + Income(1)
 
   console.log(`[dashboard-19] start=${startBalance.toFixed(0)}, income=${income.toFixed(0)}, expense=${totalExpense.toFixed(0)}, closing=${closing.toFixed(0)}`);
 
@@ -191,6 +212,57 @@ export async function render(containerId, { txs, accounts, from, sym }) {
         },
       ],
     },
-    options: _buildChartOptions(sym, C),
+    options: {
+      ..._buildChartOptions(sym, C),
+      onClick: (_, elements) => {
+        if (!elements.length || !drillEl) return;
+        const barIdx = elements[0].index;
+        const expIdx = barIdx - EXP_OFFSET;
+        if (expIdx < 0 || expIdx >= expGroups.length) return; // Opening/Income/Transfers/Closing
+
+        const { cat, txs: catTxs } = expGroups[expIdx];
+        const sorted = [...catTxs].sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+        const total  = sumAmountBase(sorted);
+        const fmt    = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        const thS    = `padding:8px;font-size:var(--text-xs);color:var(--muted);font-weight:600;white-space:nowrap`;
+        const tdS    = `padding:9px 8px;font-size:var(--text-sm);border-bottom:1px solid var(--hair)`;
+
+        const bodyRows = sorted.map(t => {
+          const d    = new Date(t.transaction_date_utc);
+          const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+          return `<tr>
+            <td style="${tdS};color:var(--muted);white-space:nowrap">${esc(date)}</td>
+            <td style="${tdS}">${esc(t.counterparty || '—')}</td>
+            <td style="${tdS};color:var(--muted)">${esc(t.minor_category || '—')}</td>
+            <td style="${tdS};text-align:right;white-space:nowrap">${esc(fmt(sumAmountBase([t])))}</td>
+          </tr>`;
+        }).join('');
+
+        drillEl.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h3 style="font-size:var(--text-sm);font-weight:600;margin:0">${esc(cat)}</h3>
+            <div style="display:flex;gap:8px;font-size:var(--text-xs);color:var(--muted)">
+              <span>${esc(String(sorted.length))} txs · ${esc(fmt(total))}</span>
+              <button data-action="drill-close" style="background:none;border:none;color:var(--muted);font-size:var(--text-sm);cursor:pointer;padding:0 4px">✕</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+            <table style="width:100%;border-collapse:collapse;min-width:360px">
+              <thead>
+                <tr style="border-bottom:2px solid var(--hair)">
+                  <th style="${thS};text-align:left">Date</th>
+                  <th style="${thS};text-align:left">Counterparty</th>
+                  <th style="${thS};text-align:left">Sub-category</th>
+                  <th style="${thS};text-align:right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>${bodyRows || `<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--muted)">No transactions</td></tr>`}</tbody>
+            </table>
+          </div>`;
+        drillEl.hidden = false;
+        drillEl.querySelector('[data-action="drill-close"]')?.addEventListener('click', () => { drillEl.hidden = true; });
+        drillEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      },
+    },
   });
 }

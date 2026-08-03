@@ -22,6 +22,22 @@ export function getPeriodBounds(period, customFrom, customTo) {
       to   = new Date(mon); to.setDate(mon.getDate() - 1);
       break;
     }
+    case 'last_7':
+      from = new Date(today); from.setDate(today.getDate() - 7);
+      to   = today;
+      break;
+    case 'last_30':
+      from = new Date(today); from.setDate(today.getDate() - 30);
+      to   = today;
+      break;
+    case 'last_60':
+      from = new Date(today); from.setDate(today.getDate() - 60);
+      to   = today;
+      break;
+    case 'last_90':
+      from = new Date(today); from.setDate(today.getDate() - 90);
+      to   = today;
+      break;
     case 'this_month':
       from = new Date(now.getFullYear(), now.getMonth(), 1);
       to   = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -211,6 +227,38 @@ export function accountBalanceByMonth(accounts, txs, months) {
   return result;
 }
 
+// ── Per-account balance at a single point in time ────────────────────────────
+// Single O(T) pass over sorted transactions; returns Map<accountId, balance>.
+// More efficient than calling computeDailyTotalAssets once per account.
+
+export function computeBalancesAt(accounts, allTxs, date) {
+  const dateEnd    = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+  const accountIds = new Set(accounts.map(a => a.id));
+  const balance    = {};
+  accounts.forEach(a => {
+    balance[a.id] = toBase(Number(a.opening_value) || 0, a.currency, null);
+  });
+
+  const sorted = [...allTxs].sort(
+    (a, b) => new Date(a.transaction_date_utc) - new Date(b.transaction_date_utc)
+  );
+
+  for (const tx of sorted) {
+    if (new Date(tx.transaction_date_utc) > dateEnd) break;
+    const amt = toBase(Number(tx.amount) || 0, tx.currency, tx.fx_rate);
+    if (tx.transaction_type === 'money-out' && accountIds.has(tx.source_account)) {
+      balance[tx.source_account] = (balance[tx.source_account] || 0) - amt;
+    } else if (tx.transaction_type === 'money-in' && accountIds.has(tx.target_account)) {
+      balance[tx.target_account] = (balance[tx.target_account] || 0) + amt;
+    } else if (tx.transaction_type === 'money-transfer') {
+      if (accountIds.has(tx.source_account)) balance[tx.source_account] = (balance[tx.source_account] || 0) - amt;
+      if (accountIds.has(tx.target_account)) balance[tx.target_account] = (balance[tx.target_account] || 0) + amt;
+    }
+  }
+
+  return new Map(Object.entries(balance));
+}
+
 // ── Daily total asset balance replay ─────────────────────────────────────────
 //
 // Replays ALL transactions chronologically from each account's opening_value,
@@ -255,13 +303,39 @@ export function computeDailyTotalAssets(assetAccounts, allTxs, from, to) {
   return dailyTotals;
 }
 
+// ── Country normalisation (shared by D24 and D25) ────────────────────────────
+
+export const COUNTRY_NORM = {
+  'uk': 'United Kingdom', 'gb': 'United Kingdom', 'england': 'United Kingdom',
+  'us': 'United States',  'usa': 'United States',  'america': 'United States',
+  'uae': 'UAE', 'in': 'India',
+};
+
+// Maps quote currency → domestic country name for D25's domestic/international split.
+const _CURRENCY_COUNTRY = {
+  GBP: 'United Kingdom', USD: 'United States', INR: 'India',
+  AUD: 'Australia', CAD: 'Canada', CHF: 'Switzerland', SGD: 'Singapore',
+  AED: 'UAE', HKD: 'Hong Kong', JPY: 'Japan', NZD: 'New Zealand',
+};
+
+export function normCountry(raw) {
+  if (!raw || !raw.trim()) return '';
+  const t = raw.trim();
+  return COUNTRY_NORM[t.toLowerCase()] || (t.charAt(0).toUpperCase() + t.slice(1));
+}
+
+export function domesticCountry() {
+  return _CURRENCY_COUNTRY[state.quoteCurrency] || null;
+}
+
 // ── Tags ──────────────────────────────────────────────────────────────────────
 
 export function splitTags(txs) {
   const pairs = [];
   txs.forEach(tx => {
-    String(tx.tags || '').split(';').map(t => t.trim()).filter(Boolean)
-      .forEach(tag => pairs.push({ tag, tx }));
+    const tags = String(tx.tags || '').split(';').map(t => t.trim()).filter(Boolean);
+    const tagCount = tags.length;
+    tags.forEach(tag => pairs.push({ tag, tx, tagCount }));
   });
   return pairs;
 }
@@ -290,6 +364,10 @@ export function parsePeriodLabel(period) {
   const map = {
     this_week:    'This week',
     last_week:    'Last week',
+    last_7:       'Last 7 days',
+    last_30:      'Last 30 days',
+    last_60:      'Last 60 days',
+    last_90:      'Last 90 days',
     this_month:   now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
     last_month:   new Date(now.getFullYear(), now.getMonth() - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
     last_3:       'Last 3 months',

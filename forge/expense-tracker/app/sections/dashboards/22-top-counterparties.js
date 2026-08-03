@@ -1,13 +1,14 @@
 /* global Chart */
 import { el, esc } from '../../core/utils.js';
 import { state } from '../../core/state.js';
-import { sumAmountBase, getCssColors, baseChartOptions } from './dashboard-utils.js';
+import { sumAmountBase, getCssColors, baseChartOptions, fmtMonthKey } from './dashboard-utils.js';
 
 const TOP_OPTIONS = [10, 15, 20];
 const DEFAULT_TOP = 15;
 
 // Module-level state — reset at the top of render() on each fresh render.
-let _chart    = null;
+let _chart          = null;
+let _sparklineChart = null; // sparkline in drill panel
 let _allRows  = []; // [{label, total, txs}] sorted desc — full list before top-N slice
 let _selIdx   = -1; // highlighted bar index
 let _from     = null;
@@ -21,7 +22,10 @@ function _setChart(c) {
   state.dashChartInstance = c;
 }
 
-function _destroyChart() { _setChart(null); }
+function _destroyChart() {
+  _setChart(null);
+  if (_sparklineChart) { try { _sparklineChart.destroy(); } catch (_e) {} _sparklineChart = null; }
+}
 
 // ── Data grouping ─────────────────────────────────────────────────────────────
 
@@ -55,7 +59,7 @@ function _prevSpend(labelLower) {
       const dl = new Date(d.getFullYear(), d.getMonth(), d.getDate());
       return dl >= prevFrom && dl <= prevTo;
     })
-    .reduce((s, t) => s + (t.amount_base || 0), 0);
+    .reduce((s, t) => s + (Number(t.amount_base) || 0), 0);
 }
 
 // ── Drill-down panel ──────────────────────────────────────────────────────────
@@ -63,6 +67,9 @@ function _prevSpend(labelLower) {
 function _showPanel(idx) {
   const panel = el('dash22-panel');
   if (!panel) return;
+
+  // Destroy any previous sparkline before rebuilding the panel
+  if (_sparklineChart) { try { _sparklineChart.destroy(); } catch (_e) {} _sparklineChart = null; }
 
   const row   = _allRows[idx];
   if (!row)   { panel.innerHTML = ''; return; }
@@ -82,9 +89,27 @@ function _showPanel(idx) {
     return `<li style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--hair);font-size:var(--text-sm)">
       <span style="color:var(--muted);width:60px;flex-shrink:0">${esc(date)}</span>
       <span style="flex:1;padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cat}</span>
-      <span style="font-weight:600">${esc(fmt(t.amount_base || 0))}</span>
+      <span style="font-weight:600">${esc(fmt(Number(t.amount_base) || 0))}</span>
     </li>`;
   }).join('');
+
+  // Monthly spend sparkline — last 6 months from today, using full transaction history
+  const now = new Date();
+  const sparkMonths = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    sparkMonths.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+  const labelLower   = row.label.toLowerCase();
+  const allMerchant  = state.transactions.filter(t =>
+    t.transaction_type === 'money-out' &&
+    ((t.counterparty || '').trim() || 'unknown merchant').toLowerCase() === labelLower
+  );
+  const monthlySpend = sparkMonths.map(mk =>
+    allMerchant.filter(t => t.transaction_date_utc.startsWith(mk))
+               .reduce((s, t) => s + (Number(t.amount_base) || 0), 0)
+  );
+  const hasSparkData = monthlySpend.some(v => v > 0);
 
   panel.innerHTML = `
     <div style="margin-top:20px;padding:16px;background:var(--panel);border-radius:8px;border:1px solid var(--hair)">
@@ -98,8 +123,39 @@ function _showPanel(idx) {
           <span>Prev period: <strong style="color:var(--ink)">${esc(fmt(prevTotal))}</strong></span>
           <span class="${diffClass}">${diffArrow} ${esc(fmt(Math.abs(diff)))}</span>
         </div>` : ''}
+      ${hasSparkData ? `
+        <p style="font-size:var(--text-xs);color:var(--muted);margin:0 0 6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Monthly spend (last 6 months)</p>
+        <div style="height:80px;margin-bottom:12px"><canvas id="dash22-spark" style="width:100%;height:100%"></canvas></div>` : ''}
       <ul style="list-style:none;padding:0;margin:0;max-height:240px;overflow-y:auto">${txRows}</ul>
     </div>`;
+
+  // Render sparkline after innerHTML is set
+  if (hasSparkData) {
+    const sparkCanvas = el('dash22-spark');
+    if (sparkCanvas) {
+      _sparklineChart = new Chart(sparkCanvas, {
+        type: 'bar',
+        data: {
+          labels:   sparkMonths.map(fmtMonthKey),
+          datasets: [{ data: monthlySpend, backgroundColor: _C.teal + '88', borderRadius: 2 }],
+        },
+        options: {
+          responsive:          true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend:  { display: false },
+            tooltip: {
+              callbacks: { label: ctx => ` ${_sym}${Math.abs(ctx.raw).toLocaleString('en-GB', { maximumFractionDigits: 0 })}` },
+            },
+          },
+          scales: {
+            x: { ticks: { color: _C.muted, font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: _C.muted, font: { size: 10 }, callback: v => `${_sym}${Math.abs(v).toLocaleString('en-GB', { maximumFractionDigits: 0 })}` }, grid: { color: _C.hair } },
+          },
+        },
+      });
+    }
+  }
 }
 
 // ── Chart render ──────────────────────────────────────────────────────────────
@@ -232,14 +288,14 @@ export async function render(containerId, { txs, from, to, sym }) {
   const container = el(containerId);
   if (!container) {
     console.warn('[dashboard-22] container not found:', containerId);
-    return { destroy() { _destroyChart(); } };
+    return { destroy() { _destroyChart(); } };  // _destroyChart also kills _sparklineChart
   }
 
   const outTxs = txs.filter(t => t.transaction_type === 'money-out');
   if (!outTxs.length) {
     container.innerHTML = `<div class="chart-wrap"><p class="chart-empty">No spend transactions for this period.</p></div>`;
     _setChart(null);
-    return { destroy() { _destroyChart(); } };
+    return { destroy() { _destroyChart(); } };  // _destroyChart also kills _sparklineChart
   }
 
   _C       = getCssColors();
@@ -288,5 +344,5 @@ export async function render(containerId, { txs, from, to, sym }) {
 
   console.log(`[dashboard-22] merchants=${_allRows.length}, spend=${total.toFixed(0)}`);
 
-  return { destroy() { _destroyChart(); } };
+  return { destroy() { _destroyChart(); } };  // _destroyChart also kills _sparklineChart
 }

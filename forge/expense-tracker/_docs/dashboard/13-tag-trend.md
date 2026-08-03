@@ -16,7 +16,7 @@ Monthly spend attributed to each tag over the selected period — tracks whether
 ## Key differences from 09 (category trend)
 
 - **Lines, not stacked bars** — each tag gets its own line; they are not summed.
-- **Full attribution** — same as 12: each tag receives the full tx amount, not a split.
+- **Split attribution** — same as 12: each tag receives `amount / tagCount`, not the full tx amount.
 - **Default visibility cap** — top 6 tags rendered visible; additional tags are hidden by default but togglable via the chart legend.
 
 ---
@@ -32,8 +32,9 @@ Uses `options.txs` (pre-filtered by coordinator) and `options.from` / `options.t
 `_buildTagMonthly(moneyOut, monthKeys)`:
 1. `groupByMonth(moneyOut)` — groups all txs by `'YYYY-MM'`.
 2. For each month: iterates txs, splits `tags` by `;`, normalises (lowercase + trim), skips blank tags.
-3. For each tag on a tx: adds `sumAmountBase([tx])` (full tx amount) to `tagMonthMap[tag][monthKey]`.
-4. Returns `Map<tag, Map<monthKey, total>>`.
+3. Computes `share = sumAmountBase([tx]) / tags.length` — proportional split per tag.
+4. For each tag: adds `share` to `tagMonthMap[tag][monthKey]`.
+5. Returns `Map<tag, Map<monthKey, total>>`.
 
 Untagged txs are skipped.
 

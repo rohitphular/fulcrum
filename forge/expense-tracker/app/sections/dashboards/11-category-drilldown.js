@@ -156,6 +156,7 @@ function _renderLevel2(container, moneyOut, major, majorColor, sym) {
       <div class="stat-card">
         <p class="stat-card-label">Sub-categories</p>
         <p class="stat-card-value">${esc(String(minors.length))}</p>
+        <p class="stat-card-sub">tap a bar to see transactions</p>
       </div>
     </div>
     <div class="chart-wrap">
@@ -167,6 +168,7 @@ function _renderLevel2(container, moneyOut, major, majorColor, sym) {
   if (backBtn) {
     backBtn.addEventListener('click', () => {
       state.dashDrillMajor = null;
+      state.dashDrillMinor = null;
       _destroyChart();
       _renderLevel1(container, moneyOut, sym);
     });
@@ -176,6 +178,14 @@ function _renderLevel2(container, moneyOut, major, majorColor, sym) {
   if (!canvas) return null;
 
   console.log(`[dashboard-11] level2 — major="${major}" minors=${minors.length}, total=${total.toFixed(0)}`);
+
+  const onClick = (_, elements) => {
+    if (!elements.length) return;
+    const minor = minors[elements[0].index].cat;
+    state.dashDrillMinor = minor;
+    _destroyChart();
+    _renderLevel3(container, moneyOut, major, majorColor, minor, sym);
+  };
 
   const chart = new Chart(canvas, {
     type: 'bar',
@@ -187,10 +197,87 @@ function _renderLevel2(container, moneyOut, major, majorColor, sym) {
         borderRadius:    4,
       }],
     },
-    options: _buildChartOptions(sym, C, null),
+    options: _buildChartOptions(sym, C, onClick),
   });
   _setChart(chart);
   return chart;
+}
+
+// ── Level 3 — transactions within a minor category ────────────────────────────
+
+function _renderLevel3(container, moneyOut, major, majorColor, minor, sym) {
+  const txs   = moneyOut
+    .filter(t =>
+      (t.major_category || 'Uncategorised') === major &&
+      (t.minor_category || 'Other') === minor
+    )
+    .sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+
+  const total = sumAmountBase(txs);
+  const fmt   = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+  const thS  = `padding:8px;font-size:var(--text-xs);color:var(--muted);font-weight:600;white-space:nowrap`;
+  const tdS  = `padding:9px 8px;font-size:var(--text-sm);border-bottom:1px solid var(--hair)`;
+
+  const bodyRows = txs.map(t => {
+    const d    = new Date(t.transaction_date_utc);
+    const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+    const desc = t.description && t.description !== t.counterparty ? t.description : '';
+    return `<tr>
+      <td style="${tdS};color:var(--muted);white-space:nowrap">${esc(date)}</td>
+      <td style="${tdS}">${esc(t.counterparty || '—')}</td>
+      <td style="${tdS};color:var(--muted)">${esc(desc)}</td>
+      <td style="${tdS};text-align:right;white-space:nowrap">${esc(fmt(sumAmountBase([t])))}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <button data-action="drill-back-minor"
+        style="min-width:44px;min-height:44px;padding:0 12px;border:1px solid var(--hair);border-radius:6px;background:var(--panel);color:var(--ink);font-size:var(--text-sm);cursor:pointer">
+        ← Back
+      </button>
+      <h3 style="font-size:var(--text-sm);font-weight:600;margin:0">${esc(major)} › ${esc(minor)}</h3>
+    </div>
+    <div class="stat-cards">
+      <div class="stat-card">
+        <p class="stat-card-label">Total</p>
+        <p class="stat-card-value negative">${esc(fmt(total))}</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-card-label">Transactions</p>
+        <p class="stat-card-value">${esc(String(txs.length))}</p>
+      </div>
+    </div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;border-collapse:collapse;min-width:360px">
+        <thead>
+          <tr style="border-bottom:2px solid var(--hair)">
+            <th style="${thS};text-align:left">Date</th>
+            <th style="${thS};text-align:left">Counterparty</th>
+            <th style="${thS};text-align:left">Description</th>
+            <th style="${thS};text-align:right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${bodyRows || `<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--muted)">No transactions</td></tr>`}</tbody>
+      </table>
+    </div>`;
+
+  console.log(`[dashboard-11] level3 — major="${major}" minor="${minor}" txs=${txs.length}`);
+
+  // Back button returns to level 2
+  const backBtn = container.querySelector('[data-action="drill-back-minor"]');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      state.dashDrillMinor = null;
+      _destroyChart();
+      _renderLevel2(container, moneyOut, major, majorColor, sym);
+    });
+  }
+
+  // No chart at level 3 — clear any stale chart reference
+  _destroyChart();
+  return null;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -212,7 +299,15 @@ export async function render(containerId, { txs, sym }) {
   if (state.dashDrillMajor) {
     // Verify the drilled major still has data in the current period
     const exists = moneyOut.some(t => (t.major_category || 'Uncategorised') === state.dashDrillMajor);
-    if (!exists) state.dashDrillMajor = null;
+    if (!exists) { state.dashDrillMajor = null; state.dashDrillMinor = null; }
+  }
+
+  if (state.dashDrillMajor && state.dashDrillMinor) {
+    const minorExists = moneyOut.some(t =>
+      (t.major_category || 'Uncategorised') === state.dashDrillMajor &&
+      (t.minor_category || 'Other') === state.dashDrillMinor
+    );
+    if (!minorExists) state.dashDrillMinor = null;
   }
 
   if (state.dashDrillMajor) {
@@ -221,6 +316,9 @@ export async function render(containerId, { txs, sym }) {
     const majors  = _groupMajors(moneyOut);
     const idx     = majors.findIndex(({ cat }) => cat === state.dashDrillMajor);
     const color   = palette[Math.max(0, idx) % palette.length];
+    if (state.dashDrillMinor) {
+      return _renderLevel3(container, moneyOut, state.dashDrillMajor, color, state.dashDrillMinor, sym);
+    }
     return _renderLevel2(container, moneyOut, state.dashDrillMajor, color, sym);
   }
 

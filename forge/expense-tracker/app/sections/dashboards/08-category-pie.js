@@ -93,6 +93,58 @@ function _tableHtml(moneyOut, total, sym) {
     </div>`;
 }
 
+// ── Drill panel — transactions in a major category ────────────────────────────
+
+function _renderDrillPanel(drillEl, moneyOut, category, topLabels, sym) {
+  const fmt = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+  const catTxs = (category === 'Other'
+    ? moneyOut.filter(t => !topLabels.includes(t.major_category || 'Uncategorised'))
+    : moneyOut.filter(t => (t.major_category || 'Uncategorised') === category)
+  ).sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+
+  const total = sumAmountBase(catTxs);
+  const thS   = `padding:8px;font-size:var(--text-xs);color:var(--muted);font-weight:600;white-space:nowrap`;
+  const tdS   = `padding:9px 8px;font-size:var(--text-sm);border-bottom:1px solid var(--hair)`;
+
+  const bodyRows = catTxs.map(t => {
+    const d    = new Date(t.transaction_date_utc);
+    const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+    return `<tr>
+      <td style="${tdS};color:var(--muted);white-space:nowrap">${esc(date)}</td>
+      <td style="${tdS}">${esc(t.counterparty || '—')}</td>
+      <td style="${tdS};color:var(--muted)">${esc(t.minor_category || '—')}</td>
+      <td style="${tdS};text-align:right;white-space:nowrap">${esc(fmt(sumAmountBase([t])))}</td>
+    </tr>`;
+  }).join('');
+
+  drillEl.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h3 style="font-size:var(--text-sm);font-weight:600;margin:0">${esc(category)}</h3>
+      <div style="display:flex;gap:8px;font-size:var(--text-xs);color:var(--muted)">
+        <span>${esc(String(catTxs.length))} txs · ${esc(fmt(total))}</span>
+        <button data-action="drill-close" style="background:none;border:none;color:var(--muted);font-size:var(--text-sm);cursor:pointer;padding:0 4px">✕</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;border-collapse:collapse;min-width:360px">
+        <thead>
+          <tr style="border-bottom:2px solid var(--hair)">
+            <th style="${thS};text-align:left">Date</th>
+            <th style="${thS};text-align:left">Counterparty</th>
+            <th style="${thS};text-align:left">Sub-category</th>
+            <th style="${thS};text-align:right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${bodyRows || `<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--muted)">No transactions</td></tr>`}</tbody>
+      </table>
+    </div>`;
+
+  drillEl.hidden = false;
+  drillEl.querySelector('[data-action="drill-close"]')?.addEventListener('click', () => { drillEl.hidden = true; });
+  drillEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function render(containerId, { txs, sym }) {
@@ -109,10 +161,11 @@ export async function render(containerId, { txs, sym }) {
     return null;
   }
 
-  const segments = _buildSegments(moneyOut);
-  const total    = segments.reduce((s, { amount }) => s + amount, 0);
-  const labels   = segments.map(({ label }) => label);
-  const amounts  = segments.map(({ amount }) => amount);
+  const segments  = _buildSegments(moneyOut);
+  const total     = segments.reduce((s, { amount }) => s + amount, 0);
+  const labels    = segments.map(({ label }) => label);
+  const amounts   = segments.map(({ amount }) => amount);
+  const topLabels = labels.filter(l => l !== 'Other'); // for "Other" bucket drill
 
   const C      = getCssColors();
   const palette = buildPalette(C);
@@ -125,13 +178,15 @@ export async function render(containerId, { txs, sym }) {
       <div class="chart-container"><canvas></canvas></div>
       <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;width:120px">
         <p style="font-size:var(--text-lg);font-weight:700;line-height:1.2">${esc(fmt(total))}</p>
-        <p style="font-size:var(--text-xs);color:var(--muted);margin-top:2px">total spend</p>
+        <p style="font-size:var(--text-xs);color:var(--muted);margin-top:2px">tap to see transactions</p>
       </div>
     </div>
     ${_legendHtml(segments, colors, total, sym)}
-    ${_tableHtml(moneyOut, total, sym)}`;
+    ${_tableHtml(moneyOut, total, sym)}
+    <div id="dash08-drill" hidden style="margin-top:20px;padding:16px;background:var(--panel);border:1px solid var(--hair);border-radius:8px"></div>`;
 
-  const canvas = container.querySelector('canvas');
+  const canvas  = container.querySelector('canvas');
+  const drillEl = container.querySelector('#dash08-drill');
   if (!canvas) return null;
 
   console.log(`[dashboard-08] ${moneyOut.length} txs, ${segments.length} segments, total=${total.toFixed(0)}`);
@@ -146,6 +201,11 @@ export async function render(containerId, { txs, sym }) {
       responsive:          true,
       maintainAspectRatio: false,
       cutout:              '60%',
+      onClick: (_, elements) => {
+        if (!elements.length || !drillEl) return;
+        const category = labels[elements[0].index];
+        _renderDrillPanel(drillEl, moneyOut, category, topLabels, sym);
+      },
       plugins: {
         legend: { display: false },
         tooltip: {

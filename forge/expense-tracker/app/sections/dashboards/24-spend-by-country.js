@@ -1,22 +1,13 @@
 /* global Chart */
 import { el, esc } from '../../core/utils.js';
 import { state } from '../../core/state.js';
-import { sumAmountBase, getCssColors, baseChartOptions } from './dashboard-utils.js';
+import { sumAmountBase, getCssColors, baseChartOptions, normCountry } from './dashboard-utils.js';
 
 const MAX_COUNTRIES = 15;
 
-// Common country name normalisations (user might type abbreviations)
-const COUNTRY_NORM = {
-  'uk': 'United Kingdom', 'gb': 'United Kingdom', 'england': 'United Kingdom',
-  'us': 'United States',  'usa': 'United States',  'america': 'United States',
-  'uae': 'UAE',
-  'in': 'India',
-};
-
 function _normalise(raw) {
-  if (!raw || !raw.trim()) return 'Unknown';
-  const t = raw.trim();
-  return COUNTRY_NORM[t.toLowerCase()] || (t.charAt(0).toUpperCase() + t.slice(1));
+  const n = normCountry(raw);
+  return n || 'Unknown';
 }
 
 // ── Data grouping ─────────────────────────────────────────────────────────────
@@ -106,6 +97,57 @@ function _tableHtml(rows, sym) {
     </div>`;
 }
 
+// ── City drill panel ──────────────────────────────────────────────────────────
+
+function _renderCityDrill(drillEl, outTxs, country, sym) {
+  const fmt    = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const thS    = `padding:8px;font-size:var(--text-xs);color:var(--muted);font-weight:600;white-space:nowrap`;
+  const tdS    = `padding:9px 8px;font-size:var(--text-sm);border-bottom:1px solid var(--hair)`;
+
+  const countryTxs = country === 'Unknown'
+    ? outTxs.filter(t => !t.country || !t.country.trim())
+    : outTxs.filter(t => _normalise(t.country || '') === country);
+
+  // Group by city
+  const cityMap = new Map();
+  for (const t of countryTxs) {
+    const city = (t.city || '').trim() || '(city unknown)';
+    if (!cityMap.has(city)) cityMap.set(city, []);
+    cityMap.get(city).push(t);
+  }
+  const cityRows = [...cityMap.entries()]
+    .map(([city, txs]) => ({ city, total: sumAmountBase(txs), count: txs.length }))
+    .sort((a, b) => b.total - a.total);
+
+  const tableRows = cityRows.map(r => `<tr>
+    <td style="${tdS}">${esc(r.city)}</td>
+    <td style="${tdS};text-align:right;white-space:nowrap" class="negative">${esc(fmt(r.total))}</td>
+    <td style="${tdS};text-align:right;color:var(--muted)">${esc(String(r.count))}</td>
+  </tr>`).join('');
+
+  drillEl.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h3 style="font-size:var(--text-sm);font-weight:600;margin:0">Cities in ${esc(country)}</h3>
+      <button data-action="drill-close" style="background:none;border:none;color:var(--muted);font-size:var(--text-sm);cursor:pointer;padding:0 4px">✕</button>
+    </div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;border-collapse:collapse;min-width:280px">
+        <thead>
+          <tr style="border-bottom:2px solid var(--hair)">
+            <th style="${thS};text-align:left">City</th>
+            <th style="${thS};text-align:right">Spend</th>
+            <th style="${thS};text-align:right">Txns</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows || `<tr><td colspan="3" style="padding:12px;text-align:center;color:var(--muted)">No city data</td></tr>`}</tbody>
+      </table>
+    </div>`;
+
+  drillEl.hidden = false;
+  drillEl.querySelector('[data-action="drill-close"]')?.addEventListener('click', () => { drillEl.hidden = true; });
+  drillEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function render(containerId, { txs, sym }) {
@@ -162,9 +204,11 @@ export async function render(containerId, { txs, sym }) {
     <div class="chart-container" style="height:${h}px">
       <canvas id="dash24-canvas" style="width:100%;height:100%"></canvas>
     </div>
-    ${_tableHtml(rows, sym)}`;
+    ${_tableHtml(rows, sym)}
+    <div id="dash24-drill" hidden style="margin-top:20px;padding:16px;background:var(--panel);border:1px solid var(--hair);border-radius:8px"></div>`;
 
-  const canvas = el('dash24-canvas');
+  const canvas  = el('dash24-canvas');
+  const drillEl = container.querySelector('#dash24-drill');
   if (!canvas) return null;
 
   console.log(`[dashboard-24] countries=${rows.length}, total=${total.toFixed(0)}`);
@@ -183,6 +227,11 @@ export async function render(containerId, { txs, sym }) {
     options: {
       ...base,
       indexAxis: 'y',
+      onClick: (_, elements) => {
+        if (!elements.length || !drillEl) return;
+        const country = labels[elements[0].index];
+        _renderCityDrill(drillEl, outTxs, country, sym);
+      },
       plugins: {
         ...base.plugins,
         legend: { display: false },

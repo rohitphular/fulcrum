@@ -33,7 +33,7 @@ function _groupByCurrency(outTxs, quoteCcy) {
   }
 
   const rows = [...map.entries()].map(([ccy, txs]) => {
-    const nativeTotal  = txs.reduce((s, t) => s + Math.abs(t.amount || 0), 0);
+    const nativeTotal  = txs.reduce((s, t) => s + Math.abs(Number(t.amount) || 0), 0);
     const gbpEquiv     = sumAmountBase(txs);
     const count        = txs.length;
     const ratedTxs     = txs.filter(t => t.fx_rate);
