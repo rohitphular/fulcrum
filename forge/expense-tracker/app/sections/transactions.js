@@ -396,7 +396,7 @@ function _attachEvents() {
         { key: 'tx-edit',     label: 'Edit',         cls: '' },
         { key: 'tx-copy',     label: 'Copy',         cls: '' },
         { key: 'tx-delete',   label: 'Delete',       cls: 'danger' },
-        ...(isSub ? [{ key: 'tx-mark-sub', label: 'Mark as sub', cls: '' }] : []),
+        ...(isSub ? [{ key: 'tx-mark-sub', label: 'Subscribe', cls: '' }] : []),
       ], key => { _txMenuKey = null; _dispatchTxAction(key, row); });
       return;
     }

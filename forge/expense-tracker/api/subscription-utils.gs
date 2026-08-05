@@ -41,20 +41,23 @@ function computeNextPaymentDate(frequency, dayOfMonth, dayOfWeek) {
   var todayMonth = today.getMonth();   // 0-based
   var todayDay   = today.getDate();    // 1-based
 
+  // Default to day 1 when day_of_month is missing or invalid (0, NaN, empty).
+  var dom = Number(dayOfMonth) || 1;
+
   if (frequency === 'weekly') {
     return _nextWeeklyDate(todayYear, todayMonth, todayDay, Number(dayOfWeek));
   }
 
   if (frequency === 'monthly') {
-    return _nextCycleDate(todayYear, todayMonth, todayDay, Number(dayOfMonth), 1);
+    return _nextCycleDate(todayYear, todayMonth, todayDay, dom, 1);
   }
 
   if (frequency === 'quarterly') {
-    return _nextCycleDate(todayYear, todayMonth, todayDay, Number(dayOfMonth), 3);
+    return _nextCycleDate(todayYear, todayMonth, todayDay, dom, 3);
   }
 
   if (frequency === 'annual') {
-    return _nextCycleDate(todayYear, todayMonth, todayDay, Number(dayOfMonth), 12);
+    return _nextCycleDate(todayYear, todayMonth, todayDay, dom, 12);
   }
 
   return '';
@@ -77,14 +80,11 @@ function _nextWeeklyDate(year, month, day, dayOfWeek) {
 // "Current" month is eligible if today's day <= effective target day.
 // Clamps target day to the last day of any shorter month.
 function _nextCycleDate(year, month, day, dayOfMonth, stepMonths) {
-  // Start from the current month and walk forward in stepMonths increments
-  // until we find a future-or-today occurrence.
+  // Compare all candidates against today — not against today's day in the walk month.
+  var todayRef  = new Date(year, month, day);
   var candidate = _clampedDate(year, month, dayOfMonth);
-  if (candidate.getDate() >= day || _isoDate(candidate) >= _isoDate(new Date(year, month, day))) {
-    // This month's occurrence is today or still in the future.
-    if (_dateGte(candidate, year, month, day)) return _isoDate(candidate);
-  }
-  // Walk forward in stepMonths increments.
+  if (candidate >= todayRef) return _isoDate(candidate);
+  // Walk forward in stepMonths increments until we find a future-or-today occurrence.
   for (var i = 0; i < 100; i++) {
     month += stepMonths;
     if (month > 11) {
@@ -92,7 +92,7 @@ function _nextCycleDate(year, month, day, dayOfMonth, stepMonths) {
       month  = month % 12;
     }
     candidate = _clampedDate(year, month, dayOfMonth);
-    if (_dateGte(candidate, year, month, day)) return _isoDate(candidate);
+    if (candidate >= todayRef) return _isoDate(candidate);
   }
   return '';
 }

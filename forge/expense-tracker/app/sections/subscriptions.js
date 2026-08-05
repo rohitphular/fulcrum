@@ -264,27 +264,50 @@ function _renderSubCard(sub) {
 
   const accName  = state.accountMap[sub.source_account]?.name || '';
   const minorCat = sub.minor_category || '';
-  const cpLabel  = sub.counterparty_name ? ` · ${sub.counterparty_name}` : '';
-  const metaLine = [accName, minorCat].filter(Boolean).join(' · ') + cpLabel;
+  const metaLine = [accName, minorCat].filter(Boolean).join(' · ');
 
-  const nextLine = sub.is_active && sub.next_payment_date
-    ? `<div class="sub-card-next">Next: ${esc(sub.next_payment_date)}</div>`
-    : '';
+  let nextLine = '';
+  if (sub.is_active && sub.next_payment_date) {
+    const nextDate  = new Date(sub.next_payment_date);
+    const nextFmt   = nextDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const today     = new Date(); today.setHours(0, 0, 0, 0);
+    const diffMs    = nextDate - today;
+    const diffDays  = Math.round(diffMs / 86400000);
+    const duePart   = diffDays === 0 ? 'today'
+                    : diffDays === 1 ? 'tomorrow'
+                    : diffDays  >  0 ? `in ${diffDays}d`
+                    : `${Math.abs(diffDays)}d overdue`;
+    nextLine = `<div class="sub-card-next">Next: ${esc(nextFmt)} <span class="sub-card-due">(${esc(duePart)})</span></div>`;
+  }
+
+  const isForeign = sub.currency && sub.currency !== state.quoteCurrency;
+  let convertedLine = '';
+  if (isForeign) {
+    const monthlyBase = toBase(_toMonthly(sub.amount, sub.frequency), sub.currency, null);
+    const baseSym     = getSymbol(state.quoteCurrency);
+    const baseFmt     = `${baseSym}${monthlyBase.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/monthly`;
+    convertedLine     = `<div class="sub-card-converted">${esc(baseFmt)}</div>`;
+  }
 
   return `
     <div class="sub-card${inactiveCls}">
-      <div class="sub-card-top">
-        <div class="sub-card-name-wrap">
-          <span class="sub-card-name">${esc(sub.name)}</span>
-          <span class="badge ${badgeCls}" style="font-size:var(--text-xs)">${badgeTxt}</span>
+      <div class="sub-card-body">
+        <div class="sub-card-top">
+          <div class="sub-card-name-wrap">
+            <span class="sub-card-name">${esc(sub.name)}</span>
+            <span class="badge ${badgeCls}" style="font-size:var(--text-xs)">${badgeTxt}</span>
+          </div>
+          <div class="sub-card-amt-wrap">
+            <div class="sub-card-amt">${esc(amtFmt)}/${esc(freqLabel.toLowerCase())}</div>
+            ${convertedLine}
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div class="sub-card-amt">${esc(amtFmt)}/${esc(freqLabel.toLowerCase())}</div>
-          <button class="tx-menu-trigger" data-action="sub-menu" data-row="${row}" title="Actions">⋯</button>
+        <div class="sub-card-footer">
+          ${metaLine ? `<span class="sub-card-meta">${esc(metaLine)}</span>` : '<span></span>'}
+          ${nextLine}
         </div>
       </div>
-      ${nextLine}
-      ${metaLine ? `<div class="sub-card-meta">${esc(metaLine)}</div>` : ''}
+      <button class="tx-menu-trigger" data-action="sub-menu" data-row="${row}" title="Actions">⋯</button>
     </div>`;
 }
 
@@ -294,9 +317,22 @@ function _renderCards() {
     return `<div class="empty-state"><strong>No subscriptions yet</strong>Add your first recurring subscription above.</div>`;
   }
 
+  // Sort: active by next_payment_date asc, then amount desc; inactive to bottom by amount desc
+  const sorted = [...subs].sort((a, b) => {
+    const aActive = a.is_active;
+    const bActive = b.is_active;
+    if (aActive !== bActive) return aActive ? -1 : 1;
+    if (aActive) {
+      const aDate = a.next_payment_date || '9999-12-31';
+      const bDate = b.next_payment_date || '9999-12-31';
+      if (aDate !== bDate) return aDate < bDate ? -1 : 1;
+    }
+    return parseFloat(b.amount || 0) - parseFloat(a.amount || 0);
+  });
+
   // Group by major_category; ungrouped subs fall into 'Uncategorised' at the end
   const groupMap = new Map();
-  subs.forEach(s => {
+  sorted.forEach(s => {
     const key = s.major_category || 'Uncategorised';
     if (!groupMap.has(key)) groupMap.set(key, []);
     groupMap.get(key).push(s);
