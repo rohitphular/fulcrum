@@ -53,7 +53,8 @@ function _buildChartOptions(sym, C) {
     plugins: { ...base.plugins, legend: { ...base.plugins.legend, display: true } },
     scales: {
       ...base.scales,
-      y: { ...base.scales.y, ticks: { ...base.scales.y.ticks, font: { size: 11 } } },
+      x: { ...base.scales.y },
+      y: { ticks: { color: C.muted, font: { size: 11 } }, grid: { color: C.hair }, border: { display: false } },
     },
   };
 }

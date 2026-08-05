@@ -14,7 +14,8 @@ function _buildSectionOptions(sym, C) {
     plugins: { ...base.plugins, legend: { display: false } },
     scales: {
       ...base.scales,
-      y: { ...base.scales.y, ticks: { ...base.scales.y.ticks, font: { size: 12 } } },
+      x: { ...base.scales.y },
+      y: { ticks: { color: C.muted, font: { size: 12 } }, grid: { color: C.hair }, border: { display: false } },
     },
   };
 }

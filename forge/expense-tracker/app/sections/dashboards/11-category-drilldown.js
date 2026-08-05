@@ -64,8 +64,16 @@ function _buildChartOptions(sym, C, onClick) {
       legend: { display: false },
     },
     scales: {
-      ...base.scales,
-      y: { ...base.scales.y, ticks: { ...base.scales.y.ticks, font: { size: 12 } } },
+      x: {
+        // value axis — currency formatter from base y
+        ...base.scales.y,
+      },
+      y: {
+        // category axis — plain labels, no currency callback
+        ticks: { color: C.muted, font: { size: 12 } },
+        grid:   { color: C.hair },
+        border: { display: false },
+      },
     },
   };
 }

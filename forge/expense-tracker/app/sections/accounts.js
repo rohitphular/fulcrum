@@ -562,14 +562,22 @@ function _attachEvents() {
       if (_accMenuKey === row) { closeContextMenu(); _accMenuKey = null; return; }
       _accMenuKey = row;
       openContextMenu(btn, [
-        { key: 'acc-view',   label: 'View',   cls: '' },
-        { key: 'acc-edit',   label: 'Edit',   cls: '' },
-        { key: 'acc-delete', label: 'Delete', cls: 'danger' },
+        { key: 'acc-view',   label: 'View',         cls: '' },
+        { key: 'acc-edit',   label: 'Edit',         cls: '' },
+        { key: 'acc-txs',    label: 'Transactions', cls: '' },
+        { key: 'acc-delete', label: 'Delete',       cls: 'danger' },
       ], key => {
         _accMenuKey = null;
         if (key === 'acc-view')   { state.accViewRow = row; state.accEditRow = null; state.accDeleteRow = null; state.accDeleteBlocked = null; state.accAddOpen = false; renderAccounts(); }
         if (key === 'acc-edit')   { state.accEditRow = row; state.accViewRow = null; state.accDeleteRow = null; state.accDeleteBlocked = null; state.accAddOpen = false; renderAccounts(); }
         if (key === 'acc-delete') { state.accDeleteRow = row; state.accViewRow = null; state.accEditRow = null; state.accDeleteBlocked = null; renderAccounts(); }
+        if (key === 'acc-txs') {
+          const acc = state.accounts.find(a => a._row === row);
+          if (acc) {
+            state.filters = { types: [], accounts: [acc.id], major: [], minor: [], country: '', method: '', tag: '', search: '' };
+            document.dispatchEvent(new CustomEvent('et:show-section', { detail: 'transactions' }));
+          }
+        }
       });
       return;
     }
