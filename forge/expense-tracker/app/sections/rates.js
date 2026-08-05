@@ -24,7 +24,7 @@ export function renderRates() {
         <div class="rate-card-rate td-mono">${parseFloat(r.rate).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div>
       </div>
       <div class="rate-card-updated">${r.updated_at ? esc(fmtDateTime(r.updated_at)) : '—'}</div>
-      ${base ? '' : `<button class="tx-menu-trigger" data-action="rate-menu" data-currency="${esc(r.currency)}">⋯</button>`}
+      ${base ? '' : `<button class="tx-menu-trigger" data-action="rate-menu" data-currency="${esc(r.currency)}">⋮</button>`}
     </div>`;
   }).join('');
 
@@ -170,7 +170,7 @@ function _rateRowHtml(r) {
     <td>${esc(r.symbol || '—')}</td>
     <td class="td-mono">${parseFloat(r.rate).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
     <td class="td-muted td-mono">${r.updated_at ? esc(fmtDateTime(r.updated_at)) : '—'}</td>
-    <td>${base ? '' : `<button class="tx-menu-trigger" data-action="rate-menu" data-currency="${esc(r.currency)}">⋯</button>`}</td>
+    <td>${base ? '' : `<button class="tx-menu-trigger" data-action="rate-menu" data-currency="${esc(r.currency)}">⋮</button>`}</td>
   </tr>`;
 }
 

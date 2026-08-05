@@ -213,7 +213,7 @@ function _renderCatTable(cats) {
       <td>${_catTypeBadge(cat.transaction_type)}</td>
       <td class="td-name">${esc(cat.major_category)}</td>
       <td>${esc(cat.minor_category)}</td>
-      <td><button class="tx-menu-trigger" data-action="cat-menu" data-row="${cat._row}">⋯</button></td>
+      <td><button class="tx-menu-trigger" data-action="cat-menu" data-row="${cat._row}">⋮</button></td>
     </tr>`;
   }).join('');
 
@@ -228,7 +228,7 @@ function _renderCatTable(cats) {
           <span class="cat-card-sep">›</span>
           <span class="cat-card-minor">${esc(cat.minor_category)}</span>
         </div>
-        <button class="tx-menu-trigger" data-action="cat-menu" data-row="${cat._row}">⋯</button>
+        <button class="tx-menu-trigger" data-action="cat-menu" data-row="${cat._row}">⋮</button>
       </div>
     </div>`;
   }).join('');

@@ -318,7 +318,7 @@ function _renderTxTable(validRows, warnRows) {
         <td class="td-mono td-nowrap">${amtCell}${missingRate ? ' <span class="badge badge-warn" title="Currency not in rates tab">?</span>' : ''}${rowRate ? ' <span title="Row-level FX rate" style="color:var(--muted);font-size:var(--text-2xs)">†</span>' : ''}</td>
         <td class="td-truncate" title="${esc(catLabel)}">${esc(catLabel)}</td>
         <td style="text-align:right">
-          <button class="tx-menu-trigger" data-action="tx-menu" data-row="${tx._row}" title="Actions">⋯</button>
+          <button class="tx-menu-trigger" data-action="tx-menu" data-row="${tx._row}" title="Actions">⋮</button>
         </td>
       </tr>`,
       card: `<div class="tx-card">
@@ -329,7 +329,7 @@ function _renderTxTable(validRows, warnRows) {
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="tx-card-amt td-mono">${esc(nativeAmt)}</div>
-            <button class="tx-menu-trigger" data-action="tx-menu" data-row="${tx._row}" title="Actions">⋯</button>
+            <button class="tx-menu-trigger" data-action="tx-menu" data-row="${tx._row}" title="Actions">⋮</button>
           </div>
         </div>
         <div class="tx-card-detail">

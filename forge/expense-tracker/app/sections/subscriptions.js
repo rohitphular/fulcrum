@@ -307,7 +307,7 @@ function _renderSubCard(sub) {
           ${nextLine}
         </div>
       </div>
-      <button class="tx-menu-trigger" data-action="sub-menu" data-row="${row}" title="Actions">⋯</button>
+      <button class="tx-menu-trigger" data-action="sub-menu" data-row="${row}" title="Actions">⋮</button>
     </div>`;
 }
 

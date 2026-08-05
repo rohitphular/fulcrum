@@ -553,6 +553,10 @@ td.td-truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; wh
 .dash-top-row {
   display: flex; gap: 8px; align-items: stretch;
 }
+@media (max-width: 600px) {
+  .dash-top-row { flex-direction: column; }
+  .dash-period-select { width: 100%; }
+}
 .dash-selector {
   font-family: var(--grotesk); font-size: var(--text-base); color: var(--ink);
   background: var(--panel); border: 1px solid var(--hair-strong); border-radius: 10px;
@@ -992,20 +996,20 @@ td.td-keywords { max-width: 220px; }
   border: 1px solid var(--hair);
   border-radius: 10px;
   padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.acc-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
   gap: 8px;
 }
-.acc-card-name { font-size: var(--text-md); font-weight: 500; color: var(--ink); }
-.acc-card-bal  { font-size: var(--text-md); font-weight: 600; white-space: nowrap; }
+.acc-card-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.acc-card-name { font-size: var(--text-md); font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acc-card-bal  { font-size: var(--text-sm); font-weight: 600; white-space: nowrap; text-align: right; }
 .acc-card-meta { font-size: var(--text-sm); color: var(--muted); }
 .acc-card .row-actions { margin-top: 4px; }
+.acc-card-menu { align-self: center; }
+.acc-status-dot         { font-size: 10px; }
+.acc-status-active      { color: var(--teal); }
+.acc-status-archived    { color: var(--muted); }
 
 /* ── sub group ── */
 .sub-group { margin-bottom: 20px; }

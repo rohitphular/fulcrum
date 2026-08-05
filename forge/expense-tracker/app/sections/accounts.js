@@ -352,8 +352,8 @@ function _renderAccountForm(a, mode) {
 
 function _activeBadge(a) {
   return _isActive(a)
-    ? `<span class="badge badge-in">active</span>`
-    : `<span class="badge badge-out">archived</span>`;
+    ? `<span class="acc-status-dot acc-status-active" title="Active">●</span>`
+    : `<span class="acc-status-dot acc-status-archived" title="Archived">●</span>`;
 }
 
 function _renderAccountRow(a) {
@@ -393,7 +393,7 @@ function _renderAccountRow(a) {
     <td>${_balanceCell(a, true)}</td>
     <td>${_activeBadge(a)}</td>
     <td style="text-align:right">
-      <button class="tx-menu-trigger" data-action="acc-menu" data-row="${a._row}" title="Actions">⋯</button>
+      <button class="tx-menu-trigger" data-action="acc-menu" data-row="${a._row}" title="Actions">⋮</button>
     </td>
   </tr>`;
 }
@@ -444,14 +444,12 @@ function _renderTable() {
       ...accs.map(a => {
         if (state.accDeleteRow === a._row) return '';
         return `<div class="acc-card">
-          <div class="acc-card-top">
-            <div class="acc-card-name">${esc(a.name)}</div>
-            <div class="acc-card-bal">${_balanceCell(a, true)}</div>
+          <div class="acc-card-body">
+            <div class="acc-card-name">${_activeBadge(a)} ${esc(a.name)}</div>
+            <div class="acc-card-meta">${esc(_subTypeLabel(a.sub_type))} · ${esc(a.currency)}</div>
           </div>
-          <div class="acc-card-meta">${esc(a.type)} · ${esc(a.sub_type || '—')} · ${esc(a.currency)} · ${_activeBadge(a)}</div>
-          <div style="text-align:right;margin-top:4px">
-            <button class="tx-menu-trigger" data-action="acc-menu" data-row="${a._row}" title="Actions">⋯</button>
-          </div>
+          <div class="acc-card-bal">${_balanceCell(a, true)}</div>
+          <button class="tx-menu-trigger acc-card-menu" data-action="acc-menu" data-row="${a._row}" title="Actions">⋮</button>
         </div>`;
       })
     ];
