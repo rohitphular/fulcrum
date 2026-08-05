@@ -7,7 +7,7 @@
 // =============================================================================
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Schema — 13 fields in column-position order
+// Schema — 14 fields in column-position order
 // ─────────────────────────────────────────────────────────────────────────────
 const CATEGORY_SCHEMA = {
 
@@ -133,7 +133,7 @@ const CATEGORY_SCHEMA = {
     default_value:         false,
   },
 
-  // ── Meta (columns 12–13) ─────────────────────────────────────────────────
+  // ── Meta (columns 12–14) ─────────────────────────────────────────────────
   sort_order: {
     sheet_column_name: 'sort_order',
     sheet_column_position: 12,
@@ -153,6 +153,16 @@ const CATEGORY_SCHEMA = {
     group: 'meta',
     editable: true,
     default_value: null,
+  },
+  is_subscription_eligible: {
+    sheet_column_name:     'is_subscription_eligible',
+    sheet_column_position: 14,
+    ui_label:              'Subscription eligible',
+    type:                  'boolean',
+    enum_values:           null,
+    group:                 'meta',
+    editable:              true,
+    default_value:         false,
   },
 };
 

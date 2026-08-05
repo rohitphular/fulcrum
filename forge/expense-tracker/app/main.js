@@ -10,6 +10,7 @@ import { renderAccounts } from './sections/accounts.js';
 import { renderCategories } from './sections/categories.js';
 import { renderRates } from './sections/rates.js';
 import { renderAdvisor } from './sections/advisor.js';
+import { renderSubscriptions } from './sections/subscriptions.js';
 import { showPinGate, hidePinGate, fetchGeo, submitPin, readSession, clearSession } from './core/auth.js';
 import { loadAccountSchema, loadTransactionSchema, loadCategorySchema } from './core/schema.js';
 
@@ -38,7 +39,8 @@ function setTheme(theme) {
   if (active === 'accounts')     renderAccounts();
   if (active === 'categories')   renderCategories();
   if (active === 'rates')        renderRates();
-  if (active === 'advisor')      renderAdvisor();
+  if (active === 'advisor')       renderAdvisor();
+  if (active === 'subscriptions') renderSubscriptions();
 }
 
 // ── Data loading ──────────────────────────────────────────────────────────────
@@ -46,7 +48,7 @@ function setTheme(theme) {
 async function loadAll() {
   showLoading();
   try {
-    const [txRes, catRes, accRes, ratesRes, schemaRes, txSchemaRes, catSchemaRes] = await Promise.all([
+    const [txRes, catRes, accRes, ratesRes, schemaRes, txSchemaRes, catSchemaRes, subRes] = await Promise.all([
       ExpenseAPI.listTransactions(),
       ExpenseAPI.listCategories(),
       ExpenseAPI.listAccounts(),
@@ -54,6 +56,7 @@ async function loadAll() {
       loadAccountSchema(),
       loadTransactionSchema(),
       loadCategorySchema(),
+      ExpenseAPI.listSubscriptions(),
     ]);
 
     if (!txRes.ok) {
@@ -70,9 +73,10 @@ async function loadAll() {
       state.categories = catRes.data || [];
       state.categories.forEach(c => {
         const toBool = v => v === true || String(v).toLowerCase() === 'true';
-        c.is_active               = toBool(c.is_active);
-        c.source_account_mandatory = toBool(c.source_account_mandatory);
-        c.target_account_mandatory = toBool(c.target_account_mandatory);
+        c.is_active                  = toBool(c.is_active);
+        c.source_account_mandatory   = toBool(c.source_account_mandatory);
+        c.target_account_mandatory   = toBool(c.target_account_mandatory);
+        c.is_subscription_eligible   = toBool(c.is_subscription_eligible);
       });
     }
     if (accRes.ok) {
@@ -88,6 +92,15 @@ async function loadAll() {
     if (schemaRes)    state.accountSchema    = schemaRes;
     if (txSchemaRes)  state.transactionSchema = txSchemaRes;
     if (catSchemaRes) state.categorySchema   = catSchemaRes;
+
+    if (subRes?.ok) {
+      state.subscriptions = (subRes.data || []).map(s => ({
+        ...s,
+        is_active: s.is_active === true || String(s.is_active).toLowerCase() === 'true',
+      }));
+    } else {
+      state.subscriptions = [];
+    }
 
     populateQuoteCurrencySelect();
     const activeSection = sessionStorage.getItem('et_section') || 'dashboard';
@@ -156,8 +169,9 @@ async function init() {
     if (active === 'accounts')     renderAccounts();
   });
 
-  // Reload event — fired by saveTransaction and submitPin instead of calling loadAll directly
+  // Reload events — fired by mutations instead of calling loadAll directly
   document.addEventListener('et:reload', loadAll);
+  document.addEventListener('subscriptions:reload', loadAll);
 
   // Config check
   if (window.__configMissing) {

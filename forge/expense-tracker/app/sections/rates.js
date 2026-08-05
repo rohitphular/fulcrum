@@ -1,11 +1,14 @@
 import { state } from '../core/state.js';
-import { el, esc, fmtDateTime } from '../core/utils.js';
+import { el, esc, fmtDateTime, openContextMenu, closeContextMenu } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { ExpenseAPI } from '../core/api.js';
+
+let _rateMenuKey = null;
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 export function renderRates() {
+  closeContextMenu(); _rateMenuKey = null;
   const content = el('ratesContent');
 
   const hasActiveRate = !!state.rateDeleteCurrency;
@@ -21,10 +24,7 @@ export function renderRates() {
         <div class="rate-card-rate td-mono">${parseFloat(r.rate).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div>
       </div>
       <div class="rate-card-updated">${r.updated_at ? esc(fmtDateTime(r.updated_at)) : '—'}</div>
-      ${base ? '' : `<div class="row-actions">
-        <button class="btn-link"        data-action="rate-edit"   data-currency="${esc(r.currency)}">Edit</button>
-        <button class="btn-link danger" data-action="rate-delete" data-currency="${esc(r.currency)}">Delete</button>
-      </div>`}
+      ${base ? '' : `<button class="tx-menu-trigger" data-action="rate-menu" data-currency="${esc(r.currency)}">⋯</button>`}
     </div>`;
   }).join('');
 
@@ -45,7 +45,7 @@ export function renderRates() {
           <th style="width:80px">Symbol</th>
           <th style="width:140px">Rate (per £1)</th>
           <th>Updated</th>
-          <th style="width:150px"></th>
+          <th style="width:40px"></th>
         </tr></thead>
         <tbody>
           ${state.rates.map(r => _rateRowHtml(r)).join('')}
@@ -170,12 +170,7 @@ function _rateRowHtml(r) {
     <td>${esc(r.symbol || '—')}</td>
     <td class="td-mono">${parseFloat(r.rate).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
     <td class="td-muted td-mono">${r.updated_at ? esc(fmtDateTime(r.updated_at)) : '—'}</td>
-    <td><div class="row-actions">
-      ${base ? '' : `
-        <button class="btn-link"        data-action="rate-edit"   data-currency="${esc(r.currency)}">Edit</button>
-        <button class="btn-link danger" data-action="rate-delete" data-currency="${esc(r.currency)}">Delete</button>
-      `}
-    </div></td>
+    <td>${base ? '' : `<button class="tx-menu-trigger" data-action="rate-menu" data-currency="${esc(r.currency)}">⋯</button>`}</td>
   </tr>`;
 }
 
@@ -214,6 +209,26 @@ function _attachRateEvents() {
     const action   = btn.dataset.action;
     const currency = btn.dataset.currency;
 
+    if (action === 'rate-menu') {
+      if (_rateMenuKey === currency) { closeContextMenu(); _rateMenuKey = null; return; }
+      _rateMenuKey = currency;
+      openContextMenu(btn, [
+        { key: 'rate-edit',   label: 'Edit',   cls: '' },
+        { key: 'rate-delete', label: 'Delete', cls: 'danger' },
+      ], key => {
+        _rateMenuKey = null;
+        if (key === 'rate-edit') {
+          state.rateEditCurrency = currency; state.rateAddOpen = false;
+          state.rateDeleteCurrency = null; state.rateDeleteBlocked = null;
+          renderRates(); el('rateEditRate')?.focus();
+        }
+        if (key === 'rate-delete') {
+          state.rateDeleteCurrency = currency; state.rateDeleteBlocked = null;
+          state.rateEditCurrency = null; renderRates();
+        }
+      });
+      return;
+    }
     if (action === 'rate-edit') {
       state.rateEditCurrency   = currency;
       state.rateAddOpen        = false;

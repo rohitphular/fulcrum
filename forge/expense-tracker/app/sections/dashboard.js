@@ -62,7 +62,8 @@ const PERIOD_OPTIONS = [
 ];
 
 const _renderers = {};
-let _renderId = 0; // incremented on every render; stale async continuations bail out
+let _renderId    = 0;  // incremented on every render; stale async continuations bail out
+let _shellAbort  = null; // aborts previous shell event listeners before re-attaching
 
 export function renderDashboard() {
   _destroyChart();
@@ -124,6 +125,9 @@ function _buildShellHtml() {
 // ── Events ─────────────────────────────────────────────────────────────────────
 
 function _attachShellEvents() {
+  if (_shellAbort) _shellAbort.abort();
+  _shellAbort = new AbortController();
+  const { signal } = _shellAbort;
   const container = el('dashboardContent');
 
   container.addEventListener('change', e => {
@@ -151,7 +155,7 @@ function _attachShellEvents() {
       state.dashCustomTo = e.target.value;
       if (state.dashCustomFrom && state.dashCustomTo) _renderActiveDashboard();
     }
-  });
+  }, { signal });
 
   container.addEventListener('click', e => {
     const btn = e.target.closest('[data-action]');
@@ -172,7 +176,7 @@ function _attachShellEvents() {
       e.preventDefault();
       document.dispatchEvent(new CustomEvent('et:show-section', { detail: 'rates' }));
     }
-  });
+  }, { signal });
 }
 
 // ── Render active dashboard ───────────────────────────────────────────────────

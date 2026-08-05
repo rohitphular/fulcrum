@@ -6,8 +6,9 @@ import { renderAccounts } from '../sections/accounts.js';
 import { renderCategories } from '../sections/categories.js';
 import { renderRates } from '../sections/rates.js';
 import { renderAdvisor } from '../sections/advisor.js';
+import { renderSubscriptions } from '../sections/subscriptions.js';
 
-const SECTIONS = ['dashboard', 'transactions', 'accounts', 'categories', 'rates', 'advisor'];
+const SECTIONS = ['dashboard', 'accounts', 'transactions', 'subscriptions', 'categories', 'rates', 'advisor'];
 
 document.addEventListener('et:show-section', e => showSection(e.detail));
 
@@ -20,10 +21,11 @@ export function showSection(id) {
   el('dateRangeBar').style.display = id === 'transactions' ? '' : 'none';
   sessionStorage.setItem('et_section', id);
 
-  if (id === 'dashboard')    renderDashboard();
-  if (id === 'transactions') renderTransactions();
-  if (id === 'accounts')     renderAccounts();
-  if (id === 'categories')   renderCategories();
-  if (id === 'rates')        renderRates();
-  if (id === 'advisor')      renderAdvisor();
+  if (id === 'dashboard')     renderDashboard();
+  if (id === 'transactions')  renderTransactions();
+  if (id === 'accounts')      renderAccounts();
+  if (id === 'categories')    renderCategories();
+  if (id === 'rates')         renderRates();
+  if (id === 'advisor')       renderAdvisor();
+  if (id === 'subscriptions') renderSubscriptions();
 }

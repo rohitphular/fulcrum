@@ -31,3 +31,46 @@ const ET_COLS = ['id', 'transaction_date_utc', 'transaction_type', 'amount', 'cu
   'source_account', 'target_account', 'major_category', 'minor_category',
   'counterparty', 'notes', 'tags', 'transfer_id', 'fx_rate', 'country', 'payment_method'];
 export const exportData = (format, rows)            => _exportData(format, rows, 'expenses', ET_COLS);
+
+// ── Shared context menu ───────────────────────────────────────────────────────
+let _ctxMenuEl  = null;
+let _ctxHandler = null;
+
+export function closeContextMenu() {
+  if (_ctxMenuEl) { _ctxMenuEl.remove(); _ctxMenuEl = null; }
+  if (_ctxHandler) { document.removeEventListener('click', _ctxHandler, true); _ctxHandler = null; }
+}
+
+export function openContextMenu(triggerBtn, items, onSelect) {
+  closeContextMenu();
+  const menu = document.createElement('div');
+  menu.className = 'tx-action-menu';
+  menu.innerHTML = items
+    .map(i => `<button class="tx-menu-item${i.cls ? ' ' + i.cls : ''}" data-key="${i.key}">${i.label}</button>`)
+    .join('');
+  document.body.appendChild(menu);
+  _ctxMenuEl = menu;
+
+  const r = triggerBtn.getBoundingClientRect();
+  menu.style.cssText = 'position:fixed;top:0;left:0';
+  const m = menu.getBoundingClientRect();
+  let top  = r.bottom + 4;
+  let left = r.right  - m.width;
+  if (top + m.height > window.innerHeight) top = r.top - m.height - 4;
+  if (left < 4) left = 4;
+  menu.style.top  = `${top}px`;
+  menu.style.left = `${left}px`;
+
+  menu.addEventListener('click', e => {
+    const btn = e.target.closest('[data-key]');
+    if (!btn) return;
+    closeContextMenu();
+    onSelect(btn.dataset.key);
+  });
+
+  _ctxHandler = e => {
+    if (e.target.closest('.tx-menu-trigger')) return;
+    if (!_ctxMenuEl?.contains(e.target)) closeContextMenu();
+  };
+  setTimeout(() => document.addEventListener('click', _ctxHandler, true), 0);
+}

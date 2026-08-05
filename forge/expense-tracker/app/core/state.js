@@ -50,10 +50,11 @@ export const state = {
   accDeleteRow:     null,
   accDeleteBlocked: null,   // { referenced_count: N } when deletion is refused — paired with accDeleteRow
 
-  txAddOpen:    false,
-  txEditRow:    null,
-  txDeleteRow:  null,
-  txViewRow:    null,
+  txAddOpen:      false,
+  txEditRow:      null,
+  txDeleteRow:    null,
+  txViewRow:      null,
+  txCopyPrefill:  null,
 
   dashId:            '01-mom-cumulative',
   dashPeriod:        'this_month',
@@ -64,4 +65,10 @@ export const state = {
   dashDrillMajor:    null,   // active major category for 11-category-drilldown (null = top level)
 
   advisorMessages: [],
+
+  subscriptions: [],
+  subAddOpen:    false,
+  subEditRow:    null,
+  subDeleteRow:  null,
+  subPrefill:    null,  // { name, counterparty_name, amount, currency, source_account, major_category, minor_category, tags }
 };

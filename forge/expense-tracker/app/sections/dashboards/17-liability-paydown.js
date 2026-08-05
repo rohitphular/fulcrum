@@ -142,8 +142,7 @@ export async function render(containerId, { accounts, from, to, sym }) {
     return null;
   }
 
-  const liabilityTypes = new Set(state.accountSchema?.liability_types || []);
-  const liabAccounts   = accounts.filter(a => a.is_active && liabilityTypes.has(a.type));
+  const liabAccounts   = accounts.filter(a => a.is_active && a.type === 'liability');
 
   if (!liabAccounts.length) {
     container.innerHTML = `<div class="chart-wrap"><p class="chart-empty">No active liability accounts found.</p></div>`;

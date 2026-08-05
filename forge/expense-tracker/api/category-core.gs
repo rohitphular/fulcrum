@@ -16,6 +16,7 @@ function listCategories() {
     r.is_active                = toBool(r.is_active);
     r.source_account_mandatory = toBool(r.source_account_mandatory);
     r.target_account_mandatory = toBool(r.target_account_mandatory);
+    r.is_subscription_eligible = toBool(r.is_subscription_eligible);
     r.sort_order = Number(r.sort_order) || 0;
     return r;
   });
@@ -114,6 +115,7 @@ function createCategory(body) {
   setCol('target_account_mandatory',  body.target_account_mandatory === true || body.target_account_mandatory === 'true');
   setCol('sort_order',                Number(body.sort_order) || 0);
   setCol('workflow_type',             String(body.workflow_type || '').trim());
+  setCol('is_subscription_eligible', body.is_subscription_eligible === true || body.is_subscription_eligible === 'true');
 
   sheet.appendRow(row);
   return { ok: true };
@@ -148,6 +150,7 @@ function updateCategory(body) {
   writeField('target_account_mandatory',  body.target_account_mandatory === true || body.target_account_mandatory === 'true');
   writeField('sort_order',                Number(body.sort_order) || 0);
   writeField('workflow_type',             String(body.workflow_type || '').trim());
+  writeField('is_subscription_eligible', body.is_subscription_eligible === true || body.is_subscription_eligible === 'true');
 
   return { ok: true };
 }

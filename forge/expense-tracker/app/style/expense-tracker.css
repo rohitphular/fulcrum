@@ -268,6 +268,7 @@ h2 { font-size: var(--text-xl); font-weight: 700; margin: 0; }
 .form-grid-6 { grid-template-columns: repeat(6, 1fr); }
 .form-grid-span-2 { grid-column: span 2; }
 .form-grid-span-3 { grid-column: span 3; }
+.form-grid-span-4 { grid-column: span 4; }
 
 .field label {
   display: block;
@@ -654,7 +655,8 @@ td.td-truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; wh
   border-radius: 0 !important; background: none !important;
   cursor: pointer;
 }
-.checkbox-label {
+.checkbox-label,
+.field-check {
   display: flex; align-items: center; gap: 6px; cursor: pointer;
 }
 .cat-keywords {
@@ -735,7 +737,8 @@ td.td-keywords { max-width: 220px; }
 [data-theme="dark"] .filter-bar,
 [data-theme="dark"] .account-item,
 [data-theme="dark"] .warning-count,
-[data-theme="dark"] .transfer-row { border-color: var(--hair-strong); }
+[data-theme="dark"] .transfer-row,
+[data-theme="dark"] .sub-card { border-color: var(--hair-strong); }
 
 [data-theme="dark"] .pin-card {
   border: 1px solid var(--hair-strong);
@@ -920,6 +923,45 @@ td.td-keywords { max-width: 220px; }
 .acc-card-meta { font-size: var(--text-sm); color: var(--muted); }
 .acc-card .row-actions { margin-top: 4px; }
 
+/* ── sub group ── */
+.sub-group { margin-bottom: 20px; }
+.sub-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 2px 8px;
+  border-bottom: 1px solid var(--hair);
+  margin-bottom: 10px;
+}
+.sub-group-name  { font-size: var(--text-sm); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.sub-group-total { font-size: var(--text-sm); font-weight: 600; color: var(--ink); white-space: nowrap; }
+
+/* ── sub card ── */
+.sub-list { display: flex; flex-direction: column; gap: 10px; }
+.sub-card {
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sub-card-inactive { opacity: .65; }
+.sub-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.sub-card-name-wrap { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sub-card-name { font-size: var(--text-md); font-weight: 500; color: var(--ink); }
+.sub-card-amt  { font-size: var(--text-md); font-weight: 600; white-space: nowrap; }
+.sub-card-next { font-size: var(--text-sm); color: var(--muted); }
+.sub-card-meta { font-size: var(--text-sm); color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sub-card .row-actions { margin-top: 4px; }
+
 /* ── responsive ── */
 @media (max-width: 640px) {
   .app-header-inner { padding: 10px 16px 0; flex-wrap: wrap; }
@@ -934,7 +976,8 @@ td.td-keywords { max-width: 220px; }
   .form-grid        { grid-template-columns: 1fr; }
   .form-grid-4      { grid-template-columns: 1fr; }
   .form-grid-4 .form-grid-span-2,
-  .form-grid-4 .form-grid-span-3 { grid-column: 1; }
+  .form-grid-4 .form-grid-span-3,
+  .form-grid-4 .form-grid-span-4 { grid-column: 1; }
   .form-grid-6      { grid-template-columns: 1fr; }
   .form-grid-6 .form-grid-span-2,
   .form-grid-6 .form-grid-span-3,
@@ -1152,3 +1195,36 @@ td.td-keywords { max-width: 220px; }
 }
 .advisor-send-btn:hover    { opacity: .88; transform: scale(1.06); }
 .advisor-send-btn:disabled { opacity: .35; cursor: default; transform: none; }
+
+/* ── Transaction action menu (⋯ kebab) ──────────────────────────────────────── */
+.tx-menu-trigger {
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 18px; line-height: 1;
+  padding: 2px 8px; border-radius: 6px;
+  transition: background .15s, color .15s;
+}
+.tx-menu-trigger:hover { background: var(--hair); color: var(--ink); }
+
+.tx-action-menu {
+  position: fixed;
+  background: var(--panel);
+  border: 1px solid var(--hair-strong);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.35);
+  min-width: 148px;
+  overflow: hidden;
+  z-index: 9999;
+}
+.tx-menu-item {
+  display: block; width: 100%;
+  background: none; border: none;
+  padding: 10px 16px;
+  text-align: left; cursor: pointer;
+  font-family: var(--grotesk);
+  font-size: var(--text-base);
+  color: var(--ink);
+  transition: background .1s;
+}
+.tx-menu-item + .tx-menu-item { border-top: 1px solid var(--hair); }
+.tx-menu-item:hover  { background: var(--canvas); }
+.tx-menu-item.danger { color: var(--ember); }

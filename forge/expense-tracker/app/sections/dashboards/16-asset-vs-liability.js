@@ -65,7 +65,6 @@ export async function render(containerId, { accounts, from, to, sym }) {
     return null;
   }
 
-  const liabilityTypes = new Set(state.accountSchema?.liability_types || []);
   const allActive      = accounts.filter(a => a.is_active);
 
   if (!allActive.length) {
@@ -73,8 +72,8 @@ export async function render(containerId, { accounts, from, to, sym }) {
     return null;
   }
 
-  const assetAccts = allActive.filter(a => !liabilityTypes.has(a.type));
-  const liabAccts  = allActive.filter(a =>  liabilityTypes.has(a.type));
+  const assetAccts = allActive.filter(a => a.type !== 'liability');
+  const liabAccts  = allActive.filter(a => a.type === 'liability');
 
   const monthKeys         = monthRange(from, to);
   const { assets, liabs } = _buildMonthly(assetAccts, liabAccts, monthKeys);

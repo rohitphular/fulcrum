@@ -38,7 +38,9 @@ function doGet(e) {
   if (action === 'get_account_schema')      return json({ ok: true, data: getAccountSchemaForClient() });
   if (action === 'get_transaction_schema')  return json({ ok: true, data: getTransactionSchemaForClient() });
   if (action === 'get_category_schema')     return json({ ok: true, data: getCategorySchemaForClient() });
-  if (action === 'get_advisor_history')     return json({ ok: true, data: getAdvisorHistory() });
+  if (action === 'get_advisor_history')          return json({ ok: true, data: getAdvisorHistory() });
+  if (action === 'list_subscriptions')           return json({ ok: true, data: listSubscriptions() });
+  if (action === 'get_subscription_schema')      return json({ ok: true, data: getSubscriptionSchemaForClient() });
 
   return json({ ok: false, error: 'unknown_action' });
 }
@@ -72,8 +74,12 @@ function doPost(e) {
   if (body.action === 'create_accounts_bulk') return json(createAccountsBulk(body));
   if (body.action === 'update_account')     return json(updateAccount(body));
   if (body.action === 'delete_account')     return json(deleteAccount(body));
-  if (body.action === 'advisor_chat')        return json(advisorChat(body));
-  if (body.action === 'clear_advisor_history') return json(clearAdvisorHistory());
+  if (body.action === 'advisor_chat')              return json(advisorChat(body));
+  if (body.action === 'clear_advisor_history')     return json(clearAdvisorHistory());
+  if (body.action === 'create_subscription')       return json(createSubscription(body));
+  if (body.action === 'create_subscriptions_bulk') return json(createSubscriptionsBulk(body));
+  if (body.action === 'update_subscription')       return json(updateSubscription(body));
+  if (body.action === 'delete_subscription')       return json(deleteSubscription(body));
 
   return json({ ok: false, error: 'unknown_action' });
 }

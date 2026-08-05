@@ -223,8 +223,7 @@ export async function render(containerId, { accounts, sym }) {
     return { destroy() { _historyCharts.forEach(c => { try { c?.destroy(); } catch(_e){} }); _historyCharts.clear(); } };
   }
 
-  const liabilityTypes = new Set(state.accountSchema?.liability_types || []);
-  const liabAccounts   = accounts.filter(a => a.is_active && liabilityTypes.has(a.type));
+  const liabAccounts = accounts.filter(a => a.is_active && a.type === 'liability');
 
   if (!liabAccounts.length) {
     container.innerHTML = `<div class="chart-wrap"><p class="chart-empty">No active liability accounts found.</p></div>`;

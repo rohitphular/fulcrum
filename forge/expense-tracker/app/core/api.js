@@ -25,4 +25,9 @@ export const ExpenseAPI = {
   advisorChat:         f  => SheetsClient.post({ action: 'advisor_chat', ...f }),
   getAdvisorHistory:   () => SheetsClient.get({ action: 'get_advisor_history' }),
   clearAdvisorHistory: () => SheetsClient.post({ action: 'clear_advisor_history' }),
+  listSubscriptions:       () => SheetsClient.get({ action: 'list_subscriptions' }),
+  getSubscriptionSchema:   () => SheetsClient.get({ action: 'get_subscription_schema' }),
+  createSubscription:      f  => SheetsClient.post({ action: 'create_subscription',  ...f }),
+  updateSubscription:      f  => SheetsClient.post({ action: 'update_subscription',  ...f }),
+  deleteSubscription:      f  => SheetsClient.post({ action: 'delete_subscription',  ...f }),
 };

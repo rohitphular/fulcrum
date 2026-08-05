@@ -1,11 +1,12 @@
 import { state } from '../core/state.js';
-import { el, esc, getSymbol, toBase } from '../core/utils.js';
+import { el, esc, getSymbol, toBase, openContextMenu, closeContextMenu } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { ExpenseAPI } from '../core/api.js';
 import { renderDashboard } from './dashboard.js';
 
 // Module-level holding area for the current import session's parsed rows.
 let _importParsed = null;
+let _accMenuKey   = null;
 
 // ── Schema accessors ──────────────────────────────────────────────────────────
 // Schema is loaded at boot into state.accountSchema — no hardcoded constants here.
@@ -53,6 +54,8 @@ function _balanceCell(a, compact = false) {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 export function renderAccounts() {
+  closeContextMenu();
+  _accMenuKey = null;
   const viewAcc    = state.accViewRow !== null ? state.accounts.find(a => a._row === state.accViewRow) : null;
   const editAcc    = state.accEditRow !== null ? state.accounts.find(a => a._row === state.accEditRow) : null;
   const anyAddOpen = state.accAddOpen || viewAcc !== null || editAcc !== null;
@@ -389,11 +392,9 @@ function _renderAccountRow(a) {
     <td>${esc(a.currency)}</td>
     <td>${_balanceCell(a, true)}</td>
     <td>${_activeBadge(a)}</td>
-    <td><div class="row-actions">
-      <button class="btn-link muted"  data-action="acc-view"   data-row="${a._row}">View</button>
-      <button class="btn-link"        data-action="acc-edit"   data-row="${a._row}">Edit</button>
-      <button class="btn-link danger" data-action="acc-delete" data-row="${a._row}">Delete</button>
-    </div></td>
+    <td style="text-align:right">
+      <button class="tx-menu-trigger" data-action="acc-menu" data-row="${a._row}" title="Actions">⋯</button>
+    </td>
   </tr>`;
 }
 
@@ -448,10 +449,8 @@ function _renderTable() {
             <div class="acc-card-bal">${_balanceCell(a, true)}</div>
           </div>
           <div class="acc-card-meta">${esc(a.type)} · ${esc(a.sub_type || '—')} · ${esc(a.currency)} · ${_activeBadge(a)}</div>
-          <div class="row-actions">
-            <button class="btn-link muted"  data-action="acc-view"   data-row="${a._row}">View</button>
-            <button class="btn-link"        data-action="acc-edit"   data-row="${a._row}">Edit</button>
-            <button class="btn-link danger" data-action="acc-delete" data-row="${a._row}">Delete</button>
+          <div style="text-align:right;margin-top:4px">
+            <button class="tx-menu-trigger" data-action="acc-menu" data-row="${a._row}" title="Actions">⋯</button>
           </div>
         </div>`;
       })
@@ -468,7 +467,7 @@ function _renderTable() {
           <th style="width:70px">CCY</th>
           <th style="width:160px">Balance</th>
           <th style="width:80px">Status</th>
-          <th style="width:100px">Actions</th>
+          <th style="width:40px"></th>
         </tr></thead>
         <tbody>${bodyRows}</tbody>
       </table>
@@ -561,6 +560,21 @@ function _attachEvents() {
     if (!btn) return;
     const action = btn.dataset.action;
     const row    = btn.dataset.row ? Number(btn.dataset.row) : null;
+    if (action === 'acc-menu') {
+      if (_accMenuKey === row) { closeContextMenu(); _accMenuKey = null; return; }
+      _accMenuKey = row;
+      openContextMenu(btn, [
+        { key: 'acc-view',   label: 'View',   cls: '' },
+        { key: 'acc-edit',   label: 'Edit',   cls: '' },
+        { key: 'acc-delete', label: 'Delete', cls: 'danger' },
+      ], key => {
+        _accMenuKey = null;
+        if (key === 'acc-view')   { state.accViewRow = row; state.accEditRow = null; state.accDeleteRow = null; state.accDeleteBlocked = null; state.accAddOpen = false; renderAccounts(); }
+        if (key === 'acc-edit')   { state.accEditRow = row; state.accViewRow = null; state.accDeleteRow = null; state.accDeleteBlocked = null; state.accAddOpen = false; renderAccounts(); }
+        if (key === 'acc-delete') { state.accDeleteRow = row; state.accViewRow = null; state.accEditRow = null; state.accDeleteBlocked = null; renderAccounts(); }
+      });
+      return;
+    }
     if (action === 'acc-view')           { state.accViewRow = row; state.accEditRow = null; state.accDeleteRow = null; state.accDeleteBlocked = null; state.accAddOpen = false; renderAccounts(); return; }
     if (action === 'acc-edit')           { state.accEditRow = row; state.accViewRow = null; state.accDeleteRow = null; state.accDeleteBlocked = null; state.accAddOpen = false; renderAccounts(); return; }
     if (action === 'acc-delete')         { state.accDeleteRow = row; state.accViewRow = null; state.accEditRow = null; state.accDeleteBlocked = null; renderAccounts(); }

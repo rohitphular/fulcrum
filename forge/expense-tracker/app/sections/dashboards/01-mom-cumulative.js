@@ -210,8 +210,7 @@ function _renderTransactions(container, { txs, from, to, sym }) {
 // ── Accounts tab ──────────────────────────────────────────────────────────────
 
 function _renderAccounts(container, { accounts, from, to, sym }) {
-  const liabilityTypes = new Set(state.accountSchema?.liability_types || []);
-  const assetAccounts  = accounts.filter(a => a.is_active && !liabilityTypes.has(a.type));
+  const assetAccounts  = accounts.filter(a => a.is_active && a.type !== 'liability');
 
   if (!assetAccounts.length) {
     container.innerHTML = `

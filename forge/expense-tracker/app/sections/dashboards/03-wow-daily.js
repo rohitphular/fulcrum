@@ -161,8 +161,7 @@ function _renderTransactions(container, { from, sym }) {
 // ── Accounts tab ──────────────────────────────────────────────────────────────
 
 function _renderAccounts(container, { from, accounts, sym }) {
-  const liabilityTypes = new Set(state.accountSchema?.liability_types || []);
-  const assetAccounts  = accounts.filter(a => a.is_active && !liabilityTypes.has(a.type));
+  const assetAccounts  = accounts.filter(a => a.is_active && a.type !== 'liability');
 
   if (!assetAccounts.length) {
     container.innerHTML = `<div class="chart-wrap"><p class="chart-empty">No active asset accounts found.</p></div>`;

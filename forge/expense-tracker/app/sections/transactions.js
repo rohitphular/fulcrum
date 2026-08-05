@@ -1,11 +1,64 @@
 import { state, VALID_TX_TYPES } from '../core/state.js';
-import { el, esc, fmtDateTime, fmtDateTimeCompact, fmtNative, fmtBase, nowLocalISO, toDateInputVal, exportData, getSymbol, localToUtcISO, utcToLocalInput } from '../core/utils.js';
+import { el, esc, fmtDateTime, fmtDateTimeCompact, fmtNative, fmtBase, nowLocalISO, toDateInputVal, exportData, getSymbol, localToUtcISO, utcToLocalInput, openContextMenu, closeContextMenu } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { filteredTx } from '../core/daterange.js';
 import { ExpenseAPI } from '../core/api.js';
 
 let filterOpen      = false;
 let _txImportParsed = null;
+
+let _txMenuKey = null;
+
+function _dispatchTxAction(action, row) {
+  if (action === 'tx-view')           { state.txViewRow = row; state.txEditRow = null; state.txDeleteRow = null; state.txAddOpen = false; renderTransactions(); }
+  if (action === 'tx-cancel-view')    { state.txViewRow = null; renderTransactions(); }
+  if (action === 'tx-edit')           { state.txEditRow = row; state.txDeleteRow = null; state.txViewRow = null; state.txAddOpen = false; renderTransactions(); }
+  if (action === 'tx-cancel-edit')    { state.txEditRow = null; renderTransactions(); }
+  if (action === 'tx-save-edit')      { _saveEdit(); }
+  if (action === 'tx-delete')         { state.txDeleteRow = row; state.txEditRow = null; state.txViewRow = null; renderTransactions(); }
+  if (action === 'tx-cancel-delete')  { state.txDeleteRow = null; renderTransactions(); }
+  if (action === 'tx-confirm-delete') { _confirmDelete(row); }
+  if (action === 'tx-copy') {
+    const tx = state.transactions.find(t => t._row === row);
+    if (!tx) return;
+    state.txCopyPrefill = {
+      transaction_type: tx.transaction_type || '',
+      major_category:   tx.major_category   || '',
+      minor_category:   tx.minor_category   || '',
+      source_account:   tx.source_account   || '',
+      target_account:   tx.target_account   || '',
+      amount:           tx.amount,
+      counterparty:     tx.counterparty      || '',
+      country:          tx.country           || '',
+      tags:             tx.tags              || '',
+      notes:            tx.notes             || '',
+      fx_rate:          tx.fx_rate           || '',
+    };
+    state.txAddOpen   = true;
+    state.txEditRow   = null;
+    state.txViewRow   = null;
+    state.txDeleteRow = null;
+    renderTransactions();
+  }
+  if (action === 'tx-mark-sub') {
+    const tx = state.transactions.find(t => t._row === row);
+    if (!tx) return;
+    if (_isAlreadySubscribed(tx)) { showMsg('Already tracked as a subscription.', 'warn'); return; }
+    state.subPrefill = {
+      name:              tx.counterparty || '',
+      counterparty_name: tx.counterparty || '',
+      amount:            tx.amount,
+      currency:          tx.currency,
+      source_account:    tx.source_account,
+      transaction_type:  tx.transaction_type || '',
+      major_category:    tx.major_category || '',
+      minor_category:    tx.minor_category || '',
+      tags:              tx.tags || '',
+    };
+    state.subAddOpen = true;
+    document.dispatchEvent(new CustomEvent('et:show-section', { detail: 'subscriptions' }));
+  }
+}
 
 // ── Category dropdown helpers — respect is_active (greyed-out when archived) ──
 
@@ -49,6 +102,37 @@ function _getCat(type, major, minor) {
   ) || null;
 }
 
+// ── Subscription eligibility helpers ─────────────────────────────────────────
+
+function _isCatSubEligible(tx) {
+  if (!tx.major_category || !tx.minor_category) return false;
+  const cat = state.categories.find(c =>
+    c.transaction_type === tx.transaction_type &&
+    c.major_category   === tx.major_category &&
+    c.minor_category   === tx.minor_category
+  );
+  return cat?.is_subscription_eligible === true;
+}
+
+function _normTags(str) {
+  return new Set(
+    String(str || '').split(';').map(t => t.trim().toLowerCase()).filter(Boolean)
+  );
+}
+
+function _isAlreadySubscribed(tx) {
+  const normCp = (tx.counterparty || '').trim().toLowerCase();
+  if (!normCp) return false;
+  const txTags = _normTags(tx.tags);
+  return state.subscriptions.some(s => {
+    const sCp = (s.counterparty_name || '').trim().toLowerCase();
+    if (sCp !== normCp) return false;
+    const sTags = _normTags(s.tags);
+    // Match if both have no tags, OR at least one tag overlaps
+    return (txTags.size === 0 && sTags.size === 0) || [...txTags].some(t => sTags.has(t));
+  });
+}
+
 // Returns <option> elements filtered to allowedTypesStr account types.
 // Shows all accounts when no types are configured for the category.
 function _acctOptsWithHints(accounts, allowedTypesStr, selectedId = '') {
@@ -77,6 +161,8 @@ function _txTypeMap() {
 }
 
 export function renderTransactions() {
+  closeContextMenu();
+  _txMenuKey = null;
   const txEl = el('transactionsContent');
   const rows = filteredTx();
 
@@ -213,11 +299,9 @@ function _renderTxTable(validRows, warnRows) {
         <td class="td-truncate" title="${esc(acctLabel)}">${esc(acctLabel)}</td>
         <td class="td-mono td-nowrap">${amtCell}${missingRate ? ' <span class="badge badge-warn" title="Currency not in rates tab">?</span>' : ''}${rowRate ? ' <span title="Row-level FX rate" style="color:var(--muted);font-size:var(--text-2xs)">†</span>' : ''}</td>
         <td class="td-truncate" title="${esc(catLabel)}">${esc(catLabel)}</td>
-        <td><div class="row-actions">
-          <button class="btn-link muted" data-action="tx-view" data-row="${tx._row}">View</button>
-          <button class="btn-link" data-action="tx-edit" data-row="${tx._row}">Edit</button>
-          <button class="btn-link danger" data-action="tx-delete" data-row="${tx._row}">Delete</button>
-        </div></td>
+        <td style="text-align:right">
+          <button class="tx-menu-trigger" data-action="tx-menu" data-row="${tx._row}" title="Actions">⋯</button>
+        </td>
       </tr>`,
       card: `<div class="tx-card">
         <div class="tx-card-top">
@@ -225,16 +309,14 @@ function _renderTxTable(validRows, warnRows) {
             <span class="tx-card-date">${esc(fmtDateTimeCompact(tx.transaction_date_utc))}</span>
             <span class="badge ${badgeCls}">${typeLabel}</span>
           </div>
-          <div class="tx-card-amt td-mono">${esc(nativeAmt)}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="tx-card-amt td-mono">${esc(nativeAmt)}</div>
+            <button class="tx-menu-trigger" data-action="tx-menu" data-row="${tx._row}" title="Actions">⋯</button>
+          </div>
         </div>
         <div class="tx-card-detail">
           <div class="tx-card-account">${esc(acctLabel)}</div>
           ${catLabel !== '—' ? `<div class="tx-card-cat">${esc(catLabel)}</div>` : ''}
-        </div>
-        <div class="row-actions">
-          <button class="btn-link muted" data-action="tx-view" data-row="${tx._row}">View</button>
-          <button class="btn-link" data-action="tx-edit" data-row="${tx._row}">Edit</button>
-          <button class="btn-link danger" data-action="tx-delete" data-row="${tx._row}">Delete</button>
         </div>
       </div>`
     };
@@ -269,7 +351,7 @@ function _renderTxTable(validRows, warnRows) {
           ${thSort('source_account','Account')}
           <th>Amount</th>
           ${thSort('major_category','Category')}
-          <th style="width:130px">Actions</th>
+          <th style="width:40px"></th>
         </tr></thead>
         <tbody>${tableRows}</tbody>
         ${warnRowsHtml}
@@ -298,22 +380,28 @@ function _attachEvents() {
   el('nextPage')?.addEventListener('click', () => { state.txPage++; renderTransactions(); });
   el('txPerPage')?.addEventListener('change', e => { state.txPerPage = Number(e.target.value); state.txPage = 1; renderTransactions(); });
 
-  const handleTxAction = (e) => {
+  content.addEventListener('click', e => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const action = btn.dataset.action;
     const row    = btn.dataset.row ? Number(btn.dataset.row) : null;
-    if (action === 'tx-view')           { state.txViewRow = row; state.txEditRow = null; state.txDeleteRow = null; state.txAddOpen = false; renderTransactions(); }
-    if (action === 'tx-cancel-view')    { state.txViewRow = null; renderTransactions(); }
-    if (action === 'tx-edit')           { state.txEditRow = row; state.txDeleteRow = null; state.txViewRow = null; state.txAddOpen = false; renderTransactions(); }
-    if (action === 'tx-cancel-edit')    { state.txEditRow = null; renderTransactions(); }
-    if (action === 'tx-save-edit')      { _saveEdit(); }
-    if (action === 'tx-delete')         { state.txDeleteRow = row; state.txEditRow = null; state.txViewRow = null; renderTransactions(); }
-    if (action === 'tx-cancel-delete')  { state.txDeleteRow = null; renderTransactions(); }
-    if (action === 'tx-confirm-delete') { _confirmDelete(row); }
-  };
-
-  content.addEventListener('click', handleTxAction);
+    if (action === 'tx-menu') {
+      const tx = state.transactions.find(t => t._row === row);
+      if (!tx) return;
+      if (_txMenuKey === row) { closeContextMenu(); _txMenuKey = null; return; }
+      _txMenuKey = row;
+      const isSub = _isCatSubEligible(tx) && !_isAlreadySubscribed(tx);
+      openContextMenu(btn, [
+        { key: 'tx-view',     label: 'View',         cls: '' },
+        { key: 'tx-edit',     label: 'Edit',         cls: '' },
+        { key: 'tx-copy',     label: 'Copy',         cls: '' },
+        { key: 'tx-delete',   label: 'Delete',       cls: 'danger' },
+        ...(isSub ? [{ key: 'tx-mark-sub', label: 'Mark as sub', cls: '' }] : []),
+      ], key => { _txMenuKey = null; _dispatchTxAction(key, row); });
+      return;
+    }
+    _dispatchTxAction(action, row);
+  });
 }
 
 function _sortTx(rows) {
@@ -410,6 +498,49 @@ function _renderAddForm() {
   </div>`;
 }
 
+function _prefillAddForm(p) {
+  const typeEl = el('afType');
+  if (!typeEl) return;
+
+  // 1. Type → unlock and populate major
+  typeEl.value = p.transaction_type;
+  const majorEl = el('afMajor');
+  const minorEl = el('afMinor');
+  if (p.transaction_type) {
+    majorEl.innerHTML = _catMajorOpts(p.transaction_type);
+    majorEl.disabled  = false;
+    minorEl.disabled  = false;
+  }
+
+  // 2. Major → populate minor
+  if (p.major_category) {
+    majorEl.value    = p.major_category;
+    minorEl.innerHTML = _catMinorOpts(p.transaction_type, p.major_category);
+    if (p.minor_category) minorEl.value = p.minor_category;
+  }
+
+  // 3. Refresh source account opts (category-filtered), then set value
+  _afRefreshFromAccountOpts();
+  const fromEl = el('afFromAccount');
+  if (fromEl && p.source_account) fromEl.value = p.source_account;
+
+  // 4. Refresh target account opts, then set value
+  _afRefreshToAccountField();
+  const toEl = el('afToAccount');
+  if (toEl && p.target_account) toEl.value = p.target_account;
+
+  // 5. Show/hide FX rate field
+  _afRefreshFxRateVis();
+
+  // 6. Remaining text fields — date stays as nowLocalISO()
+  if (p.amount)       { const f = el('afAmount');       if (f) f.value = p.amount; }
+  if (p.counterparty) { const f = el('afCounterparty'); if (f) f.value = p.counterparty; }
+  if (p.country)      { const f = el('afCountry');      if (f) f.value = p.country; }
+  if (p.tags)         { const f = el('afTags');         if (f) f.value = String(p.tags).replace(/;/g, ', '); }
+  if (p.notes)        { const f = el('afNotes');        if (f) f.value = p.notes; }
+  if (p.fx_rate)      { const f = el('afFxRate');       if (f) { f.value = p.fx_rate; _afUpdateFxPreview(); } }
+}
+
 function _attachAddFormEvents() {
   el('afType')?.addEventListener('change', () => {
     const type       = el('afType').value;
@@ -475,6 +606,12 @@ function _attachAddFormEvents() {
     if (fxWrap) fxWrap.style.display = 'none';
     el('afError').textContent = '';
   });
+
+  // If a copy was triggered, populate the form now that events are wired
+  if (state.txCopyPrefill) {
+    _prefillAddForm(state.txCopyPrefill);
+    state.txCopyPrefill = null;
+  }
 }
 
 function _afRefreshFromAccountOpts() {

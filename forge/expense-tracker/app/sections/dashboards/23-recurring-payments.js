@@ -294,8 +294,12 @@ export async function render(containerId, { txs, from, to, sym }) {
     return { destroy() { _destroyChart(); } };
   }
 
-  const outTxs = txs.filter(t => t.transaction_type === 'money-out');
-  _recurring   = _detectRecurring(outTxs);
+  // Detect from full history — patterns need multiple months to be identified.
+  // Then filter to only those that fired at least once within the selected period.
+  const allOutTxs    = state.transactions.filter(t => t.transaction_type === 'money-out');
+  const periodOutTxs = txs.filter(t => t.transaction_type === 'money-out');
+  const periodKeys   = new Set(periodOutTxs.map(t => ((t.counterparty || '').trim() || 'unknown').toLowerCase()));
+  _recurring = _detectRecurring(allOutTxs).filter(r => periodKeys.has(r.counterparty.toLowerCase()));
   _C           = getCssColors();
 
   const fmt = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });

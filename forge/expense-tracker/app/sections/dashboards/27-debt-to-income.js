@@ -83,8 +83,7 @@ function _proxy(charts) {
 // ── Accounts tab ──────────────────────────────────────────────────────────────
 
 function _renderAccounts(container, { txs, accounts, from, to, sym }, C) {
-  const liabilityTypes = new Set(state.accountSchema?.liability_types || []);
-  const liabAccts      = accounts.filter(a => a.is_active && liabilityTypes.has(a.type));
+  const liabAccts      = accounts.filter(a => a.is_active && a.type === 'liability');
   const monthKeys      = monthRange(from, to);
 
   // Current total debt

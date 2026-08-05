@@ -3,11 +3,12 @@
 // Shared across all other .gs files via GAS global scope.
 // =============================================================================
 
-const TRANSACTIONS_SHEET = 'transactions';
-const CATEGORIES_SHEET   = 'categories';
-const ACCOUNTS_SHEET     = 'accounts';
-const RATES_SHEET        = 'rates';
-const AUDIT_SHEET        = 'audit_access';
+const TRANSACTIONS_SHEET  = 'transactions';
+const CATEGORIES_SHEET    = 'categories';
+const ACCOUNTS_SHEET      = 'accounts';
+const RATES_SHEET         = 'rates';
+const SUBSCRIPTIONS_SHEET = 'subscriptions';
+const AUDIT_SHEET         = 'audit_access';
 const MAX_FAILURES       = 3;
 
 // TRANSACTION_COLUMNS, VALID_TRANSACTION_TYPES, txColIndex() removed — all in transaction-schema.gs

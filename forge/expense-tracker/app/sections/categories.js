@@ -1,9 +1,10 @@
 import { state } from '../core/state.js';
-import { el, esc } from '../core/utils.js';
+import { el, esc, openContextMenu, closeContextMenu } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { ExpenseAPI } from '../core/api.js';
 
 let _catImportParsed = null;
+let _catMenuKey = null;
 
 // ── Constants — fallbacks used before schema loads ────────────────────────────
 
@@ -40,6 +41,7 @@ const ACCT_TYPE_LABELS = {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 export function renderCategories() {
+  closeContextMenu(); _catMenuKey = null;
   const content = el('categoriesContent');
 
   const filtered = state.catFilter === 'all'
@@ -165,6 +167,9 @@ function _renderForm(cat, mode) {
     <label class="checkbox-label cat-mandatory-check" style="margin-top:14px">
       <input type="checkbox" id="${pfx}IsActive" ${(cat?.is_active !== false) ? 'checked' : ''}${dis}> Active
     </label>` : ''}
+    <label class="checkbox-label cat-mandatory-check" style="margin-top:8px">
+      <input type="checkbox" id="${pfx}IsSubEligible" ${cat?.is_subscription_eligible === true ? 'checked' : ''}${dis}> Subscription eligible
+    </label>
     ${isView ? `
     <div class="form-actions" style="margin-top:16px">
       <button class="btn btn-secondary" id="catCancelView">Close</button>
@@ -208,11 +213,7 @@ function _renderCatTable(cats) {
       <td>${_catTypeBadge(cat.transaction_type)}</td>
       <td class="td-name">${esc(cat.major_category)}</td>
       <td>${esc(cat.minor_category)}</td>
-      <td><div class="row-actions">
-        <button class="btn-link muted"  data-action="cat-view"   data-row="${cat._row}">View</button>
-        <button class="btn-link"        data-action="cat-edit"   data-row="${cat._row}">Edit</button>
-        <button class="btn-link danger" data-action="cat-delete" data-row="${cat._row}">Delete</button>
-      </div></td>
+      <td><button class="tx-menu-trigger" data-action="cat-menu" data-row="${cat._row}">⋯</button></td>
     </tr>`;
   }).join('');
 
@@ -227,11 +228,7 @@ function _renderCatTable(cats) {
           <span class="cat-card-sep">›</span>
           <span class="cat-card-minor">${esc(cat.minor_category)}</span>
         </div>
-      </div>
-      <div class="row-actions">
-        <button class="btn-link muted"  data-action="cat-view"   data-row="${cat._row}">View</button>
-        <button class="btn-link"        data-action="cat-edit"   data-row="${cat._row}">Edit</button>
-        <button class="btn-link danger" data-action="cat-delete" data-row="${cat._row}">Delete</button>
+        <button class="tx-menu-trigger" data-action="cat-menu" data-row="${cat._row}">⋯</button>
       </div>
     </div>`;
   }).join('');
@@ -243,7 +240,7 @@ function _renderCatTable(cats) {
           <th style="width:80px">Type</th>
           <th>Major</th>
           <th>Minor</th>
-          <th style="width:150px">Actions</th>
+          <th style="width:40px"></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -349,19 +346,20 @@ function _parseCatCsv(text) {
     if (!row.workflow_type)    { errors.push(`Row ${i + 1}: missing workflow_type`);     continue; }
 
     categories.push({
-      transaction_type:        row.transaction_type,
-      major_category:          row.major_category,
-      minor_category:          row.minor_category,
-      description:             row.description             || '',
-      is_active:               row.is_active !== 'FALSE' && row.is_active !== 'false',
-      tag_keywords:            row.tag_keywords            || '',
-      counterparty_examples:   row.counterparty_examples   || '',
-      source_account_types:    row.source_account_types    || '',
-      target_account_types:    row.target_account_types    || '',
-      source_account_mandatory: row.source_account_mandatory === 'TRUE' || row.source_account_mandatory === 'true',
-      target_account_mandatory: row.target_account_mandatory === 'TRUE' || row.target_account_mandatory === 'true',
-      sort_order:              Number(row.sort_order) || 0,
-      workflow_type:           row.workflow_type,
+      transaction_type:          row.transaction_type,
+      major_category:            row.major_category,
+      minor_category:            row.minor_category,
+      description:               row.description             || '',
+      is_active:                 row.is_active !== 'FALSE' && row.is_active !== 'false',
+      tag_keywords:              row.tag_keywords            || '',
+      counterparty_examples:     row.counterparty_examples   || '',
+      source_account_types:      row.source_account_types    || '',
+      target_account_types:      row.target_account_types    || '',
+      source_account_mandatory:  row.source_account_mandatory === 'TRUE' || row.source_account_mandatory === 'true',
+      target_account_mandatory:  row.target_account_mandatory === 'TRUE' || row.target_account_mandatory === 'true',
+      sort_order:                Number(row.sort_order) || 0,
+      workflow_type:             row.workflow_type,
+      is_subscription_eligible:  row.is_subscription_eligible === 'TRUE' || row.is_subscription_eligible === 'true',
     });
   }
   return { categories, errors };
@@ -512,6 +510,21 @@ function _attachCatEvents() {
     const action = btn.dataset.action;
     const row    = btn.dataset.row ? Number(btn.dataset.row) : null;
 
+    if (action === 'cat-menu') {
+      if (_catMenuKey === row) { closeContextMenu(); _catMenuKey = null; return; }
+      _catMenuKey = row;
+      openContextMenu(btn, [
+        { key: 'cat-view',   label: 'View',   cls: '' },
+        { key: 'cat-edit',   label: 'Edit',   cls: '' },
+        { key: 'cat-delete', label: 'Delete', cls: 'danger' },
+      ], key => {
+        _catMenuKey = null;
+        if (key === 'cat-view')   { state.catViewRow = row; state.catEditRow = null; state.catDeleteRow = null; state.catAddOpen = false; renderCategories(); }
+        if (key === 'cat-edit')   { state.catEditRow = row; state.catViewRow = null; state.catDeleteRow = null; state.catAddOpen = false; renderCategories(); }
+        if (key === 'cat-delete') { state.catDeleteRow = row; state.catViewRow = null; state.catEditRow = null; renderCategories(); }
+      });
+      return;
+    }
     if (action === 'cat-view')           { state.catViewRow = row; state.catEditRow = null; state.catDeleteRow = null; state.catAddOpen = false; renderCategories(); }
     if (action === 'cat-edit')           { state.catEditRow = row; state.catViewRow = null; state.catDeleteRow = null; state.catAddOpen = false; renderCategories(); }
     if (action === 'cat-delete')         { state.catDeleteRow = row; state.catViewRow = null; state.catEditRow = null; renderCategories(); }
@@ -535,10 +548,11 @@ async function _saveNewCategory() {
   const target_account_types  = _getCheckedAccountTypes('catNewTgt');
   const source_account_mandatory = el('catNewSrcMandatory')?.checked === true;
   const target_account_mandatory = el('catNewTgtMandatory')?.checked === true;
-  const sort_order            = Number(el('catNewSortOrder')?.value) || 0;
-  const workflow_type         = el('catNewWorkflowType')?.value;
-  const is_active             = true;
-  const errEl                 = el('catAddError');
+  const sort_order               = Number(el('catNewSortOrder')?.value) || 0;
+  const workflow_type            = el('catNewWorkflowType')?.value;
+  const is_active                = true;
+  const is_subscription_eligible = el('catNewIsSubEligible')?.checked === true;
+  const errEl                    = el('catAddError');
 
   if (!major_category) { if (errEl) errEl.textContent = 'Major category is required.'; return; }
   if (!minor_category) { if (errEl) errEl.textContent = 'Minor category is required.'; return; }
@@ -550,7 +564,7 @@ async function _saveNewCategory() {
   try {
     const res = await ExpenseAPI.createCategory({
       transaction_type, major_category, minor_category, description,
-      is_active, tag_keywords, counterparty_examples,
+      is_active, is_subscription_eligible, tag_keywords, counterparty_examples,
       source_account_types, target_account_types,
       source_account_mandatory, target_account_mandatory, sort_order, workflow_type,
     });
@@ -590,10 +604,11 @@ async function _saveCatEdit() {
   const target_account_types  = _getCheckedAccountTypes('catEditTgt');
   const source_account_mandatory = el('catEditSrcMandatory')?.checked === true;
   const target_account_mandatory = el('catEditTgtMandatory')?.checked === true;
-  const sort_order            = Number(el('catEditSortOrder')?.value) || 0;
-  const workflow_type         = el('catEditWorkflowType')?.value;
-  const is_active             = el('catEditIsActive')?.checked !== false;
-  const errEl                 = el('catEditError');
+  const sort_order               = Number(el('catEditSortOrder')?.value) || 0;
+  const workflow_type            = el('catEditWorkflowType')?.value;
+  const is_active                = el('catEditIsActive')?.checked !== false;
+  const is_subscription_eligible = el('catEditIsSubEligible')?.checked === true;
+  const errEl                    = el('catEditError');
 
   if (!major_category || !minor_category) {
     if (errEl) errEl.textContent = 'Major and minor category are required.';
@@ -607,7 +622,7 @@ async function _saveCatEdit() {
   try {
     const res = await ExpenseAPI.updateCategory({
       row_num: rowNum, transaction_type, major_category, minor_category, description,
-      is_active, tag_keywords, counterparty_examples,
+      is_active, is_subscription_eligible, tag_keywords, counterparty_examples,
       source_account_types, target_account_types,
       source_account_mandatory, target_account_mandatory, sort_order, workflow_type,
     });

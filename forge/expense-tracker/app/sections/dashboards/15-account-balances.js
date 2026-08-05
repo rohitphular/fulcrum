@@ -78,7 +78,6 @@ export async function render(containerId, { accounts, sym }) {
     return null;
   }
 
-  const liabilityTypes  = new Set(state.accountSchema.liability_types  || []);
   const investmentTypes = new Set(['investment']);
 
   const active = accounts.filter(a => a.is_active);
@@ -94,8 +93,8 @@ export async function render(containerId, { accounts, sym }) {
   const withBalance = active.map(a => ({ ...a, balance: balanceMap.get(a.id) || 0 }));
 
   // Partition
-  const assets      = withBalance.filter(a => !liabilityTypes.has(a.type) && !investmentTypes.has(a.type)).sort((a, b) => b.balance - a.balance);
-  const liabilities = withBalance.filter(a => liabilityTypes.has(a.type)).sort((a, b) => a.balance - b.balance);  // most negative first
+  const assets      = withBalance.filter(a => a.type !== 'liability' && !investmentTypes.has(a.type)).sort((a, b) => b.balance - a.balance);
+  const liabilities = withBalance.filter(a => a.type === 'liability').sort((a, b) => a.balance - b.balance);  // most negative first
   const investments = withBalance.filter(a => investmentTypes.has(a.type)).sort((a, b) => b.balance - a.balance);
 
   const fmt = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
