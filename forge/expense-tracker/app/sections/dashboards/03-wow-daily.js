@@ -3,7 +3,7 @@ import { el, esc } from '../../core/utils.js';
 import { state } from '../../core/state.js';
 import {
   filterTxByRange, groupByDay, sumAmountBase,
-  computeDailyTotalAssets, getCssColors, baseChartOptions,
+  computeDailyTotalAssets, getCssColors, baseChartOptions, PREV_PERIOD_COLOR,
 } from './dashboard-utils.js';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -145,7 +145,7 @@ function _renderTransactions(container, { from, sym }) {
         {
           label:       labelB,
           data:        dataB,
-          borderColor: C.muted,
+          borderColor: PREV_PERIOD_COLOR,
           fill:        false,
           tension:     0.3,
           pointRadius: 3,
@@ -241,7 +241,7 @@ function _renderAccounts(container, { from, accounts, sym }) {
         {
           label:       `Assets ${labelB}`,
           data:        dataB,
-          borderColor: C.muted,
+          borderColor: PREV_PERIOD_COLOR,
           fill:        false,
           tension:     0.3,
           pointRadius: 3,

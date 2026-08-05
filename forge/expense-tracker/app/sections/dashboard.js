@@ -5,41 +5,41 @@ import { getPeriodBounds, filterTxByRange, findMissingRates } from './dashboards
 
 const DASHBOARDS = [
   // Spending comparisons
-  { id: '01-mom-cumulative',    label: 'Month-on-Month daily cumulative', group: 'Spending comparisons', tabs: true  },
-  { id: '02-yoy-monthly',       label: 'Year-on-Year monthly',            group: 'Spending comparisons', tabs: true  },
-  { id: '03-wow-daily',         label: 'Week-on-Week daily',              group: 'Spending comparisons', tabs: true  },
-  { id: '04-qtd-comparison',    label: 'Quarter-to-date comparison',      group: 'Spending comparisons', tabs: true  },
-  { id: '05-ytd-comparison',    label: 'Year-to-date comparison',         group: 'Spending comparisons', tabs: true  },
-  { id: '06-last-12-months',    label: 'Last 12 months',                  group: 'Spending comparisons', tabs: true  },
-  { id: '07-last-8-weeks',      label: 'Last 8 weeks',                    group: 'Spending comparisons', tabs: false  },
+  { id: '01-mom-cumulative',    label: 'Month-on-Month daily cumulative', group: 'Spending comparisons', tabs: true,  description: 'Cumulative spend day-by-day through the month, compared against the previous month.',                          periods: ['this_month', 'last_month', 'custom'] },
+  { id: '02-yoy-monthly',       label: 'Year-on-Year monthly',            group: 'Spending comparisons', tabs: true,  description: 'Monthly spend by calendar month, this year vs the same period last year.',                                   periods: ['this_month', 'last_month', 'ytd', 'last_year', 'custom'] },
+  { id: '03-wow-daily',         label: 'Week-on-Week daily',              group: 'Spending comparisons', tabs: true,  description: 'Daily spend through the week, this week vs last week.',                                                       periods: ['this_week', 'last_week', 'last_7', 'custom'] },
+  { id: '04-qtd-comparison',    label: 'Quarter-to-date comparison',      group: 'Spending comparisons', tabs: true,  description: 'Spend so far this quarter, day-by-day, compared against the same number of days in the previous quarter.',    periods: ['this_quarter', 'last_quarter', 'custom'] },
+  { id: '05-ytd-comparison',    label: 'Year-to-date comparison',         group: 'Spending comparisons', tabs: true,  description: 'Monthly spend this year vs the same months last year.',                                                       periods: ['ytd', 'last_year', 'custom'] },
+  { id: '06-last-12-months',    label: 'Last 12 months',                  group: 'Spending comparisons', tabs: true,  description: 'Income, expenses, and net savings per calendar month over the last 12 months.',                              periods: false },
+  { id: '07-last-8-weeks',      label: 'Last 8 weeks',                    group: 'Spending comparisons', tabs: false, description: 'Weekly income and expenses over the last 8 weeks.',                                                           periods: false },
   // Categories
-  { id: '08-category-pie',      label: 'Category breakdown',              group: 'Categories',           tabs: false },
-  { id: '09-category-trend',    label: 'Category trend over time',        group: 'Categories',           tabs: false },
-  { id: '10-top-categories',    label: 'Top categories',                  group: 'Categories',           tabs: false },
-  { id: '11-category-drilldown', label: 'Category drilldown',             group: 'Categories',           tabs: false },
-  { id: '12-tag-pie',           label: 'Tag breakdown',                   group: 'Categories',           tabs: false },
-  { id: '13-tag-trend',         label: 'Tag trend over time',             group: 'Categories',           tabs: false },
+  { id: '08-category-pie',      label: 'Category breakdown',              group: 'Categories',           tabs: false, description: 'How your spending is split across categories this period. Click a segment to see the individual transactions.' },
+  { id: '09-category-trend',    label: 'Category trend over time',        group: 'Categories',           tabs: false, description: 'How each category\'s spend has trended month by month over the selected period.' },
+  { id: '10-top-categories',    label: 'Top categories',                  group: 'Categories',           tabs: false, description: 'Your highest-spending categories this period vs the previous period.' },
+  { id: '11-category-drilldown', label: 'Category drilldown',             group: 'Categories',           tabs: false, description: 'Explore spending by major category, then drill into minor categories and individual transactions.' },
+  { id: '12-tag-pie',           label: 'Tag breakdown',                   group: 'Categories',           tabs: false, description: 'How your tagged spend is distributed. Click a segment to see transactions for that tag.' },
+  { id: '13-tag-trend',         label: 'Tag trend over time',             group: 'Categories',           tabs: false, description: 'How each tag\'s spend has changed month by month. Click a point to see transactions for that month.' },
   // Net worth
-  { id: '14-networth-trend',    label: 'Net worth trend',                 group: 'Net worth',            tabs: false },
-  { id: '15-account-balances',  label: 'Account balances',               group: 'Net worth',            tabs: false },
-  { id: '16-asset-vs-liability', label: 'Assets vs liabilities',          group: 'Net worth',            tabs: false },
-  { id: '17-liability-paydown', label: 'Liability paydown',               group: 'Net worth',            tabs: false },
+  { id: '14-networth-trend',    label: 'Net worth trend',                 group: 'Net worth',            tabs: false, description: 'Total net worth (assets minus liabilities) over time. Click a point to see account balances at that date.' },
+  { id: '15-account-balances',  label: 'Account balances',                group: 'Net worth',            tabs: false, description: 'Current balance of every account, grouped by type.' },
+  { id: '16-asset-vs-liability', label: 'Assets vs liabilities',          group: 'Net worth',            tabs: false, description: 'Total asset value vs total liability value over time.' },
+  { id: '17-liability-paydown', label: 'Liability paydown',               group: 'Net worth',            tabs: false, description: 'How your liabilities have changed over time, by liability account.' },
   // Cash flow
-  { id: '18-income-vs-expenses', label: 'Income vs expenses',             group: 'Cash flow',            tabs: false },
-  { id: '19-cashflow-waterfall', label: 'Cashflow waterfall',             group: 'Cash flow',            tabs: false },
-  { id: '20-savings-rate',      label: 'Savings rate',                    group: 'Cash flow',            tabs: false },
-  { id: '21-income-sources',    label: 'Income sources',                  group: 'Cash flow',            tabs: false },
+  { id: '18-income-vs-expenses', label: 'Income vs expenses',             group: 'Cash flow',            tabs: false, description: 'Income vs expenses by month. Click a bar to see the breakdown for that month.' },
+  { id: '19-cashflow-waterfall', label: 'Cashflow waterfall',             group: 'Cash flow',            tabs: false, description: 'Where money came in and went out each month, shown as a waterfall. Click a bar to see transactions.' },
+  { id: '20-savings-rate',      label: 'Savings rate',                    group: 'Cash flow',            tabs: false, description: 'What percentage of income is saved each month.' },
+  { id: '21-income-sources',    label: 'Income sources',                  group: 'Cash flow',            tabs: false, description: 'Where your income comes from. Click a segment to see transactions for that source.' },
   // Counterparties
-  { id: '22-top-counterparties', label: 'Top counterparties',             group: 'Counterparties',       tabs: false },
-  { id: '23-recurring-payments', label: 'Recurring payments',             group: 'Counterparties',       tabs: false },
+  { id: '22-top-counterparties', label: 'Top counterparties',             group: 'Counterparties',       tabs: false, description: 'Your highest-spend counterparties. Click a bar to see their monthly spend trend.' },
+  { id: '23-recurring-payments', label: 'Recurring payments',             group: 'Counterparties',       tabs: false, description: 'Counterparties you pay regularly. Click a row to see their full payment history.' },
   // Geography
-  { id: '24-spend-by-country',  label: 'Spend by country',               group: 'Geography',            tabs: false },
-  { id: '25-spend-by-city',     label: 'Spend by city',                  group: 'Geography',            tabs: false },
+  { id: '24-spend-by-country',  label: 'Spend by country',                group: 'Geography',            tabs: false, description: 'How spend is distributed by country. Click a segment to see spend by city within that country.' },
+  { id: '25-spend-by-city',     label: 'Spend by city',                   group: 'Geography',            tabs: false, description: 'How spend is distributed by city. Click a bar to see the individual transactions.' },
   // Loans
-  { id: '26-loan-progress',     label: 'Loan progress',                   group: 'Loans',                tabs: false },
-  { id: '27-debt-to-income',    label: 'Debt-to-income',                  group: 'Loans',                tabs: true, tabLabels: { transactions: 'Income trend', accounts: 'DTI ratio' } },
+  { id: '26-loan-progress',     label: 'Loan progress',                   group: 'Loans',                tabs: false, description: 'Repayment progress for each active loan.' },
+  { id: '27-debt-to-income',    label: 'Debt-to-income',                  group: 'Loans',                tabs: true,  description: 'Debt-to-income ratio trend and how it compares to common thresholds.', tabLabels: { transactions: 'Income trend', accounts: 'DTI ratio' } },
   // FX
-  { id: '28-forex-spend',       label: 'Foreign currency spend',          group: 'FX & currency',        tabs: false },
+  { id: '28-forex-spend',       label: 'Foreign currency spend',          group: 'FX & currency',        tabs: false, description: 'Spend in foreign currencies, converted to base currency.' },
 ];
 
 const PERIOD_OPTIONS = [
@@ -80,6 +80,12 @@ export function renderDashboard() {
 function _buildShellHtml() {
   const dash = DASHBOARDS.find(d => d.id === state.dashId) || DASHBOARDS[0];
 
+  // Snap state.dashPeriod to a valid option for this dashboard
+  const allowedPeriods = Array.isArray(dash.periods) ? dash.periods : null;
+  if (allowedPeriods && !allowedPeriods.includes(state.dashPeriod)) {
+    state.dashPeriod = allowedPeriods[0];
+  }
+
   // Group selector by group
   const groupMap = new Map();
   DASHBOARDS.forEach(d => {
@@ -92,11 +98,15 @@ function _buildShellHtml() {
     ).join('')}</optgroup>`
   ).join('');
 
-  const periodHtml = PERIOD_OPTIONS.map(p =>
+  const visiblePeriods = allowedPeriods
+    ? PERIOD_OPTIONS.filter(p => allowedPeriods.includes(p.value))
+    : PERIOD_OPTIONS;
+  const periodHtml = visiblePeriods.map(p =>
     `<option value="${esc(p.value)}"${p.value === state.dashPeriod ? ' selected' : ''}>${esc(p.label)}</option>`
   ).join('');
 
-  const customHidden = state.dashPeriod !== 'custom' ? ' hidden' : '';
+  const hidePeriod  = dash.periods === false;
+  const customHidden = (hidePeriod || state.dashPeriod !== 'custom') ? ' hidden' : '';
 
   const tl = dash.tabLabels || {};
   const tabStrip = dash.tabs
@@ -110,13 +120,14 @@ function _buildShellHtml() {
     <div class="dash-controls">
       <div class="dash-top-row">
         <select class="dash-selector" id="dashSelector">${selectorHtml}</select>
-        <select class="dash-period-select" id="dashPeriodSelect">${periodHtml}</select>
+        ${hidePeriod ? '' : `<select class="dash-period-select" id="dashPeriodSelect">${periodHtml}</select>`}
       </div>
       <div class="dash-custom-dates${customHidden}" id="dashCustomDates">
         <input type="date" id="dashCustomFrom" value="${esc(state.dashCustomFrom)}">
         <span class="dash-custom-sep">–</span>
         <input type="date" id="dashCustomTo" value="${esc(state.dashCustomTo)}">
       </div>
+      ${dash.description ? `<p class="dash-description">${esc(dash.description)}</p>` : ''}
       ${tabStrip}
     </div>
     <div id="dashInner"></div>`;

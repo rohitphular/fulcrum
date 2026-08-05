@@ -2,7 +2,7 @@
 import { el, esc } from '../../core/utils.js';
 import {
   groupByMonth, monthRange, sumAmountBase,
-  getCssColors, buildPalette, baseChartOptions, fmtMonthKey,
+  getCssColors, buildPalette, baseChartOptions, fmtMonthKey, renderDrillTxTable,
 } from './dashboard-utils.js';
 
 const MAX_VISIBLE = 6;  // top N tags visible by default; rest togglable via legend
@@ -129,23 +129,6 @@ export async function render(containerId, { txs, sym, from, to }) {
           return String(t.tags || '').split(';').map(s => s.toLowerCase().trim()).includes(tag);
         }).sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
 
-        const thS = `padding:8px;font-size:var(--text-xs);color:var(--muted);font-weight:600;white-space:nowrap`;
-        const tdS = `padding:9px 8px;font-size:var(--text-sm);border-bottom:1px solid var(--hair)`;
-
-        const bodyRows = tagTxs.map(t => {
-          const d       = new Date(t.transaction_date_utc);
-          const date    = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-          const tags    = String(t.tags || '').split(';').map(s => s.trim()).filter(Boolean);
-          const share   = sumAmountBase([t]) / Math.max(tags.length, 1);
-          const fmtV    = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-          const shareTxt = tags.length > 1 ? ` (÷${tags.length})` : '';
-          return `<tr>
-            <td style="${tdS};color:var(--muted);white-space:nowrap">${esc(date)}</td>
-            <td style="${tdS}">${esc(t.counterparty || '—')}</td>
-            <td style="${tdS};text-align:right;white-space:nowrap">${esc(fmtV(share))}${esc(shareTxt)}</td>
-          </tr>`;
-        }).join('');
-
         const shareTotal = tagTxs.reduce((s, t) => {
           const tags = String(t.tags || '').split(';').filter(Boolean);
           return s + sumAmountBase([t]) / Math.max(tags.length, 1);
@@ -160,18 +143,7 @@ export async function render(containerId, { txs, sym, from, to }) {
               <button data-action="drill-close" style="background:none;border:none;color:var(--muted);font-size:var(--text-sm);cursor:pointer;padding:0 4px">✕</button>
             </div>
           </div>
-          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-            <table style="width:100%;border-collapse:collapse;min-width:280px">
-              <thead>
-                <tr style="border-bottom:2px solid var(--hair)">
-                  <th style="${thS};text-align:left">Date</th>
-                  <th style="${thS};text-align:left">Counterparty</th>
-                  <th style="${thS};text-align:right">Amount (split)</th>
-                </tr>
-              </thead>
-              <tbody>${bodyRows || `<tr><td colspan="3" style="padding:12px;text-align:center;color:var(--muted)">No transactions</td></tr>`}</tbody>
-            </table>
-          </div>`;
+          ${renderDrillTxTable(tagTxs, sym)}`;
         drillEl.hidden = false;
         drillEl.querySelector('[data-action="drill-close"]')?.addEventListener('click', () => { drillEl.hidden = true; });
         drillEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

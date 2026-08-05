@@ -3,7 +3,7 @@ import { el, esc } from '../../core/utils.js';
 import { state } from '../../core/state.js';
 import {
   computeDailyTotalAssets, sumAmountBase,
-  getCssColors, baseChartOptions,
+  getCssColors, baseChartOptions, renderDrillTxTable,
 } from './dashboard-utils.js';
 
 const MAX_CATS = 10;
@@ -224,19 +224,6 @@ export async function render(containerId, { txs, accounts, from, sym }) {
         const sorted = [...catTxs].sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
         const total  = sumAmountBase(sorted);
         const fmt    = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-        const thS    = `padding:8px;font-size:var(--text-xs);color:var(--muted);font-weight:600;white-space:nowrap`;
-        const tdS    = `padding:9px 8px;font-size:var(--text-sm);border-bottom:1px solid var(--hair)`;
-
-        const bodyRows = sorted.map(t => {
-          const d    = new Date(t.transaction_date_utc);
-          const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
-          return `<tr>
-            <td style="${tdS};color:var(--muted);white-space:nowrap">${esc(date)}</td>
-            <td style="${tdS}">${esc(t.counterparty || '—')}</td>
-            <td style="${tdS};color:var(--muted)">${esc(t.minor_category || '—')}</td>
-            <td style="${tdS};text-align:right;white-space:nowrap">${esc(fmt(sumAmountBase([t])))}</td>
-          </tr>`;
-        }).join('');
 
         drillEl.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -246,19 +233,7 @@ export async function render(containerId, { txs, accounts, from, sym }) {
               <button data-action="drill-close" style="background:none;border:none;color:var(--muted);font-size:var(--text-sm);cursor:pointer;padding:0 4px">✕</button>
             </div>
           </div>
-          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-            <table style="width:100%;border-collapse:collapse;min-width:360px">
-              <thead>
-                <tr style="border-bottom:2px solid var(--hair)">
-                  <th style="${thS};text-align:left">Date</th>
-                  <th style="${thS};text-align:left">Counterparty</th>
-                  <th style="${thS};text-align:left">Sub-category</th>
-                  <th style="${thS};text-align:right">Amount</th>
-                </tr>
-              </thead>
-              <tbody>${bodyRows || `<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--muted)">No transactions</td></tr>`}</tbody>
-            </table>
-          </div>`;
+          ${renderDrillTxTable(sorted, sym)}`;
         drillEl.hidden = false;
         drillEl.querySelector('[data-action="drill-close"]')?.addEventListener('click', () => { drillEl.hidden = true; });
         drillEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

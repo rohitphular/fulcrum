@@ -7,6 +7,7 @@ import { ExpenseAPI } from '../core/api.js';
 let filterOpen      = false;
 let _txImportParsed = null;
 
+
 let _txMenuKey = null;
 
 function _dispatchTxAction(action, row) {
@@ -163,6 +164,21 @@ function _txTypeMap() {
 export function renderTransactions() {
   closeContextMenu();
   _txMenuKey = null;
+
+  // Fire-and-forget suggestions fetch — only once per session
+  if (!state.suggestionsLoaded) {
+    state.suggestionsLoaded  = true;
+    state.suggestionsFetching = true;
+    ExpenseAPI.getSuggestedTransactions().then(res => {
+      state.suggestionsFetching = false;
+      if (res.ok) state.suggestions = res.suggestions || [];
+      renderTransactions();
+    }).catch(() => {
+      state.suggestionsFetching = false;
+      renderTransactions();
+    });
+  }
+
   const txEl = el('transactionsContent');
   const rows = filteredTx();
 
@@ -185,6 +201,7 @@ export function renderTransactions() {
     ${state.txAddOpen    ? _renderAddForm()              : ''}
     ${viewTx             ? _renderTxForm(viewTx, 'view') : ''}
     ${editTx             ? _renderTxForm(editTx, 'edit') : ''}
+    ${_renderSuggestionsPanel()}
     ${_renderFilterBar()}
     ${warnRows.length ? `<div class="warning-count" id="warnToggle">⚠ ${warnRows.length} row${warnRows.length > 1 ? 's' : ''} have warnings — click to expand</div>` : ''}
     <div class="table-controls">
@@ -245,6 +262,7 @@ export function renderTransactions() {
     renderTransactions();
   });
 
+  _attachSuggestionEvents();
   _attachFilterEvents();
   if (state.txAddOpen) _attachAddFormEvents();
   if (editTx) _attachTxEditCascadeEvents();
@@ -1276,6 +1294,63 @@ async function _confirmDelete(rowNum) {
   }
 }
 
+// ── Suggestions panel ─────────────────────────────────────────────────────────
+
+function _renderSuggestionsPanel() {
+  if (state.suggestionsFetching) {
+    return `
+    <div class="suggestions-panel">
+      <button class="suggestions-toggle" id="suggestionsToggle">
+        Suggestions <span class="filter-arrow">▼</span>
+      </button>
+      <div class="suggestions-body" id="suggestionsBody">
+        <div class="suggestions-scroll">
+          ${[1,2,3,4,5,6,7].map(() => `<div class="suggestion-card suggestion-skeleton"></div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  const visible = state.suggestions;
+
+  // When empty: always show panel but collapsed
+  const isEmpty  = visible.length === 0;
+  const isOpen   = isEmpty ? false : state.suggestionsOpen;
+  const arrow     = isOpen ? '▲' : '▼';
+  const bodyClass = isOpen ? '' : 'hidden';
+  const countLabel = visible.length > 0 ? ` (${visible.length})` : '';
+
+  const cards = visible.map(s => {
+    const key      = `${s.counterparty}|${s.minor_category}`;
+    const acctName = state.accountMap[s.source_account]?.name || esc(s.source_account);
+    const sym      = getSymbol(s.currency);
+    const amount   = sym + Number(s.typical_amount).toFixed(2);
+
+    return `
+      <div class="suggestion-card" data-key="${esc(key)}">
+        <div class="suggestion-name" title="${esc(s.counterparty)}">${esc(s.counterparty)}</div>
+        <div class="suggestion-meta" title="${esc(s.minor_category)} · ${esc(acctName)}">${esc(s.minor_category)} · ${esc(acctName)}</div>
+        <div class="suggestion-amount">${esc(amount)}</div>
+        <div class="suggestion-reason" title="${esc(s.reason)}">${esc(s.reason)}</div>
+        <button class="btn btn-primary btn-sm suggestion-add" data-action="sugg-add" data-key="${esc(key)}">Add</button>
+      </div>`;
+  }).join('');
+
+  const body = isEmpty
+    ? `<div class="suggestions-empty">No suggestions right now.</div>`
+    : `<div class="suggestions-scroll">${cards}</div>`;
+
+  return `
+  <div class="suggestions-panel">
+    <button class="suggestions-toggle" id="suggestionsToggle">
+      Suggestions${esc(countLabel)} <span class="filter-arrow">${arrow}</span>
+    </button>
+    <div class="suggestions-body ${bodyClass}" id="suggestionsBody">
+      ${body}
+    </div>
+  </div>`;
+}
+
 // ── Filter bar ────────────────────────────────────────────────────────────────
 
 function _renderFilterBar() {
@@ -1298,8 +1373,7 @@ function _renderFilterBar() {
   return `
   <div class="filter-bar">
     <button class="filter-toggle" id="filterToggle">
-      Filters ${activeChips.length ? `<span class="badge badge-in">${activeChips.length}</span>` : ''}
-      <span class="filter-arrow">${filterOpen ? '▲' : '▼'}</span>
+      Filters${activeChips.length ? ` (${activeChips.length})` : ''} <span class="filter-arrow">${filterOpen ? '▲' : '▼'}</span>
     </button>
     <div class="filter-body ${filterOpen ? '' : 'hidden'}" id="filterBody">
       <div class="filter-row">
@@ -1343,8 +1417,9 @@ function _renderFilterBar() {
         <label>Search</label>
         <input type="text" id="filterSearch" value="${esc(f.search)}" placeholder="counterparty or notes">
       </div>
-      <div style="margin-top:4px">
-        <button class="btn btn-secondary btn-sm" id="clearFilters">Clear all filters</button>
+      <div style="margin-top:4px;display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" id="applyFilters">Search</button>
+        <button class="btn btn-secondary btn-sm" id="clearFilters">Clear</button>
       </div>
     </div>
     ${activeChips.length ? `<div class="filter-chips">
@@ -1560,6 +1635,44 @@ async function _submitTxImport(transactions) {
   }
 }
 
+function _attachSuggestionEvents() {
+  el('suggestionsToggle')?.addEventListener('click', () => {
+    state.suggestionsOpen = !state.suggestionsOpen;
+    renderTransactions();
+  });
+
+  const content = el('transactionsContent');
+  if (!content) return;
+
+  content.addEventListener('click', e => {
+    const btn = e.target.closest('[data-action="sugg-add"]');
+    if (!btn) return;
+    const key = btn.dataset.key;
+
+    if (btn.dataset.action === 'sugg-add') {
+      const s = state.suggestions.find(x => `${x.counterparty}|${x.minor_category}` === key);
+      if (!s) return;
+      state.txCopyPrefill = {
+        transaction_type: 'money-out',
+        major_category:   s.major_category,
+        minor_category:   s.minor_category,
+        source_account:   s.source_account,
+        target_account:   '',
+        amount:           s.typical_amount,
+        currency:         s.currency,
+        counterparty:     s.counterparty,
+        country:          '',
+        tags:             '',
+        notes:            '',
+        fx_rate:          '',
+      };
+      state.txAddOpen      = true;
+      state.txImportOpen   = false;
+      renderTransactions();
+    }
+  }, { capture: false });
+}
+
 function _attachFilterEvents() {
   el('filterToggle')?.addEventListener('click', () => { filterOpen = !filterOpen; renderTransactions(); });
 
@@ -1568,17 +1681,14 @@ function _attachFilterEvents() {
       const t = cb.dataset.filterType;
       if (cb.checked) { if (!state.filters.types.includes(t)) state.filters.types.push(t); }
       else { state.filters.types = state.filters.types.filter(x => x !== t); }
-      state.txPage = 1; renderTransactions();
     });
   });
 
   const bindSelect = (id, key) => el(id)?.addEventListener('change', e => {
     state.filters[key] = e.target.value ? [e.target.value] : [];
-    state.txPage = 1; renderTransactions();
   });
   const bindText = (id, key) => el(id)?.addEventListener('input', e => {
     state.filters[key] = e.target.value.trim();
-    state.txPage = 1; renderTransactions();
   });
 
   bindSelect('filterAccount', 'accounts');
@@ -1587,6 +1697,10 @@ function _attachFilterEvents() {
   bindText('filterCountry',   'country');
   bindText('filterTag',       'tag');
   bindText('filterSearch',    'search');
+
+  el('applyFilters')?.addEventListener('click', () => {
+    state.txPage = 1; renderTransactions();
+  });
 
   el('clearFilters')?.addEventListener('click', () => {
     state.filters = { types:[], accounts:[], major:[], minor:[], country:'', method:'', tag:'', search:'' };

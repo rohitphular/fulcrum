@@ -591,9 +591,21 @@ async function _toggle(row) {
   showLoading();
   try {
     const res = await ExpenseAPI.updateSubscription({
-      row_num:   row,
-      name:      sub.name,
-      is_active: newActive,
+      row_num:          row,
+      name:             sub.name,
+      counterparty_name: sub.counterparty_name || '',
+      amount:           sub.amount,
+      currency:         sub.currency,
+      frequency:        sub.frequency,
+      day_of_month:     sub.day_of_month || '',
+      day_of_week:      sub.day_of_week  || '',
+      source_account:   sub.source_account || '',
+      transaction_type: sub.transaction_type || '',
+      major_category:   sub.major_category || '',
+      minor_category:   sub.minor_category || '',
+      tags:             sub.tags || '',
+      notes:            sub.notes || '',
+      is_active:        newActive,
     });
     if (res.ok) {
       showMsg(newActive ? 'Subscription resumed.' : 'Subscription paused.');

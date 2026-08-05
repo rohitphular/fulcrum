@@ -175,8 +175,8 @@ function _renderAccounts(container, { from, accounts, sym }) {
                          aFrom.getMonth()    === todayLocal.getMonth();
   const cutoffDay = isCurrentMonth ? todayLocal.getDate() : null;
 
-  const dailyA = _computeDailyTotalAssets(assetAccounts, state.transactions, aFrom, aTo);
-  const dailyB = _computeDailyTotalAssets(assetAccounts, state.transactions, bFrom, bTo);
+  const dailyA = computeDailyTotalAssets(assetAccounts, state.transactions, aFrom, aTo);
+  const dailyB = computeDailyTotalAssets(assetAccounts, state.transactions, bFrom, bTo);
 
   const dataA = dailyA.map((v, i) => (cutoffDay !== null && i + 1 > cutoffDay) ? null : v);
   const dataB = dailyB.slice();

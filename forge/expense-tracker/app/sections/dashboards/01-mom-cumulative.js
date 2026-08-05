@@ -3,7 +3,7 @@ import { el, esc, toBase } from '../../core/utils.js';
 import { state } from '../../core/state.js';
 import {
   filterTxByRange, groupByDay, sumAmountBase,
-  computeDailyTotalAssets, getCssColors, baseChartOptions,
+  computeDailyTotalAssets, getCssColors, baseChartOptions, PREV_PERIOD_COLOR,
 } from './dashboard-utils.js';
 
 // ── Private helpers ───────────────────────────────────────────────────────────
@@ -194,7 +194,7 @@ function _renderTransactions(container, { txs, from, to, sym }) {
         {
           label:       labelB,
           data:        dataB,
-          borderColor: C.muted,
+          borderColor: PREV_PERIOD_COLOR,
           fill:        false,
           tension:     0.3,
           pointRadius: 2,
@@ -238,8 +238,8 @@ function _renderAccounts(container, { accounts, from, to, sym }) {
   // Compute daily totals for both periods using all transactions
   const allTxs = state.transactions;
 
-  const dailyA = _computeDailyTotalAssets(assetAccounts, allTxs, from, to);
-  const dailyB = _computeDailyTotalAssets(assetAccounts, allTxs, bFrom, bTo);
+  const dailyA = computeDailyTotalAssets(assetAccounts, allTxs, from, to);
+  const dailyB = computeDailyTotalAssets(assetAccounts, allTxs, bFrom, bTo);
 
   // Build chart data arrays — null-out days after today for current month (Period A)
   const cutoffDay = isCurrentMonth ? todayDate.getDate() : null;
@@ -298,7 +298,7 @@ function _renderAccounts(container, { accounts, from, to, sym }) {
         {
           label:       labelB,
           data:        dataB,
-          borderColor: C.muted,
+          borderColor: PREV_PERIOD_COLOR,
           fill:        false,
           tension:     0.3,
           pointRadius: 2,

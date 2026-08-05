@@ -375,6 +375,74 @@ h2 { font-size: var(--text-xl); font-weight: 700; margin: 0; }
   cursor: pointer; font-size: var(--text-md); line-height: 1; padding: 0;
 }
 
+/* ── Suggestions panel ──────────────────────────────────────────── */
+.suggestions-panel {
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.suggestions-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 16px;
+  background: none; border: none; width: 100%;
+  color: var(--ink); font-family: var(--grotesk);
+  font-size: var(--text-base); font-weight: 600; cursor: pointer;
+  text-align: left;
+}
+.suggestions-toggle .filter-arrow { font-size: var(--text-2xs); color: var(--muted); }
+
+.suggestions-body { padding: 8px 0 4px; }
+.suggestions-body.hidden { display: none; }
+
+.suggestions-scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 16px 8px;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+.suggestions-scroll::-webkit-scrollbar { height: 4px; }
+.suggestions-scroll::-webkit-scrollbar-thumb { background: var(--hair-strong); border-radius: 2px; }
+
+.suggestion-card {
+  flex: 0 0 160px;
+  scroll-snap-align: start;
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+}
+
+.suggestion-name {
+  font-weight: 600; font-size: var(--text-sm);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.suggestion-meta {
+  font-size: var(--text-xs); color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.suggestion-amount { font-size: var(--text-sm); font-weight: 600; margin-top: 2px; }
+.suggestion-reason {
+  font-size: var(--text-xs); color: var(--muted); margin-bottom: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.suggestion-card .suggestion-add { width: 100%; margin-top: auto; }
+.suggestions-empty { padding: 10px 4px; font-size: var(--text-sm); color: var(--muted); }
+.suggestion-skeleton {
+  height: 130px; background: linear-gradient(90deg, var(--hair) 25%, var(--panel) 50%, var(--hair) 75%);
+  background-size: 200% 100%; animation: sugg-shimmer 1.4s infinite;
+}
+@keyframes sugg-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
 /* ── table controls ── */
 .table-controls {
   display: flex; align-items: center; justify-content: flex-end;
@@ -530,7 +598,21 @@ td.td-truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; wh
 }
 .dash-tab:not(.active):hover { color: var(--ink); border-color: var(--hair-strong); }
 
+/* ── drill-down table ── */
+.drill-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 4px; }
+.drill-table      { width: 100%; border-collapse: collapse; min-width: 360px; font-size: var(--text-sm); }
+.drill-thead-row  { border-bottom: 2px solid var(--hair); }
+.drill-th         { padding: 6px 8px; font-size: var(--text-xs); color: var(--muted); font-weight: 600; white-space: nowrap; text-align: left; }
+.drill-th-num     { text-align: right; }
+.drill-row        { border-bottom: 1px solid var(--hair); }
+.drill-td         { padding: 7px 8px; }
+.drill-td-muted   { color: var(--muted); white-space: nowrap; }
+.drill-td-num     { text-align: right; white-space: nowrap; }
+.drill-empty      { padding: 12px; text-align: center; color: var(--muted); }
+
 /* ── dashboard warn banner ── */
+.dash-description { font-size: var(--text-sm); color: var(--muted); margin: 6px 0 0; line-height: 1.5; }
+
 .dash-warn {
   background: var(--ember-soft);
   border: 1px solid var(--ember);
@@ -735,6 +817,8 @@ td.td-keywords { max-width: 220px; }
 [data-theme="dark"] .chart-wrap,
 [data-theme="dark"] .add-form-wrap,
 [data-theme="dark"] .filter-bar,
+[data-theme="dark"] .suggestions-panel,
+[data-theme="dark"] .suggestion-card,
 [data-theme="dark"] .account-item,
 [data-theme="dark"] .warning-count,
 [data-theme="dark"] .transfer-row,

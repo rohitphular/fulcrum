@@ -2,7 +2,7 @@
 import { el, esc } from '../../core/utils.js';
 import { state } from '../../core/state.js';
 import {
-  sumAmountBase, getCssColors, buildPalette, baseChartOptions,
+  sumAmountBase, getCssColors, buildPalette, baseChartOptions, renderDrillTxTable,
 } from './dashboard-utils.js';
 
 // ── Module-level chart reference (needed for drill-down lifecycle) ─────────────
@@ -216,21 +216,6 @@ function _renderLevel3(container, moneyOut, major, majorColor, minor, sym) {
   const total = sumAmountBase(txs);
   const fmt   = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-  const thS  = `padding:8px;font-size:var(--text-xs);color:var(--muted);font-weight:600;white-space:nowrap`;
-  const tdS  = `padding:9px 8px;font-size:var(--text-sm);border-bottom:1px solid var(--hair)`;
-
-  const bodyRows = txs.map(t => {
-    const d    = new Date(t.transaction_date_utc);
-    const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
-    const desc = t.description && t.description !== t.counterparty ? t.description : '';
-    return `<tr>
-      <td style="${tdS};color:var(--muted);white-space:nowrap">${esc(date)}</td>
-      <td style="${tdS}">${esc(t.counterparty || '—')}</td>
-      <td style="${tdS};color:var(--muted)">${esc(desc)}</td>
-      <td style="${tdS};text-align:right;white-space:nowrap">${esc(fmt(sumAmountBase([t])))}</td>
-    </tr>`;
-  }).join('');
-
   container.innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
       <button data-action="drill-back-minor"
@@ -249,19 +234,7 @@ function _renderLevel3(container, moneyOut, major, majorColor, minor, sym) {
         <p class="stat-card-value">${esc(String(txs.length))}</p>
       </div>
     </div>
-    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <table style="width:100%;border-collapse:collapse;min-width:360px">
-        <thead>
-          <tr style="border-bottom:2px solid var(--hair)">
-            <th style="${thS};text-align:left">Date</th>
-            <th style="${thS};text-align:left">Counterparty</th>
-            <th style="${thS};text-align:left">Description</th>
-            <th style="${thS};text-align:right">Amount</th>
-          </tr>
-        </thead>
-        <tbody>${bodyRows || `<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--muted)">No transactions</td></tr>`}</tbody>
-      </table>
-    </div>`;
+    ${renderDrillTxTable(txs, sym)}`;
 
   console.log(`[dashboard-11] level3 — major="${major}" minor="${minor}" txs=${txs.length}`);
 

@@ -3,7 +3,7 @@ import { el, esc } from '../../core/utils.js';
 import { state } from '../../core/state.js';
 import {
   filterTxByRange, sumAmountBase,
-  getCssColors, baseChartOptions, fmtMonthKey,
+  getCssColors, baseChartOptions, fmtMonthKey, PREV_PERIOD_COLOR,
 } from './dashboard-utils.js';
 
 const TOP_N = 10;
@@ -143,7 +143,7 @@ export async function render(containerId, { txs, sym, from, to }) {
       labels: rows.map(r => r.cat || '—'),
       datasets: [
         { label: labelA, data: rows.map(r => r.amtA), backgroundColor: C.teal, borderRadius: 4 },
-        { label: labelB, data: rows.map(r => r.amtB), backgroundColor: C.muted + '99', borderRadius: 4 },
+        { label: labelB, data: rows.map(r => r.amtB), backgroundColor: PREV_PERIOD_COLOR, borderRadius: 4 },
       ],
     },
     options: _buildChartOptions(sym, C),

@@ -41,6 +41,7 @@ function doGet(e) {
   if (action === 'get_advisor_history')          return json({ ok: true, data: getAdvisorHistory() });
   if (action === 'list_subscriptions')           return json({ ok: true, data: listSubscriptions() });
   if (action === 'get_subscription_schema')      return json({ ok: true, data: getSubscriptionSchemaForClient() });
+  if (action === 'get_suggested_transactions')   return json({ ok: true, suggestions: getSuggestedTransactions() });
 
   return json({ ok: false, error: 'unknown_action' });
 }

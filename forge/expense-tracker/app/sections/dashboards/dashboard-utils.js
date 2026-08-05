@@ -1,5 +1,5 @@
 import { state } from '../../core/state.js';
-import { toBase } from '../../core/utils.js';
+import { toBase, esc } from '../../core/utils.js';
 
 // ── Period bounds ─────────────────────────────────────────────────────────────
 
@@ -404,8 +404,10 @@ export function getCssColors() {
   };
 }
 
+export const PREV_PERIOD_COLOR = '#f59e0b';
+
 export function buildPalette(C) {
-  return [C.teal, '#f59e0b', C.ember, '#8b5cf6', '#3b82f6', '#10b981', '#f97316', C.muted];
+  return [C.teal, PREV_PERIOD_COLOR, C.ember, '#8b5cf6', '#3b82f6', '#10b981', '#f97316', C.muted];
 }
 
 // ── Shared Chart.js base options ──────────────────────────────────────────────
@@ -449,6 +451,39 @@ export function baseChartOptions(sym, C) {
       },
     },
   };
+}
+
+// ── Shared drilldown transaction table ───────────────────────────────────────
+
+export function renderDrillTxTable(txs, sym) {
+  const rows = txs.map(t => {
+    const date = (t.transaction_date_utc || '').slice(0, 10) || '—';
+    const cp   = t.counterparty_name || t.counterparty || '—';
+    const cat  = t.minor_category || t.major_category || '—';
+    const amt  = sumAmountBase([t]);
+    const amtFmt = sym + Math.abs(amt).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return `<tr class="drill-row">
+      <td class="drill-td drill-td-muted">${esc(date)}</td>
+      <td class="drill-td">${esc(cp)}</td>
+      <td class="drill-td drill-td-muted">${esc(cat)}</td>
+      <td class="drill-td drill-td-num">${esc(amtFmt)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="drill-table-wrap">
+      <table class="drill-table">
+        <thead>
+          <tr class="drill-thead-row">
+            <th class="drill-th">Date</th>
+            <th class="drill-th">Counterparty</th>
+            <th class="drill-th">Category</th>
+            <th class="drill-th drill-th-num">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${rows || `<tr><td colspan="4" class="drill-empty">No transactions</td></tr>`}</tbody>
+      </table>
+    </div>`;
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────

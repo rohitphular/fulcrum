@@ -56,6 +56,11 @@ export const state = {
   txViewRow:      null,
   txCopyPrefill:  null,
 
+  suggestionsOpen:    true,   // panel open by default
+  suggestions:        [],     // cached suggestion list for the session
+  suggestionsLoaded:  false,  // true after first fetch
+  suggestionsFetching: false, // true while fetch is in-flight
+
   dashId:            '01-mom-cumulative',
   dashPeriod:        'this_month',
   dashCustomFrom:    '',
