@@ -65,9 +65,11 @@ export function renderCategories() {
     ${viewCat          ? _renderForm(viewCat, 'view') : ''}
     ${editCat          ? _renderForm(editCat, 'edit') : ''}
     <div class="cat-filter" id="catTypeFilter">
-      ${['all','money-in','money-out','money-transfer'].map(t =>
-        `<button class="range-btn ${state.catFilter === t ? 'active' : ''}" data-cat-filter="${esc(t)}">${t === 'all' ? 'All types' : t}</button>`
+      ${[['all','All'],['money-in','Money In'],['money-out','Money Out'],['money-transfer','Transfer']].map(([t, label]) =>
+        `<button class="range-btn ${state.catFilter === t ? 'active' : ''}" data-cat-filter="${esc(t)}">${label}</button>`
       ).join('')}
+    </div>
+    <div class="cat-count-bar">
       <span class="cat-count">${filtered.length} ${filtered.length === 1 ? 'category' : 'categories'}</span>
     </div>
     ${_renderCatTable(filtered)}
@@ -222,8 +224,8 @@ function _renderCatTable(cats) {
     if (state.catDeleteRow === cat._row) return '';
     return `<div class="cat-card${isArchived ? ' is-archived' : ''}">
       <div class="cat-card-top">
-        ${_catTypeBadge(cat.transaction_type)}
         <div class="cat-card-name">
+          ${_catTypeDot(cat.transaction_type)}
           <span class="cat-card-major">${esc(cat.major_category)}</span>
           <span class="cat-card-sep">›</span>
           <span class="cat-card-minor">${esc(cat.minor_category)}</span>
@@ -291,6 +293,11 @@ function _catTypeBadge(type) {
   const cls   = type === 'money-in' ? 'badge-in' : type === 'money-out' ? 'badge-out' : 'badge-transfer';
   const label = type === 'money-in' ? 'in'       : type === 'money-out' ? 'out'       : 'xfer';
   return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function _catTypeDot(type) {
+  const cls = type === 'money-in' ? 'tx-dot-in' : type === 'money-out' ? 'tx-dot-out' : 'tx-dot-transfer';
+  return `<span class="tx-type-dot ${cls}">●</span>`;
 }
 
 // ── CSV import ────────────────────────────────────────────────────────────────
@@ -514,14 +521,22 @@ function _attachCatEvents() {
       if (_catMenuKey === row) { closeContextMenu(); _catMenuKey = null; return; }
       _catMenuKey = row;
       openContextMenu(btn, [
-        { key: 'cat-view',   label: 'View',   cls: '' },
-        { key: 'cat-edit',   label: 'Edit',   cls: '' },
-        { key: 'cat-delete', label: 'Delete', cls: 'danger' },
+        { key: 'cat-view',   label: 'View',         cls: '' },
+        { key: 'cat-edit',   label: 'Edit',         cls: '' },
+        { key: 'cat-txs',    label: 'Transactions', cls: '' },
+        { key: 'cat-delete', label: 'Delete',       cls: 'danger' },
       ], key => {
         _catMenuKey = null;
         if (key === 'cat-view')   { state.catViewRow = row; state.catEditRow = null; state.catDeleteRow = null; state.catAddOpen = false; renderCategories(); }
         if (key === 'cat-edit')   { state.catEditRow = row; state.catViewRow = null; state.catDeleteRow = null; state.catAddOpen = false; renderCategories(); }
         if (key === 'cat-delete') { state.catDeleteRow = row; state.catViewRow = null; state.catEditRow = null; renderCategories(); }
+        if (key === 'cat-txs') {
+          const cat = state.categories.find(c => c._row === row);
+          if (cat) {
+            state.filters = { types: [], accounts: [], major: [cat.major_category], minor: [cat.minor_category], country: '', method: '', tag: '', search: '' };
+            document.dispatchEvent(new CustomEvent('et:show-section', { detail: 'transactions' }));
+          }
+        }
       });
       return;
     }

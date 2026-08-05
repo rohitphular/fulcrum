@@ -220,12 +220,8 @@ function _renderStats() {
   return `
     <div class="summary-grid" style="margin-bottom:20px">
       <div class="summary-card">
-        <div class="summary-card-label">Total</div>
-        <div class="summary-card-value">${total}</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-card-label">Active</div>
-        <div class="summary-card-value">${active}</div>
+        <div class="summary-card-label">Active / Total</div>
+        <div class="summary-card-value">${active} / ${total}</div>
       </div>
       <div class="summary-card">
         <div class="summary-card-label">Est. monthly cost</div>
@@ -240,6 +236,9 @@ function _renderStats() {
 function _freqLabel(f) {
   return FREQUENCIES.find(x => x.value === f)?.label || f || '—';
 }
+
+const _FREQ_SHORT = { weekly: 'wk', monthly: 'mo', quarterly: 'qtr', annual: 'yr' };
+function _freqShort(f) { return _FREQ_SHORT[f] || f || '—'; }
 
 function _renderSubCard(sub) {
   const row = sub._row;
@@ -258,13 +257,10 @@ function _renderSubCard(sub) {
   const sym         = getSymbol(sub.currency);
   const amtFmt      = `${sym}${parseFloat(sub.amount || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const freqLabel   = _freqLabel(sub.frequency);
-  const badgeCls    = sub.is_active ? 'badge-in' : 'badge';
-  const badgeTxt    = sub.is_active ? 'Active' : 'Paused';
+  const dotCls      = sub.is_active ? 'sub-status-active' : 'sub-status-paused';
   const inactiveCls = sub.is_active ? '' : ' sub-card-inactive';
 
-  const accName  = state.accountMap[sub.source_account]?.name || '';
-  const minorCat = sub.minor_category || '';
-  const metaLine = [accName, minorCat].filter(Boolean).join(' · ');
+  const metaLine = state.accountMap[sub.source_account]?.name || '';
 
   let nextLine = '';
   if (sub.is_active && sub.next_payment_date) {
@@ -285,27 +281,20 @@ function _renderSubCard(sub) {
   if (isForeign) {
     const monthlyBase = toBase(_toMonthly(sub.amount, sub.frequency), sub.currency, null);
     const baseSym     = getSymbol(state.quoteCurrency);
-    const baseFmt     = `${baseSym}${monthlyBase.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/monthly`;
+    const baseFmt     = `${baseSym}${monthlyBase.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mo`;
     convertedLine     = `<div class="sub-card-converted">${esc(baseFmt)}</div>`;
   }
 
   return `
     <div class="sub-card${inactiveCls}">
       <div class="sub-card-body">
-        <div class="sub-card-top">
-          <div class="sub-card-name-wrap">
-            <span class="sub-card-name">${esc(sub.name)}</span>
-            <span class="badge ${badgeCls}" style="font-size:var(--text-xs)">${badgeTxt}</span>
-          </div>
-          <div class="sub-card-amt-wrap">
-            <div class="sub-card-amt">${esc(amtFmt)}/${esc(freqLabel.toLowerCase())}</div>
-            ${convertedLine}
-          </div>
-        </div>
-        <div class="sub-card-footer">
-          ${metaLine ? `<span class="sub-card-meta">${esc(metaLine)}</span>` : '<span></span>'}
-          ${nextLine}
-        </div>
+        <div class="sub-card-name"><span class="sub-status-dot ${dotCls}">●</span> ${esc(sub.name)}</div>
+        ${metaLine ? `<div class="sub-card-meta">${esc(metaLine)}</div>` : ''}
+        ${nextLine}
+      </div>
+      <div class="sub-card-amt-wrap">
+        <div class="sub-card-amt">${esc(amtFmt)}/${esc(_freqShort(sub.frequency))}</div>
+        ${convertedLine}
       </div>
       <button class="tx-menu-trigger" data-action="sub-menu" data-row="${row}" title="Actions">⋮</button>
     </div>`;
@@ -460,12 +449,18 @@ function _attachEvents() {
       openContextMenu(btn, [
         { key: 'edit',   label: 'Edit'              },
         { key: 'toggle', label: pauseLabel           },
+        { key: 'txs',    label: 'Transactions'      },
         { key: 'delete', label: 'Delete', cls: 'danger' },
       ], key => {
         _subMenuKey = null;
         if (key === 'edit')   { state.subEditRow = row; state.subAddOpen = false; state.subPrefill = null; renderSubscriptions(); }
         if (key === 'toggle') { _toggle(row); }
         if (key === 'delete') { state.subDeleteRow = row; renderSubscriptions(); }
+        if (key === 'txs') {
+          const searchTerm = sub?.counterparty || sub?.name || '';
+          state.filters = { types: [], accounts: [], major: [], minor: [], country: '', method: '', tag: '', search: searchTerm };
+          document.dispatchEvent(new CustomEvent('et:show-section', { detail: 'transactions' }));
+        }
       });
     }
     if (action === 'sub-cancel-delete')  { state.subDeleteRow = null; renderSubscriptions(); }

@@ -707,12 +707,14 @@ td.td-truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; wh
   margin-bottom: 16px;
 }
 .cat-filter {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
-  margin-bottom: 16px;
+  display: flex; align-items: center; flex-wrap: nowrap; gap: 6px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  margin-bottom: 8px;
 }
+.cat-filter::-webkit-scrollbar { display: none; }
+.cat-count-bar { margin-bottom: 16px; }
 .cat-count {
   font-family: var(--mono); font-size: var(--text-xs); color: var(--muted);
-  margin-left: 4px;
 }
 
 /* ── account type multi-select checkboxes ── */
@@ -885,15 +887,13 @@ td.td-keywords { max-width: 220px; }
   border: 1px solid var(--hair);
   border-radius: 10px;
   padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 .cat-card.is-archived { opacity: 0.5; }
 .cat-card-top {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 .cat-card-name {
   display: flex;
@@ -901,6 +901,7 @@ td.td-keywords { max-width: 220px; }
   gap: 4px;
   flex-wrap: wrap;
   font-size: var(--text-md);
+  min-width: 0;
 }
 .cat-card-major { font-weight: 500; color: var(--ink); }
 .cat-card-sep   { color: var(--muted); font-size: var(--text-sm); }
@@ -912,19 +913,15 @@ td.td-keywords { max-width: 220px; }
   border: 1px solid var(--hair);
   border-radius: 10px;
   padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0 8px;
 }
-.rate-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-}
-.rate-card-code { font-size: 16px; font-weight: 600; color: var(--ink); font-family: var(--mono); }
-.rate-card-sym  { font-size: var(--text-base); font-weight: 400; color: var(--muted); margin-left: 4px; }
-.rate-card-rate { font-size: var(--text-lg); font-weight: 600; }
+.rate-card-body    { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rate-card-code    { font-size: 16px; font-weight: 600; color: var(--ink); font-family: var(--mono); }
+.rate-card-sym     { font-size: var(--text-base); font-weight: 400; color: var(--muted); margin-left: 4px; }
+.rate-card-rate    { font-size: var(--text-lg); font-weight: 600; white-space: nowrap; text-align: right; }
 .rate-card-updated { font-size: var(--text-xs); color: var(--muted); font-family: var(--mono); }
 
 /* ── acc view panel ── */
@@ -958,27 +955,19 @@ td.td-keywords { max-width: 220px; }
   border: 1px solid var(--hair);
   border-radius: 10px;
   padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.tx-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
   gap: 8px;
 }
-.tx-card-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.tx-card-date  { font-size: var(--text-sm); color: var(--muted); font-family: var(--mono); }
-.tx-card-amt   { font-size: var(--text-md); font-weight: 600; white-space: nowrap; }
-.tx-card-detail { display: flex; flex-direction: column; gap: 2px; }
-.tx-card-account { font-size: var(--text-base); color: var(--ink); }
-.tx-card-cat    { font-size: var(--text-sm); color: var(--muted); }
+.tx-card-body  { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.tx-card-name  { font-size: var(--text-sm); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-card-amt   { font-size: var(--text-sm); font-weight: 600; white-space: nowrap; text-align: right; }
+.tx-card-cat   { font-size: var(--text-xs); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-type-dot   { font-size: 9px; }
+.tx-dot-in       { color: var(--teal); }
+.tx-dot-out      { color: var(--ember); }
+.tx-dot-transfer { color: var(--muted); }
 .tx-card .row-actions { margin-top: 4px; }
 
 /* ── acc card ── */
@@ -1033,27 +1022,22 @@ td.td-keywords { max-width: 220px; }
   border-radius: 10px;
   padding: 12px 14px;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 0 8px;
 }
-.sub-card-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sub-card-body    { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .sub-card-inactive { opacity: .65; }
-.sub-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 8px;
-}
-.sub-card-name-wrap { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.sub-card-name      { font-size: var(--text-md); font-weight: 500; color: var(--ink); }
-.sub-card-amt-wrap  { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
-.sub-card-amt       { font-size: var(--text-md); font-weight: 600; white-space: nowrap; }
+.sub-status-dot    { font-size: 8px; line-height: 1; }
+.sub-status-active { color: var(--teal); }
+.sub-status-paused { color: var(--muted); }
+.sub-card-name    { font-size: var(--text-md); font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub-card-amt-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.sub-card-amt      { font-size: var(--text-sm); font-weight: 600; white-space: nowrap; }
 .sub-card-converted { font-size: var(--text-xs); color: var(--muted); white-space: nowrap; }
 .sub-card-due  { color: var(--ember); font-weight: 500; }
-.sub-card-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.sub-card-meta  { font-size: var(--text-sm); color: var(--muted); flex: 1; min-width: 0; }
-.sub-card-next  { font-size: var(--text-xs); color: var(--muted); white-space: nowrap; text-align: right; flex-shrink: 0; }
+.sub-card-meta  { font-size: var(--text-sm); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub-card-next  { font-size: var(--text-xs); color: var(--muted); }
 .sub-card .row-actions { margin-top: 4px; }
 
 /* ── responsive ── */

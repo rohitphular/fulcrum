@@ -17,14 +17,12 @@ export function renderRates() {
     const base = r.currency === 'GBP';
     if (state.rateDeleteCurrency === r.currency) return '';
     return `<div class="rate-card">
-      <div class="rate-card-top">
-        <div class="rate-card-code">
-          ${esc(r.currency)}${r.symbol ? ` <span class="rate-card-sym">${esc(r.symbol)}</span>` : ''}
-        </div>
-        <div class="rate-card-rate td-mono">${parseFloat(r.rate).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div>
+      <div class="rate-card-body">
+        <div class="rate-card-code">${esc(r.currency)}${r.symbol ? ` <span class="rate-card-sym">${esc(r.symbol)}</span>` : ''}</div>
+        <div class="rate-card-updated">${r.updated_at ? esc(fmtDateTime(r.updated_at)) : '—'}</div>
       </div>
-      <div class="rate-card-updated">${r.updated_at ? esc(fmtDateTime(r.updated_at)) : '—'}</div>
-      ${base ? '' : `<button class="tx-menu-trigger" data-action="rate-menu" data-currency="${esc(r.currency)}">⋮</button>`}
+      <div class="rate-card-rate td-mono">${parseFloat(r.rate).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div>
+      ${base ? '<span></span>' : `<button class="tx-menu-trigger" data-action="rate-menu" data-currency="${esc(r.currency)}">⋮</button>`}
     </div>`;
   }).join('');
 

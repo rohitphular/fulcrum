@@ -321,22 +321,17 @@ function _renderTxTable(validRows, warnRows) {
           <button class="tx-menu-trigger" data-action="tx-menu" data-row="${tx._row}" title="Actions">⋮</button>
         </td>
       </tr>`,
-      card: `<div class="tx-card">
-        <div class="tx-card-top">
-          <div class="tx-card-meta">
-            <span class="tx-card-date">${esc(fmtDateTimeCompact(tx.transaction_date_utc))}</span>
-            <span class="badge ${badgeCls}">${typeLabel}</span>
+      card: (()=>{
+        const dotCls = tx.transaction_type === 'money-in' ? 'tx-dot-in' : tx.transaction_type === 'money-out' ? 'tx-dot-out' : 'tx-dot-transfer';
+        return `<div class="tx-card">
+          <div class="tx-card-body">
+            <div class="tx-card-name"><span class="tx-type-dot ${dotCls}">●</span> ${esc(fmtDateTimeCompact(tx.transaction_date_utc))} · ${esc(acctLabel)}</div>
+            ${catLabel !== '—' ? `<div class="tx-card-cat">${esc(catLabel)}</div>` : ''}
           </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div class="tx-card-amt td-mono">${esc(nativeAmt)}</div>
-            <button class="tx-menu-trigger" data-action="tx-menu" data-row="${tx._row}" title="Actions">⋮</button>
-          </div>
-        </div>
-        <div class="tx-card-detail">
-          <div class="tx-card-account">${esc(acctLabel)}</div>
-          ${catLabel !== '—' ? `<div class="tx-card-cat">${esc(catLabel)}</div>` : ''}
-        </div>
-      </div>`
+          <div class="tx-card-amt td-mono">${esc(nativeAmt)}</div>
+          <button class="tx-menu-trigger" data-action="tx-menu" data-row="${tx._row}" title="Actions">⋮</button>
+        </div>`;
+      })()
     };
   });
 
@@ -1422,9 +1417,6 @@ function _renderFilterBar() {
         <button class="btn btn-secondary btn-sm" id="clearFilters">Clear</button>
       </div>
     </div>
-    ${activeChips.length ? `<div class="filter-chips">
-      ${activeChips.map(chip => `<span class="filter-chip">${esc(chip.label)}<button class="chip-remove" data-chip-key="${esc(chip.key)}" data-chip-val="${esc(chip.val)}">×</button></span>`).join('')}
-    </div>` : ''}
   </div>`;
 }
 
