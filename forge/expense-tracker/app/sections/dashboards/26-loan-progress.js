@@ -28,12 +28,12 @@ function _payoffDateStr(months) {
 // Repayment txs targeting this liability account (money-transfer credits).
 function _repaymentTxs(acc) {
   return state.transactions.filter(t =>
-    t.transaction_type === 'money-transfer' && (
+    t.tx_type === 'money-transfer' && (
       t.target_account === acc.name ||
       t.to_account     === acc.name ||
       t.to_account_id  === acc.id
     )
-  ).sort((a, b) => new Date(a.transaction_date_utc) - new Date(b.transaction_date_utc));
+  ).sort((a, b) => new Date(a.tx_date_time) - new Date(b.tx_date_time));
 }
 
 // ── Per-loan computation ──────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ function _loanStats(acc) {
   const hasOpening    = originalBal > 0;
 
   const repayTxs      = _repaymentTxs(acc);
-  const openingDate   = acc.opening_date || repayTxs[0]?.transaction_date_utc || null;
+  const openingDate   = acc.opening_date || repayTxs[0]?.tx_date_time || null;
   const months        = _monthsSince(openingDate);
   const avgMonthly    = totalRepaid > 0 ? totalRepaid / months : 0;
   const monthsToPayoff = (avgMonthly > 0 && currentBal > 0) ? Math.ceil(currentBal / avgMonthly) : null;
@@ -75,7 +75,7 @@ function _renderHistoryChart(canvasId, loan, sym, C) {
   const amounts    = loan.repayTxs.map(t => Math.abs(Number(t.amount_base) || 0));
   const cumulative = amounts.map((_, i) => amounts.slice(0, i + 1).reduce((s, v) => s + v, 0));
   const labels     = loan.repayTxs.map(t => {
-    const d = new Date(t.transaction_date_utc);
+    const d = new Date(t.tx_date_time);
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
   });
 
@@ -167,7 +167,7 @@ function _loanCardHtml(loan, sym) {
 
   // Repayment history table rows
   const txRows = [...loan.repayTxs].reverse().slice(0, 24).map(t => {
-    const d   = new Date(t.transaction_date_utc);
+    const d   = new Date(t.tx_date_time);
     const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
     const amt  = Math.abs(Number(t.amount_base) || 0);
     return `<tr>

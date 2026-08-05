@@ -15,7 +15,7 @@ function _normalise(raw) {
 function _groupByCountry(outTxs) {
   const map = new Map();
   for (const tx of outTxs) {
-    const label = _normalise(tx.country || '');
+    const label = _normalise(tx.tx_location_country || '');
     if (!map.has(label)) map.set(label, []);
     map.get(label).push(tx);
   }
@@ -105,13 +105,13 @@ function _renderCityDrill(drillEl, outTxs, country, sym) {
   const tdS    = `padding:9px 8px;font-size:var(--text-sm);border-bottom:1px solid var(--hair)`;
 
   const countryTxs = country === 'Unknown'
-    ? outTxs.filter(t => !t.country || !t.country.trim())
-    : outTxs.filter(t => _normalise(t.country || '') === country);
+    ? outTxs.filter(t => !t.tx_location_country || !t.tx_location_country.trim())
+    : outTxs.filter(t => _normalise(t.tx_location_country || '') === country);
 
   // Group by city
   const cityMap = new Map();
   for (const t of countryTxs) {
-    const city = (t.city || '').trim() || '(city unknown)';
+    const city = (t.tx_location_city || '').trim() || '(city unknown)';
     if (!cityMap.has(city)) cityMap.set(city, []);
     cityMap.get(city).push(t);
   }
@@ -157,7 +157,7 @@ export async function render(containerId, { txs, sym }) {
     return null;
   }
 
-  const outTxs = txs.filter(t => t.transaction_type === 'money-out');
+  const outTxs = txs.filter(t => t.tx_type === 'money-out');
 
   if (!outTxs.length) {
     container.innerHTML = `<div class="chart-wrap"><p class="chart-empty">No spend transactions for this period.</p></div>`;

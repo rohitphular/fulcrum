@@ -112,9 +112,9 @@ function _renderTransactions(container, { from, to, sym }) {
   const { aFrom, aEnd, bFrom, bTo, daysElapsed, isCurrentQ, daysInQuarter } = _periods(from, to);
 
   const moneyOutA = filterTxByRange(state.transactions, aFrom, aEnd)
-    .filter(t => t.transaction_type === 'money-out');
+    .filter(t => t.tx_type === 'money-out');
   const moneyOutB = filterTxByRange(state.transactions, bFrom, bTo)
-    .filter(t => t.transaction_type === 'money-out');
+    .filter(t => t.tx_type === 'money-out');
 
   const rawA = _buildQtdCumulative(moneyOutA, aFrom, daysElapsed);
   const rawB = _buildQtdCumulative(moneyOutB, bFrom, daysElapsed);

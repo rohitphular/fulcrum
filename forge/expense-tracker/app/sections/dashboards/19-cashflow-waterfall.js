@@ -51,9 +51,9 @@ function _groupExpenses(outTxs) {
 function _buildWaterfall(txs, accounts, from, C) {
   const startBalance = _startBalance(accounts, from);
 
-  const inTxs      = txs.filter(t => t.transaction_type === 'money-in');
-  const outTxs     = txs.filter(t => t.transaction_type === 'money-out');
-  const xferTxs    = txs.filter(t => t.transaction_type === 'money-transfer');
+  const inTxs      = txs.filter(t => t.tx_type === 'money-in');
+  const outTxs     = txs.filter(t => t.tx_type === 'money-out');
+  const xferTxs    = txs.filter(t => t.tx_type === 'money-transfer');
 
   const income      = sumAmountBase(inTxs);
   const expGroups   = _groupExpenses(outTxs);
@@ -221,7 +221,7 @@ export async function render(containerId, { txs, accounts, from, sym }) {
         if (expIdx < 0 || expIdx >= expGroups.length) return; // Opening/Income/Transfers/Closing
 
         const { cat, txs: catTxs } = expGroups[expIdx];
-        const sorted = [...catTxs].sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+        const sorted = [...catTxs].sort((a, b) => new Date(b.tx_date_time) - new Date(a.tx_date_time));
         const total  = sumAmountBase(sorted);
         const fmt    = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 

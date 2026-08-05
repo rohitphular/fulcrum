@@ -219,7 +219,7 @@ function _renderLevel3(container, moneyOut, major, majorColor, minor, sym) {
       (t.major_category || 'Uncategorised') === major &&
       (t.minor_category || 'Other') === minor
     )
-    .sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+    .sort((a, b) => new Date(b.tx_date_time) - new Date(a.tx_date_time));
 
   const total = sumAmountBase(txs);
   const fmt   = v => sym + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -270,7 +270,7 @@ export async function render(containerId, { txs, sym }) {
     return null;
   }
 
-  const moneyOut = txs.filter(t => t.transaction_type === 'money-out');
+  const moneyOut = txs.filter(t => t.tx_type === 'money-out');
 
   if (!moneyOut.length) {
     container.innerHTML = `<div class="chart-wrap"><p class="chart-empty">No spending data for this period.</p></div>`;

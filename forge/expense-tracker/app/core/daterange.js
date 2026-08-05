@@ -26,7 +26,7 @@ export function getRangeBounds() {
 
 export function txInRange(tx) {
   const { from, to } = getRangeBounds();
-  const raw = tx.transaction_date_utc;
+  const raw = tx.tx_date_time;
   if (!raw) return true;
   const d = new Date(raw);
   if (isNaN(d)) return true;
@@ -38,12 +38,11 @@ export function filteredTx() {
   const f = state.filters;
   return state.transactions.filter(tx => {
     if (!txInRange(tx)) return false;
-    if (f.types.length    && !f.types.includes(tx.transaction_type))                          return false;
-    if (f.accounts.length && !f.accounts.includes(tx.source_account))                          return false;
-    if (f.major.length    && !f.major.includes(tx.major_category))                            return false;
-    if (f.minor.length    && !f.minor.includes(tx.minor_category))                            return false;
-    if (f.country && !String(tx.country || '').toLowerCase().includes(f.country.toLowerCase())) return false;
-    if (f.method  && tx.payment_method !== f.method)                                           return false;
+    if (f.types.length    && !f.types.includes(tx.tx_type))                                                     return false;
+    if (f.accounts.length && !f.accounts.includes(tx.source_account))                                          return false;
+    if (f.major.length    && !f.major.includes(tx.major_category))                                             return false;
+    if (f.minor.length    && !f.minor.includes(tx.minor_category))                                             return false;
+    if (f.tx_location_country && !String(tx.tx_location_country || '').toLowerCase().includes(f.tx_location_country.toLowerCase())) return false;
     if (f.tag) {
       const tags = String(tx.tags || '').split(';').map(t => t.trim().toLowerCase()).filter(Boolean);
       if (!tags.some(t => t.includes(f.tag.toLowerCase()))) return false;
@@ -51,7 +50,7 @@ export function filteredTx() {
     if (f.search) {
       const q           = f.search.toLowerCase();
       const accountName = state.accountMap[tx.source_account]?.name || '';
-      const hay         = [tx.counterparty, tx.notes, accountName].join(' ').toLowerCase();
+      const hay         = [tx.counterparty_name, tx.description, accountName].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;

@@ -23,17 +23,19 @@ function _dispatchTxAction(action, row) {
     const tx = state.transactions.find(t => t._row === row);
     if (!tx) return;
     state.txCopyPrefill = {
-      transaction_type: tx.transaction_type || '',
-      major_category:   tx.major_category   || '',
-      minor_category:   tx.minor_category   || '',
-      source_account:   tx.source_account   || '',
-      target_account:   tx.target_account   || '',
-      amount:           tx.amount,
-      counterparty:     tx.counterparty      || '',
-      country:          tx.country           || '',
-      tags:             tx.tags              || '',
-      notes:            tx.notes             || '',
-      fx_rate:          tx.fx_rate           || '',
+      tx_type:              tx.tx_type              || '',
+      major_category:       tx.major_category       || '',
+      minor_category:       tx.minor_category       || '',
+      source_account:       tx.source_account       || '',
+      target_account:       tx.target_account       || '',
+      amount:               tx.amount,
+      counterparty_name:    tx.counterparty_name    || '',
+      tx_location_area:     tx.tx_location_area     || '',
+      tx_location_city:     tx.tx_location_city     || '',
+      tx_location_country:  tx.tx_location_country  || '',
+      tags:                 tx.tags                 || '',
+      description:          tx.description          || '',
+      fx_rate:              tx.fx_rate              || '',
     };
     state.txAddOpen   = true;
     state.txEditRow   = null;
@@ -46,12 +48,12 @@ function _dispatchTxAction(action, row) {
     if (!tx) return;
     if (_isAlreadySubscribed(tx)) { showMsg('Already tracked as a subscription.', 'warn'); return; }
     state.subPrefill = {
-      name:              tx.counterparty || '',
-      counterparty_name: tx.counterparty || '',
+      name:              tx.counterparty_name || '',
+      counterparty_name: tx.counterparty_name || '',
       amount:            tx.amount,
       currency:          tx.currency,
       source_account:    tx.source_account,
-      transaction_type:  tx.transaction_type || '',
+      tx_type:           tx.tx_type || '',
       major_category:    tx.major_category || '',
       minor_category:    tx.minor_category || '',
       tags:              tx.tags || '',
@@ -108,7 +110,7 @@ function _getCat(type, major, minor) {
 function _isCatSubEligible(tx) {
   if (!tx.major_category || !tx.minor_category) return false;
   const cat = state.categories.find(c =>
-    c.transaction_type === tx.transaction_type &&
+    c.transaction_type === tx.tx_type &&
     c.major_category   === tx.major_category &&
     c.minor_category   === tx.minor_category
   );
@@ -122,7 +124,7 @@ function _normTags(str) {
 }
 
 function _isAlreadySubscribed(tx) {
-  const normCp = (tx.counterparty || '').trim().toLowerCase();
+  const normCp = (tx.counterparty_name || '').trim().toLowerCase();
   if (!normCp) return false;
   const txTags = _normTags(tx.tags);
   return state.subscriptions.some(s => {
@@ -182,8 +184,8 @@ export function renderTransactions() {
   const txEl = el('transactionsContent');
   const rows = filteredTx();
 
-  const validRows = rows.filter(tx =>  tx.id && tx.transaction_date_utc && VALID_TX_TYPES.includes(tx.transaction_type));
-  const warnRows  = rows.filter(tx => !tx.id || !tx.transaction_date_utc || !VALID_TX_TYPES.includes(tx.transaction_type));
+  const validRows = rows.filter(tx =>  tx.id && tx.tx_date_time && VALID_TX_TYPES.includes(tx.tx_type));
+  const warnRows  = rows.filter(tx => !tx.id || !tx.tx_date_time || !VALID_TX_TYPES.includes(tx.tx_type));
 
   const viewTx     = state.txViewRow !== null ? validRows.find(tx => tx._row === state.txViewRow) : null;
   const editTx     = state.txEditRow !== null ? validRows.find(tx => tx._row === state.txEditRow) : null;
@@ -295,8 +297,8 @@ function _renderTxTable(validRows, warnRows) {
   const rowData = paged.map(tx => {
     if (state.txDeleteRow === tx._row) return { tr: _renderTxDeleteRow(tx), card: '' };
 
-    const badgeCls  = tx.transaction_type === 'money-in' ? 'badge-in' : tx.transaction_type === 'money-out' ? 'badge-out' : 'badge-transfer';
-    const typeLabel = _txTypeMap()[tx.transaction_type] || tx.transaction_type;
+    const badgeCls  = tx.tx_type === 'money-in' ? 'badge-in' : tx.tx_type === 'money-out' ? 'badge-out' : 'badge-transfer';
+    const typeLabel = _txTypeMap()[tx.tx_type] || tx.tx_type;
     const missingRate = !state.rateMap[tx.currency];
     const rowRate     = tx.fx_rate && parseFloat(tx.fx_rate) > 0;
 
@@ -312,8 +314,8 @@ function _renderTxTable(validRows, warnRows) {
 
     return {
       tr: `<tr>
-        <td class="td-mono td-nowrap">${esc(fmtDateTimeCompact(tx.transaction_date_utc))}</td>
-        <td><span class="badge ${badgeCls}">${typeLabel}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}</td>
+        <td class="td-mono td-nowrap">${esc(fmtDateTimeCompact(tx.tx_date_time))}</td>
+        <td><span class="badge ${badgeCls}">${typeLabel}</span></td>
         <td class="td-truncate" title="${esc(acctLabel)}">${esc(acctLabel)}</td>
         <td class="td-mono td-nowrap">${amtCell}${missingRate ? ' <span class="badge badge-warn" title="Currency not in rates tab">?</span>' : ''}${rowRate ? ' <span title="Row-level FX rate" style="color:var(--muted);font-size:var(--text-2xs)">†</span>' : ''}</td>
         <td class="td-truncate" title="${esc(catLabel)}">${esc(catLabel)}</td>
@@ -322,10 +324,10 @@ function _renderTxTable(validRows, warnRows) {
         </td>
       </tr>`,
       card: (()=>{
-        const dotCls = tx.transaction_type === 'money-in' ? 'tx-dot-in' : tx.transaction_type === 'money-out' ? 'tx-dot-out' : 'tx-dot-transfer';
+        const dotCls = tx.tx_type === 'money-in' ? 'tx-dot-in' : tx.tx_type === 'money-out' ? 'tx-dot-out' : 'tx-dot-transfer';
         return `<div class="tx-card">
           <div class="tx-card-body">
-            <div class="tx-card-name"><span class="tx-type-dot ${dotCls}">●</span> ${esc(fmtDateTimeCompact(tx.transaction_date_utc))} · ${esc(acctLabel)}</div>
+            <div class="tx-card-name"><span class="tx-type-dot ${dotCls}">●</span> ${esc(fmtDateTimeCompact(tx.tx_date_time))} · ${esc(acctLabel)}</div>
             ${catLabel !== '—' ? `<div class="tx-card-cat">${esc(catLabel)}</div>` : ''}
           </div>
           <div class="tx-card-amt td-mono">${esc(nativeAmt)}</div>
@@ -341,7 +343,7 @@ function _renderTxTable(validRows, warnRows) {
   const warnRowsHtml = warnRows.length ? `
     <tbody id="warnTable" class="hidden">
       ${warnRows.map(tx => `<tr>
-        <td colspan="6"><span class="badge badge-warn">⚠ malformed</span> id=${esc(String(tx.id||'?'))} type=${esc(tx.transaction_type||'?')} date=${esc(String(tx.transaction_date_utc||'?'))}</td>
+        <td colspan="6"><span class="badge badge-warn">⚠ malformed</span> id=${esc(String(tx.id||'?'))} type=${esc(tx.tx_type||'?')} date=${esc(String(tx.tx_date_time||'?'))}</td>
       </tr>`).join('')}
     </tbody>` : '';
 
@@ -359,8 +361,8 @@ function _renderTxTable(validRows, warnRows) {
     <div class="table-wrap tx-table-wrap${hasDeleteRow ? ' tx-has-active' : ''}">
       <table>
         <thead><tr>
-          ${thSort('transaction_date_utc','Date')}
-          ${thSort('transaction_type','Type')}
+          ${thSort('tx_date_time','Date')}
+          ${thSort('tx_type','Type')}
           ${thSort('source_account','Account')}
           <th>Amount</th>
           ${thSort('major_category','Category')}
@@ -422,7 +424,7 @@ function _sortTx(rows) {
   const dir = state.txSort.dir === 'asc' ? 1 : -1;
   return rows.sort((a, b) => {
     let va = a[col] ?? '', vb = b[col] ?? '';
-    if (col === 'transaction_date_utc') {
+    if (col === 'tx_date_time') {
       const ts = s => { const d = new Date(String(s)); return isNaN(d) ? 0 : d.getTime(); };
       va = ts(va); vb = ts(vb);
     } else if (col === 'amount') {
@@ -456,18 +458,27 @@ function _renderAddForm() {
         <label for="afMinor">Minor category *</label>
         <select id="afMinor" disabled><option value="">— select major first —</option></select>
       </div>
-      <!-- Row 2: Source account | Target account | Country -->
-      <div class="field form-grid-span-2" id="afFromAccountWrap">
+      <!-- Row 2: Source account | Target account -->
+      <div class="field form-grid-span-3" id="afFromAccountWrap">
         <label for="afFromAccount">Source account</label>
         <select id="afFromAccount" disabled>
           <option value="">— select type first —</option>
         </select>
       </div>
-      <div class="field form-grid-span-2" id="afToAccountWrap">
+      <div class="field form-grid-span-3" id="afToAccountWrap">
         <label for="afToAccount">Target account</label>
         <select id="afToAccount" disabled>
           <option value="">External</option>
         </select>
+      </div>
+      <!-- Row 3: Area | City | Country -->
+      <div class="field form-grid-span-2" id="afAreaField">
+        <label for="afArea">Area</label>
+        <input type="text" id="afArea" placeholder="e.g. West End">
+      </div>
+      <div class="field form-grid-span-2" id="afCityField">
+        <label for="afCity">City</label>
+        <input type="text" id="afCity" placeholder="e.g. London">
       </div>
       <div class="field form-grid-span-2" id="afCountryField">
         <label for="afCountry">Country</label>
@@ -498,9 +509,9 @@ function _renderAddForm() {
         <label for="afTags">Tags</label>
         <input type="text" id="afTags" placeholder="reimbursable, work">
       </div>
-      <div class="field form-grid-span-3" id="afNotesField">
-        <label for="afNotes">Notes</label>
-        <input type="text" id="afNotes" placeholder="free text">
+      <div class="field form-grid-span-3" id="afDescriptionField">
+        <label for="afDescription">Description</label>
+        <input type="text" id="afDescription" placeholder="free text">
       </div>
     </div>
     <div class="form-actions">
@@ -516,11 +527,11 @@ function _prefillAddForm(p) {
   if (!typeEl) return;
 
   // 1. Type → unlock and populate major
-  typeEl.value = p.transaction_type;
+  typeEl.value = p.tx_type;
   const majorEl = el('afMajor');
   const minorEl = el('afMinor');
-  if (p.transaction_type) {
-    majorEl.innerHTML = _catMajorOpts(p.transaction_type);
+  if (p.tx_type) {
+    majorEl.innerHTML = _catMajorOpts(p.tx_type);
     majorEl.disabled  = false;
     minorEl.disabled  = false;
   }
@@ -528,7 +539,7 @@ function _prefillAddForm(p) {
   // 2. Major → populate minor
   if (p.major_category) {
     majorEl.value    = p.major_category;
-    minorEl.innerHTML = _catMinorOpts(p.transaction_type, p.major_category);
+    minorEl.innerHTML = _catMinorOpts(p.tx_type, p.major_category);
     if (p.minor_category) minorEl.value = p.minor_category;
   }
 
@@ -546,12 +557,14 @@ function _prefillAddForm(p) {
   _afRefreshFxRateVis();
 
   // 6. Remaining text fields — date stays as nowLocalISO()
-  if (p.amount)       { const f = el('afAmount');       if (f) f.value = p.amount; }
-  if (p.counterparty) { const f = el('afCounterparty'); if (f) f.value = p.counterparty; }
-  if (p.country)      { const f = el('afCountry');      if (f) f.value = p.country; }
-  if (p.tags)         { const f = el('afTags');         if (f) f.value = String(p.tags).replace(/;/g, ', '); }
-  if (p.notes)        { const f = el('afNotes');        if (f) f.value = p.notes; }
-  if (p.fx_rate)      { const f = el('afFxRate');       if (f) { f.value = p.fx_rate; _afUpdateFxPreview(); } }
+  if (p.amount)               { const f = el('afAmount');       if (f) f.value = p.amount; }
+  if (p.counterparty_name)    { const f = el('afCounterparty'); if (f) f.value = p.counterparty_name; }
+  if (p.tx_location_area)     { const f = el('afArea');         if (f) f.value = p.tx_location_area; }
+  if (p.tx_location_city)     { const f = el('afCity');         if (f) f.value = p.tx_location_city; }
+  if (p.tx_location_country)  { const f = el('afCountry');      if (f) f.value = p.tx_location_country; }
+  if (p.tags)                 { const f = el('afTags');         if (f) f.value = String(p.tags).replace(/;/g, ', '); }
+  if (p.description)          { const f = el('afDescription');  if (f) f.value = p.description; }
+  if (p.fx_rate)              { const f = el('afFxRate');       if (f) { f.value = p.fx_rate; _afUpdateFxPreview(); } }
 }
 
 function _attachAddFormEvents() {
@@ -604,7 +617,7 @@ function _attachAddFormEvents() {
 
   el('afSubmit')?.addEventListener('click', _saveTransaction);
   el('afReset')?.addEventListener('click', () => {
-    ['afDate','afAmount','afCounterparty','afCountry','afTags','afNotes','afFxRate']
+    ['afDate','afAmount','afCounterparty','afArea','afCity','afCountry','afTags','afDescription','afFxRate']
       .forEach(id => { if (el(id)) el(id).value = id === 'afDate' ? nowLocalISO() : ''; });
     el('afType').value = '';
     const fromEl = el('afFromAccount');
@@ -815,28 +828,30 @@ async function _saveTransaction() {
   const errEl = el('afError');
   errEl.textContent = '';
 
-  const dateRaw          = el('afDate').value;
-  const transaction_type = el('afType').value;
-  const source_account   = el('afFromAccount').value;
-  const target_account   = el('afToAccount')?.value || '';
-  const fx_rate          = el('afFxRate')?.value     || '';
-  const amount           = el('afAmount').value;
-  const currency         = transaction_type === 'money-in'
+  const dateRaw              = el('afDate').value;
+  const tx_type              = el('afType').value;
+  const source_account       = el('afFromAccount').value;
+  const target_account       = el('afToAccount')?.value || '';
+  const fx_rate              = el('afFxRate')?.value     || '';
+  const amount               = el('afAmount').value;
+  const currency             = tx_type === 'money-in'
     ? (state.accountMap[target_account]?.currency || '')
     : (state.accountMap[source_account]?.currency || '');
-  const major_category   = el('afMajor').value;
-  const minor_category   = el('afMinor').value;
-  const counterparty     = el('afCounterparty').value.trim();
-  const country          = el('afCountry').value.trim();
-  const tags             = el('afTags').value.trim();
-  const notes            = el('afNotes').value.trim();
+  const major_category       = el('afMajor').value;
+  const minor_category       = el('afMinor').value;
+  const counterparty_name    = el('afCounterparty').value.trim();
+  const tx_location_area     = el('afArea')?.value.trim()    || '';
+  const tx_location_city     = el('afCity')?.value.trim()    || '';
+  const tx_location_country  = el('afCountry').value.trim();
+  const tags                 = el('afTags').value.trim();
+  const description          = el('afDescription').value.trim();
 
-  const isTransfer    = transaction_type === 'money-transfer';
-  const _saveCat      = _getCat(transaction_type, major_category, minor_category);
-  const srcMandatory  = _saveCat ? Boolean(_saveCat.source_account_mandatory) : transaction_type !== 'money-in';
+  const isTransfer    = tx_type === 'money-transfer';
+  const _saveCat      = _getCat(tx_type, major_category, minor_category);
+  const srcMandatory  = _saveCat ? Boolean(_saveCat.source_account_mandatory) : tx_type !== 'money-in';
   const tgtMandatory  = _saveCat ? Boolean(_saveCat.target_account_mandatory) : isTransfer;
   if (!dateRaw)                                  { errEl.textContent = 'Date is required.';                          return; }
-  if (!transaction_type)                         { errEl.textContent = 'Type is required.';                          return; }
+  if (!tx_type)                                  { errEl.textContent = 'Type is required.';                          return; }
   if (srcMandatory && !source_account)           { errEl.textContent = 'Source account is required.';                return; }
   if (tgtMandatory && !target_account)           { errEl.textContent = 'Target account is required.';                return; }
   if (!amount || parseFloat(amount) <= 0)        { errEl.textContent = 'Enter a positive amount.';                   return; }
@@ -845,25 +860,26 @@ async function _saveTransaction() {
 
   const sourceAcc     = state.accountMap[source_account];
   const targetAcc     = state.accountMap[target_account];
-  const balanceError  = _checkBalanceRules(transaction_type, sourceAcc, parseFloat(amount));
+  const balanceError  = _checkBalanceRules(tx_type, sourceAcc, parseFloat(amount));
   if (balanceError) { errEl.textContent = balanceError; return; }
 
-  const rule5Error    = _checkRule5(transaction_type, sourceAcc, major_category, minor_category);
+  const rule5Error    = _checkRule5(tx_type, sourceAcc, major_category, minor_category);
   if (rule5Error) { errEl.textContent = rule5Error; return; }
 
-  const rule6Error    = _checkRule6(transaction_type, sourceAcc, targetAcc, fx_rate);
+  const rule6Error    = _checkRule6(tx_type, sourceAcc, targetAcc, fx_rate);
   if (rule6Error) { errEl.textContent = rule6Error; return; }
 
   btn.disabled = true; btn.textContent = 'Saving…';
   showLoading();
   try {
     const res = await ExpenseAPI.createTransaction({
-      transaction_date_utc: localToUtcISO(dateRaw),
-      transaction_type, source_account, target_account,
+      tx_date_time: localToUtcISO(dateRaw),
+      tx_type, source_account, target_account,
       amount: parseFloat(amount), currency,
       fx_rate: fx_rate ? parseFloat(fx_rate) : '',
-      major_category, minor_category, counterparty, country,
-      tags, notes,
+      major_category, minor_category,
+      counterparty_name, tx_location_area, tx_location_city, tx_location_country,
+      tags, description,
     });
     if (res.ok) {
       showMsg('Transaction saved.');
@@ -884,8 +900,8 @@ async function _saveTransaction() {
 // ── Transaction view / edit card ──────────────────────────────────────────────
 
 function _renderTxForm(tx, mode) {
-  const badgeCls  = tx.transaction_type === 'money-in' ? 'badge-in' : tx.transaction_type === 'money-out' ? 'badge-out' : 'badge-transfer';
-  const typeLabel = _txTypeMap()[tx.transaction_type] || tx.transaction_type;
+  const badgeCls  = tx.tx_type === 'money-in' ? 'badge-in' : tx.tx_type === 'money-out' ? 'badge-out' : 'badge-transfer';
+  const typeLabel = _txTypeMap()[tx.tx_type] || tx.tx_type;
   const fromName  = state.accountMap[tx.source_account]?.name || '—';
   const toName    = tx.target_account ? (state.accountMap[tx.target_account]?.name || '—') : 'External';
 
@@ -896,17 +912,19 @@ function _renderTxForm(tx, mode) {
     return `
     <div class="card" style="margin-bottom:16px">
       <div class="tx-detail-grid">
-        ${f('Date & time',      esc(fmtDateTime(tx.transaction_date_utc)))}
-        ${f('Type',             `<span class="badge ${badgeCls}">${esc(typeLabel)}</span>${tx.transfer_id ? ' <span title="Transfer: '+esc(tx.transfer_id)+'">⇌</span>' : ''}`)}
+        ${f('Date & time',      esc(fmtDateTime(tx.tx_date_time)))}
+        ${f('Type',             `<span class="badge ${badgeCls}">${esc(typeLabel)}</span>`)}
         ${f('Source account',   esc(fromName))}
         ${f('Target account',   esc(toName))}
         ${f('Amount',           esc(fmtNative(tx.amount, tx.currency)))}
         ${f('≈ ' + state.quoteCurrency, esc(fmtBase(tx.amount, tx.currency, tx.fx_rate)))}
         ${f('Category',         esc([tx.major_category, tx.minor_category].filter(Boolean).join(' → ') || '—'))}
-        ${f('Counterparty',     esc(tx.counterparty || '—'))}
-        ${f('Country',          esc(tx.country || '—'))}
+        ${f('Counterparty',     esc(tx.counterparty_name || '—'))}
+        ${tx.tx_location_area    ? f('Area',    esc(tx.tx_location_area))    : ''}
+        ${tx.tx_location_city    ? f('City',    esc(tx.tx_location_city))    : ''}
+        ${tx.tx_location_country ? f('Country', esc(tx.tx_location_country)) : ''}
         ${f('Tags',             esc(String(tx.tags || '').replace(/;/g, ', ') || '—'))}
-        ${f('Notes',            esc(tx.notes || '—'))}
+        ${f('Description',      esc(tx.description || '—'))}
         ${tx.fx_rate && parseFloat(tx.fx_rate) > 0 ? f('FX rate', esc(String(tx.fx_rate))) : ''}
       </div>
       <div class="form-actions" style="margin-top:12px">
@@ -918,7 +936,7 @@ function _renderTxForm(tx, mode) {
 
   // Edit mode
   const activeAccounts  = state.accounts.filter(a => a.is_active === true);
-  const _editCat        = _getCat(tx.transaction_type, tx.major_category, tx.minor_category);
+  const _editCat        = _getCat(tx.tx_type, tx.major_category, tx.minor_category);
   const fromAccountOpts = _acctOptsWithHints(activeAccounts, _editCat?.source_account_types || '', tx.source_account);
   const toAccountOpts   = _acctOptsWithHints(
     activeAccounts.filter(a => a.id !== tx.source_account),
@@ -926,16 +944,16 @@ function _renderTxForm(tx, mode) {
     tx.target_account
   );
   const typeOpts = _txTypes().map(t =>
-    `<option value="${esc(t.value)}" ${tx.transaction_type === t.value ? 'selected' : ''}>${esc(t.label)}</option>`
+    `<option value="${esc(t.value)}" ${tx.tx_type === t.value ? 'selected' : ''}>${esc(t.label)}</option>`
   ).join('');
-  const majorOpts = _catMajorOpts(tx.transaction_type, tx.major_category);
-  const minorOpts = _catMinorOpts(tx.transaction_type, tx.major_category, tx.minor_category);
+  const majorOpts = _catMajorOpts(tx.tx_type, tx.major_category);
+  const minorOpts = _catMinorOpts(tx.tx_type, tx.major_category, tx.minor_category);
 
-  const dateVal = utcToLocalInput(tx.transaction_date_utc);
+  const dateVal = utcToLocalInput(tx.tx_date_time);
 
   const fromCcy    = state.accountMap[tx.source_account]?.currency;
   const toCcy      = state.accountMap[tx.target_account]?.currency;
-  const isXfer     = tx.transaction_type === 'money-transfer';
+  const isXfer     = tx.tx_type === 'money-transfer';
   const tgtMand    = _editCat ? Boolean(_editCat.target_account_mandatory) : isXfer;
   const isCrossCcy = tgtMand && fromCcy && toCcy && fromCcy !== toCcy;
   const fxDisplay  = isCrossCcy ? '' : 'display:none';
@@ -963,15 +981,15 @@ function _renderTxForm(tx, mode) {
           ${minorOpts}
         </select>
       </div>
-      <!-- Row 2: Source account | Target account | Country -->
-      <div class="field form-grid-span-2">
+      <!-- Row 2: Source account | Target account -->
+      <div class="field form-grid-span-3">
         <label>Source account</label>
         <select id="txEditFromAccount">
           <option value="">— select —</option>
           ${fromAccountOpts}
         </select>
       </div>
-      <div class="field form-grid-span-2" id="txEditToAccountWrap">
+      <div class="field form-grid-span-3" id="txEditToAccountWrap">
         <label>Target account</label>
         <select id="txEditToAccount" ${tgtMand ? '' : 'disabled'}>
           ${tgtMand
@@ -979,9 +997,18 @@ function _renderTxForm(tx, mode) {
             : `<option value="">External</option>`}
         </select>
       </div>
+      <!-- Row 3: Area | City | Country -->
+      <div class="field form-grid-span-2">
+        <label>Area</label>
+        <input type="text" id="txEditArea" value="${esc(tx.tx_location_area || '')}">
+      </div>
+      <div class="field form-grid-span-2">
+        <label>City</label>
+        <input type="text" id="txEditCity" value="${esc(tx.tx_location_city || '')}">
+      </div>
       <div class="field form-grid-span-2">
         <label>Country</label>
-        <input type="text" id="txEditCountry" value="${esc(tx.country || '')}">
+        <input type="text" id="txEditCountry" value="${esc(tx.tx_location_country || '')}">
       </div>
       <!-- FX rate: full width, shown only when cross-currency -->
       <div class="field form-grid-full" id="txEditFxRateWrap" style="${fxDisplay}">
@@ -990,7 +1017,7 @@ function _renderTxForm(tx, mode) {
         <div id="txEditFxDirection" class="field-hint">${fxDirText}</div>
         <div id="txEditFxPreview" class="field-hint" style="color:var(--teal)"></div>
       </div>
-      <!-- Row 3: Date & time | Amount | Counterparty -->
+      <!-- Row 4: Date & time | Amount | Counterparty -->
       <div class="field form-grid-span-2">
         <label>Date &amp; time</label>
         <input type="datetime-local" id="txEditDate" value="${esc(dateVal)}">
@@ -1001,16 +1028,16 @@ function _renderTxForm(tx, mode) {
       </div>
       <div class="field form-grid-span-2">
         <label>Counterparty</label>
-        <input type="text" id="txEditCounterparty" value="${esc(tx.counterparty || '')}">
+        <input type="text" id="txEditCounterparty" value="${esc(tx.counterparty_name || '')}">
       </div>
-      <!-- Row 4: Tags 50% | Notes 50% -->
+      <!-- Row 5: Tags 50% | Description 50% -->
       <div class="field form-grid-span-3">
         <label>Tags</label>
         <input type="text" id="txEditTags" value="${esc(String(tx.tags || '').replace(/;/g, ', '))}">
       </div>
       <div class="field form-grid-span-3">
-        <label>Notes</label>
-        <input type="text" id="txEditNotes" value="${esc(tx.notes || '')}">
+        <label>Description</label>
+        <input type="text" id="txEditDescription" value="${esc(tx.description || '')}">
       </div>
     </div>
     <div class="form-actions" style="margin-top:8px">
@@ -1027,7 +1054,7 @@ function _renderTxDeleteRow(tx) {
   const accLabel = toName ? `${fromName} → ${toName}` : fromName;
   return `<tr>
     <td colspan="6">
-      <span class="confirm-text">Delete <strong>${esc(fmtDateTime(tx.transaction_date_utc))}</strong> — ${esc(accLabel)} — ${esc(fmtNative(tx.amount, tx.currency))}? Account balance will be adjusted.</span>
+      <span class="confirm-text">Delete <strong>${esc(fmtDateTime(tx.tx_date_time))}</strong> — ${esc(accLabel)} — ${esc(fmtNative(tx.amount, tx.currency))}? Account balance will be adjusted.</span>
       <span style="display:inline-flex;gap:8px;margin-left:16px">
         <button class="btn-link danger" data-action="tx-confirm-delete" data-row="${tx._row}">Yes, delete</button>
         <button class="btn-link" data-action="tx-cancel-delete">Cancel</button>
@@ -1150,29 +1177,31 @@ async function _saveEdit() {
   const errEl = el('txEditError');
   errEl.textContent = '';
 
-  const rowNum           = state.txEditRow;
-  const dateRaw          = el('txEditDate')?.value;
-  const transaction_type = el('txEditType')?.value;
-  const source_account   = el('txEditFromAccount')?.value;
-  const target_account   = el('txEditToAccount')?.value  || '';
-  const fx_rate          = el('txEditFxRate')?.value     || '';
-  const amount           = el('txEditAmount')?.value;
-  const currency         = transaction_type === 'money-in'
+  const rowNum              = state.txEditRow;
+  const dateRaw             = el('txEditDate')?.value;
+  const tx_type             = el('txEditType')?.value;
+  const source_account      = el('txEditFromAccount')?.value;
+  const target_account      = el('txEditToAccount')?.value  || '';
+  const fx_rate             = el('txEditFxRate')?.value     || '';
+  const amount              = el('txEditAmount')?.value;
+  const currency            = tx_type === 'money-in'
     ? (state.accountMap[target_account]?.currency || '')
     : (state.accountMap[source_account]?.currency || '');
-  const major_category   = el('txEditMajor')?.value;
-  const minor_category   = el('txEditMinor')?.value;
-  const counterparty     = el('txEditCounterparty')?.value.trim();
-  const country          = el('txEditCountry')?.value.trim();
-  const tags             = el('txEditTags')?.value.trim();
-  const notes            = el('txEditNotes')?.value.trim();
+  const major_category      = el('txEditMajor')?.value;
+  const minor_category      = el('txEditMinor')?.value;
+  const counterparty_name   = el('txEditCounterparty')?.value.trim();
+  const tx_location_area    = el('txEditArea')?.value.trim();
+  const tx_location_city    = el('txEditCity')?.value.trim();
+  const tx_location_country = el('txEditCountry')?.value.trim();
+  const tags                = el('txEditTags')?.value.trim();
+  const description         = el('txEditDescription')?.value.trim();
 
-  const isEditTransfer   = transaction_type === 'money-transfer';
-  const _editSaveCat     = _getCat(transaction_type, major_category, minor_category);
-  const editSrcMandatory = _editSaveCat ? Boolean(_editSaveCat.source_account_mandatory) : transaction_type !== 'money-in';
+  const isEditTransfer   = tx_type === 'money-transfer';
+  const _editSaveCat     = _getCat(tx_type, major_category, minor_category);
+  const editSrcMandatory = _editSaveCat ? Boolean(_editSaveCat.source_account_mandatory) : tx_type !== 'money-in';
   const editTgtMandatory = _editSaveCat ? Boolean(_editSaveCat.target_account_mandatory) : isEditTransfer;
   if (!dateRaw)                                 { errEl.textContent = 'Date is required.';                          return; }
-  if (!transaction_type)                        { errEl.textContent = 'Type is required.';                          return; }
+  if (!tx_type)                                 { errEl.textContent = 'Type is required.';                          return; }
   if (editSrcMandatory && !source_account)      { errEl.textContent = 'Source account is required.';                return; }
   if (editTgtMandatory && !target_account)      { errEl.textContent = 'Target account is required.';                return; }
   if (!amount || parseFloat(amount) <= 0)       { errEl.textContent = 'Enter a positive amount.';                   return; }
@@ -1191,25 +1220,25 @@ async function _saveEdit() {
   let fromPostRevBal = fromAccEdit ? Number(fromAccEdit.current_value) : 0;
   if (oldTx && String(oldTx.source_account) === String(source_account)) {
     const oldAmt = Number(oldTx.amount) || 0;
-    if (oldTx.transaction_type === 'money-in')       fromPostRevBal -= oldAmt; // reversal removes the credit
-    if (oldTx.transaction_type === 'money-out')      fromPostRevBal += oldAmt; // reversal restores the debit
-    if (oldTx.transaction_type === 'money-transfer') fromPostRevBal += oldAmt; // reversal restores the debit
+    if (oldTx.tx_type === 'money-in')       fromPostRevBal -= oldAmt; // reversal removes the credit
+    if (oldTx.tx_type === 'money-out')      fromPostRevBal += oldAmt; // reversal restores the debit
+    if (oldTx.tx_type === 'money-transfer') fromPostRevBal += oldAmt; // reversal restores the debit
   }
   // Proxy object with post-reversal balance — passed to _checkBalanceRules instead of fromAccEdit.
   const fromAccPR = fromAccEdit ? { ...fromAccEdit, current_value: fromPostRevBal } : fromAccEdit;
 
-  const balanceErrorEdit = _checkBalanceRules(transaction_type, fromAccPR, parseFloat(amount));
+  const balanceErrorEdit = _checkBalanceRules(tx_type, fromAccPR, parseFloat(amount));
   if (balanceErrorEdit) { errEl.textContent = balanceErrorEdit; return; }
 
-  const rule5ErrorEdit = _checkRule5(transaction_type, fromAccEdit, major_category, minor_category);
+  const rule5ErrorEdit = _checkRule5(tx_type, fromAccEdit, major_category, minor_category);
   if (rule5ErrorEdit) { errEl.textContent = rule5ErrorEdit; return; }
 
-  const rule6ErrorEdit = _checkRule6(transaction_type, fromAccEdit, toAccEdit, fx_rate);
+  const rule6ErrorEdit = _checkRule6(tx_type, fromAccEdit, toAccEdit, fx_rate);
   if (rule6ErrorEdit) { errEl.textContent = rule6ErrorEdit; return; }
 
   // target_account credit-card check (transfer edits only)
   if (
-    transaction_type === 'money-transfer' &&
+    tx_type === 'money-transfer' &&
     toAccEdit && toAccEdit.type === 'credit_card' &&
     Number(toAccEdit.credit_card_limit) > 0
   ) {
@@ -1248,10 +1277,12 @@ async function _saveEdit() {
   showLoading();
   try {
     const res = await ExpenseAPI.updateTransaction({
-      row_num: rowNum, transaction_date_utc: localToUtcISO(dateRaw), transaction_type,
+      row_num: rowNum, tx_date_time: localToUtcISO(dateRaw), tx_type,
       source_account, target_account, amount: parseFloat(amount), currency,
       fx_rate: fx_rate ? parseFloat(fx_rate) : '',
-      major_category, minor_category, counterparty, country, tags, notes,
+      major_category, minor_category, counterparty_name,
+      tx_location_area, tx_location_city, tx_location_country,
+      tags, description,
     });
     if (res.ok) {
       showMsg('Transaction updated.');
@@ -1316,14 +1347,14 @@ function _renderSuggestionsPanel() {
   const countLabel = visible.length > 0 ? ` (${visible.length})` : '';
 
   const cards = visible.map(s => {
-    const key      = `${s.counterparty}|${s.minor_category}`;
+    const key      = `${s.counterparty_name}|${s.minor_category}`;
     const acctName = state.accountMap[s.source_account]?.name || esc(s.source_account);
     const sym      = getSymbol(s.currency);
     const amount   = sym + Number(s.typical_amount).toFixed(2);
 
     return `
       <div class="suggestion-card" data-key="${esc(key)}">
-        <div class="suggestion-name" title="${esc(s.counterparty)}">${esc(s.counterparty)}</div>
+        <div class="suggestion-name" title="${esc(s.counterparty_name)}">${esc(s.counterparty_name)}</div>
         <div class="suggestion-meta" title="${esc(s.minor_category)} · ${esc(acctName)}">${esc(s.minor_category)} · ${esc(acctName)}</div>
         <div class="suggestion-amount">${esc(amount)}</div>
         <div class="suggestion-reason" title="${esc(s.reason)}">${esc(s.reason)}</div>
@@ -1360,7 +1391,7 @@ function _renderFilterBar() {
     ...f.accounts.map(id => ({ label: state.accountMap[id]?.name || id, key: 'accounts', val: id })),
     ...f.major.map(m    => ({ label: m,                   key: 'major',    val: m })),
     ...f.minor.map(m    => ({ label: m,                   key: 'minor',    val: m })),
-    ...(f.country ? [{ label: 'Country: '+f.country, key: 'country', val: '' }] : []),
+    ...(f.tx_location_country ? [{ label: 'Country: '+f.tx_location_country, key: 'tx_location_country', val: '' }] : []),
     ...(f.tag     ? [{ label: 'Tag: '    +f.tag,      key: 'tag',     val: '' }] : []),
     ...(f.search  ? [{ label: 'Search: ' +f.search,  key: 'search',  val: '' }] : []),
   ];
@@ -1402,7 +1433,7 @@ function _renderFilterBar() {
       </div>
       <div class="filter-row">
         <label>Country</label>
-        <input type="text" id="filterCountry" value="${esc(f.country)}" placeholder="e.g. UK">
+        <input type="text" id="filterCountry" value="${esc(f.tx_location_country)}" placeholder="e.g. UK">
       </div>
       <div class="filter-row">
         <label>Tag</label>
@@ -1493,26 +1524,28 @@ function _parseTxCsv(text) {
 
     if (rowErrors.length) { errors.push(`Row ${i + 1}: ${rowErrors.join('; ')}`); continue; }
 
-    const transaction_date_utc = localToUtcISO(row.tx_date_time);
+    const tx_date_time = localToUtcISO(row.tx_date_time);
 
     const fxRate = row.fx_rate ? parseFloat(row.fx_rate) : 0;
 
     transactions.push({
-      transaction_date_utc,
-      transaction_type: row.tx_type,
-      amount:           parseFloat(row.amount),
-      currency:         row.currency.toUpperCase(),
-      source_account:   sourceId,
-      target_account:   targetId,
-      major_category:   row.major_category,
-      minor_category:   row.minor_category,
-      counterparty:     row.counterparty_name || '',
-      country:          row.tx_location_country || '',
-      notes:            row.description || '',
-      tags:             row.tags || '',
-      fx_rate:          fxRate || undefined,
-      _src_name:        row.source_account,
-      _tgt_name:        row.target_account,
+      tx_date_time,
+      tx_type:              row.tx_type,
+      amount:               parseFloat(row.amount),
+      currency:             row.currency.toUpperCase(),
+      source_account:       sourceId,
+      target_account:       targetId,
+      major_category:       row.major_category,
+      minor_category:       row.minor_category,
+      counterparty_name:    row.counterparty_name || '',
+      tx_location_area:     row.tx_location_area  || '',
+      tx_location_city:     row.tx_location_city  || '',
+      tx_location_country:  row.tx_location_country || '',
+      description:          row.description || '',
+      tags:                 row.tags || '',
+      fx_rate:              fxRate || undefined,
+      _src_name:            row.source_account,
+      _tgt_name:            row.target_account,
     });
   }
 
@@ -1531,13 +1564,13 @@ function _renderTxImportPreview(parsed) {
 
   const rows = transactions.map(tx => `
     <tr>
-      <td style="font-size:12px;color:var(--muted)">${esc(tx.transaction_date_utc.replace('T', ' ').replace(':00Z', ''))}</td>
-      <td><span style="font-size:12px;font-weight:600;${typeStyle[tx.transaction_type] || ''}">${esc(typeShort[tx.transaction_type] || tx.transaction_type)}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${esc(tx.tx_date_time.replace('T', ' ').replace(':00Z', ''))}</td>
+      <td><span style="font-size:12px;font-weight:600;${typeStyle[tx.tx_type] || ''}">${esc(typeShort[tx.tx_type] || tx.tx_type)}</span></td>
       <td class="td-mono">${esc(tx.currency)} ${parseFloat(tx.amount).toFixed(2)}</td>
       <td style="font-size:12px">${esc(tx._src_name || '—')}</td>
       <td style="font-size:12px">${esc(tx._tgt_name || '—')}</td>
       <td style="font-size:12px;color:var(--muted)">${esc(tx.major_category)} / ${esc(tx.minor_category)}</td>
-      <td style="font-size:12px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tx.notes || tx.counterparty || '')}</td>
+      <td style="font-size:12px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tx.description || tx.counterparty_name || '')}</td>
     </tr>`).join('');
 
   return `${errHtml}
@@ -1642,21 +1675,23 @@ function _attachSuggestionEvents() {
     const key = btn.dataset.key;
 
     if (btn.dataset.action === 'sugg-add') {
-      const s = state.suggestions.find(x => `${x.counterparty}|${x.minor_category}` === key);
+      const s = state.suggestions.find(x => `${x.counterparty_name}|${x.minor_category}` === key);
       if (!s) return;
       state.txCopyPrefill = {
-        transaction_type: 'money-out',
-        major_category:   s.major_category,
-        minor_category:   s.minor_category,
-        source_account:   s.source_account,
-        target_account:   '',
-        amount:           s.typical_amount,
-        currency:         s.currency,
-        counterparty:     s.counterparty,
-        country:          '',
-        tags:             '',
-        notes:            '',
-        fx_rate:          '',
+        tx_type:             'money-out',
+        major_category:      s.major_category,
+        minor_category:      s.minor_category,
+        source_account:      s.source_account,
+        target_account:      '',
+        amount:              s.typical_amount,
+        currency:            s.currency,
+        counterparty_name:   s.counterparty_name,
+        tx_location_area:    '',
+        tx_location_city:    '',
+        tx_location_country: '',
+        tags:                '',
+        description:         '',
+        fx_rate:             '',
       };
       state.txAddOpen      = true;
       state.txImportOpen   = false;
@@ -1686,7 +1721,7 @@ function _attachFilterEvents() {
   bindSelect('filterAccount', 'accounts');
   bindSelect('filterMajor',   'major');
   bindSelect('filterMinor',   'minor');
-  bindText('filterCountry',   'country');
+  bindText('filterCountry',   'tx_location_country');
   bindText('filterTag',       'tag');
   bindText('filterSearch',    'search');
 
@@ -1695,7 +1730,7 @@ function _attachFilterEvents() {
   });
 
   el('clearFilters')?.addEventListener('click', () => {
-    state.filters = { types:[], accounts:[], major:[], minor:[], country:'', method:'', tag:'', search:'' };
+    state.filters = { types:[], accounts:[], major:[], minor:[], tx_location_country:'', tag:'', search:'' };
     state.txPage = 1; renderTransactions();
   });
 

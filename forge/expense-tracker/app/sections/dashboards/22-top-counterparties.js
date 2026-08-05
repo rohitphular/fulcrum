@@ -32,8 +32,8 @@ function _destroyChart() {
 function _groupCounterparties(outTxs) {
   const map = new Map();
   for (const tx of outTxs) {
-    const key = ((tx.counterparty || '').trim() || 'Unknown merchant').toLowerCase();
-    const display = ((tx.counterparty || '').trim() || 'Unknown merchant');
+    const key = ((tx.counterparty_name || '').trim() || 'Unknown merchant').toLowerCase();
+    const display = ((tx.counterparty_name || '').trim() || 'Unknown merchant');
     if (!map.has(key)) map.set(key, { label: display, txs: [] });
     map.get(key).txs.push(tx);
   }
@@ -52,10 +52,10 @@ function _prevSpend(labelLower) {
 
   return state.transactions
     .filter(t => {
-      if (t.transaction_type !== 'money-out') return false;
-      const cp = ((t.counterparty || '').trim() || 'unknown merchant').toLowerCase();
+      if (t.tx_type !== 'money-out') return false;
+      const cp = ((t.counterparty_name || '').trim() || 'unknown merchant').toLowerCase();
       if (cp !== labelLower) return false;
-      const d  = new Date(t.transaction_date_utc);
+      const d  = new Date(t.tx_date_time);
       const dl = new Date(d.getFullYear(), d.getMonth(), d.getDate());
       return dl >= prevFrom && dl <= prevTo;
     })
@@ -80,10 +80,10 @@ function _showPanel(idx) {
   const diffClass = diff <= 0 ? 'positive' : 'negative'; // lower spend = good
   const diffArrow = diff <= 0 ? '↓' : '↑';
 
-  const sorted = [...row.txs].sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+  const sorted = [...row.txs].sort((a, b) => new Date(b.tx_date_time) - new Date(a.tx_date_time));
 
   const txRows = sorted.map(t => {
-    const d    = new Date(t.transaction_date_utc);
+    const d    = new Date(t.tx_date_time);
     const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
     const cat  = esc(t.minor_category || t.major_category || '—');
     return `<li style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--hair);font-size:var(--text-sm)">
@@ -102,11 +102,11 @@ function _showPanel(idx) {
   }
   const labelLower   = row.label.toLowerCase();
   const allMerchant  = state.transactions.filter(t =>
-    t.transaction_type === 'money-out' &&
-    ((t.counterparty || '').trim() || 'unknown merchant').toLowerCase() === labelLower
+    t.tx_type === 'money-out' &&
+    ((t.counterparty_name || '').trim() || 'unknown merchant').toLowerCase() === labelLower
   );
   const monthlySpend = sparkMonths.map(mk =>
-    allMerchant.filter(t => t.transaction_date_utc.startsWith(mk))
+    allMerchant.filter(t => t.tx_date_time.startsWith(mk))
                .reduce((s, t) => s + (Number(t.amount_base) || 0), 0)
   );
   const hasSparkData = monthlySpend.some(v => v > 0);
@@ -291,7 +291,7 @@ export async function render(containerId, { txs, from, to, sym }) {
     return { destroy() { _destroyChart(); } };  // _destroyChart also kills _sparklineChart
   }
 
-  const outTxs = txs.filter(t => t.transaction_type === 'money-out');
+  const outTxs = txs.filter(t => t.tx_type === 'money-out');
   if (!outTxs.length) {
     container.innerHTML = `<div class="chart-wrap"><p class="chart-empty">No spend transactions for this period.</p></div>`;
     _setChart(null);

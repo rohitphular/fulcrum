@@ -51,7 +51,7 @@ export async function render(containerId, { txs, sym, from, to }) {
     return null;
   }
 
-  const moneyOut  = txs.filter(t => t.transaction_type === 'money-out');
+  const moneyOut  = txs.filter(t => t.tx_type === 'money-out');
   const monthKeys = monthRange(from, to);
   const tagMonthMap = _buildTagMonthly(moneyOut, monthKeys);
 
@@ -125,9 +125,9 @@ export async function render(containerId, { txs, sym, from, to }) {
         if (!tag || !mk) return;
 
         const tagTxs = moneyOut.filter(t => {
-          if (!t.transaction_date_utc.startsWith(mk)) return false;
+          if (!t.tx_date_time.startsWith(mk)) return false;
           return String(t.tags || '').split(';').map(s => s.toLowerCase().trim()).includes(tag);
-        }).sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+        }).sort((a, b) => new Date(b.tx_date_time) - new Date(a.tx_date_time));
 
         const shareTotal = tagTxs.reduce((s, t) => {
           const tags = String(t.tags || '').split(';').filter(Boolean);

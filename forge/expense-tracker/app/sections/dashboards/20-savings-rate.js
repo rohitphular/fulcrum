@@ -12,8 +12,8 @@ function _buildMonthly(txs, monthKeys) {
   const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const curYYYYMM  = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}`;
 
-  const inByMonth  = groupByMonth(txs.filter(t => t.transaction_type === 'money-in'));
-  const outByMonth = groupByMonth(txs.filter(t => t.transaction_type === 'money-out'));
+  const inByMonth  = groupByMonth(txs.filter(t => t.tx_type === 'money-in'));
+  const outByMonth = groupByMonth(txs.filter(t => t.tx_type === 'money-out'));
 
   const incomeArr  = [];
   const expenseArr = [];
@@ -26,7 +26,7 @@ function _buildMonthly(txs, monthKeys) {
 
     const filterPartial = arr => isPartial
       ? arr.filter(t => {
-          const d = new Date(t.transaction_date_utc);
+          const d = new Date(t.tx_date_time);
           return new Date(d.getFullYear(), d.getMonth(), d.getDate()) <= todayLocal;
         })
       : arr;

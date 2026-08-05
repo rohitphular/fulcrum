@@ -54,8 +54,8 @@ function _buildWeekly(weeks8, todayLocal) {
     const clampedTo  = isCurrentWeek ? todayLocal : weekTo;
 
     const txs = filterTxByRange(state.transactions, weekFrom, clampedTo);
-    income.push(sumAmountBase(txs.filter(t => t.transaction_type === 'money-in')));
-    expense.push(sumAmountBase(txs.filter(t => t.transaction_type === 'money-out')));
+    income.push(sumAmountBase(txs.filter(t => t.tx_type === 'money-in')));
+    expense.push(sumAmountBase(txs.filter(t => t.tx_type === 'money-out')));
   });
 
   return { income, expense };

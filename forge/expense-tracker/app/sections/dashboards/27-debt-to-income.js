@@ -95,7 +95,7 @@ function _renderAccounts(container, { txs, accounts, from, to, sym }, C) {
 
   // Monthly income — exclude current (partial) month from average
   const curYYYYMM    = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}`;
-  const inByMonth    = groupByMonth(txs.filter(t => t.transaction_type === 'money-in'));
+  const inByMonth    = groupByMonth(txs.filter(t => t.tx_type === 'money-in'));
   const completeMKs  = monthKeys.filter(mk => mk !== curYYYYMM);
   const avgMonths    = completeMKs.length || monthKeys.length;
   const totalIncome  = (completeMKs.length ? completeMKs : monthKeys)
@@ -220,7 +220,7 @@ function _renderAccounts(container, { txs, accounts, from, to, sym }, C) {
 
 function _renderTransactions(container, { txs, from, to, sym }, C) {
   const monthKeys   = monthRange(from, to);
-  const inByMonth   = groupByMonth(txs.filter(t => t.transaction_type === 'money-in'));
+  const inByMonth   = groupByMonth(txs.filter(t => t.tx_type === 'money-in'));
   const monthlyInc  = monthKeys.map(mk => sumAmountBase(inByMonth.get(mk) || []));
   const totalIncome = monthlyInc.reduce((s, v) => s + v, 0);
   const avgMonthly  = monthKeys.length ? totalIncome / monthKeys.length : 0;

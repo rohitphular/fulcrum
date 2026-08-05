@@ -533,7 +533,7 @@ function _attachCatEvents() {
         if (key === 'cat-txs') {
           const cat = state.categories.find(c => c._row === row);
           if (cat) {
-            state.filters = { types: [], accounts: [], major: [cat.major_category], minor: [cat.minor_category], country: '', method: '', tag: '', search: '' };
+            state.filters = { types: [], accounts: [], major: [cat.major_category], minor: [cat.minor_category], tx_location_country: '', tag: '', search: '' };
             document.dispatchEvent(new CustomEvent('et:show-section', { detail: 'transactions' }));
           }
         }

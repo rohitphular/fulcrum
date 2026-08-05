@@ -14,17 +14,16 @@ export const state = {
   customTo:   '',
 
   filters: {
-    types:    [],
-    accounts: [],
-    major:    [],
-    minor:    [],
-    country:  '',
-    method:   '',
-    tag:      '',
-    search:   '',
+    types:              [],
+    accounts:           [],
+    major:              [],
+    minor:              [],
+    tx_location_country: '',
+    tag:                '',
+    search:             '',
   },
 
-  txSort:    { col: 'transaction_date_utc', dir: 'desc' },
+  txSort:    { col: 'tx_date_time', dir: 'desc' },
   txPage:    1,
   txPerPage: 50,
 

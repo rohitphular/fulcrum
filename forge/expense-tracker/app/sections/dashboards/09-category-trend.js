@@ -105,7 +105,7 @@ export async function render(containerId, { txs, sym, from, to }) {
     return null;
   }
 
-  const moneyOut = txs.filter(t => t.transaction_type === 'money-out');
+  const moneyOut = txs.filter(t => t.tx_type === 'money-out');
 
   if (!moneyOut.length) {
     container.innerHTML = `<div class="chart-wrap"><p class="chart-empty">No spending data for this period.</p></div>`;

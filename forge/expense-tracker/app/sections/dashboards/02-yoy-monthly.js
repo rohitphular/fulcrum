@@ -107,9 +107,9 @@ function _renderTransactions(container, { from, sym }) {
   const cutoffDay = isCurrentMonth ? todayLocal.getDate() : null;
 
   const moneyOutA = filterTxByRange(state.transactions, aFrom, aTo)
-    .filter(t => t.transaction_type === 'money-out');
+    .filter(t => t.tx_type === 'money-out');
   const moneyOutB = filterTxByRange(state.transactions, bFrom, bTo)
-    .filter(t => t.transaction_type === 'money-out');
+    .filter(t => t.tx_type === 'money-out');
 
   if (!moneyOutA.length && !moneyOutB.length) {
     container.innerHTML = `<div class="chart-wrap"><p class="chart-empty">No spend data for either period.</p></div>`;

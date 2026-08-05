@@ -85,7 +85,7 @@ export async function render(containerId, { txs, sym, from, to }) {
     return null;
   }
 
-  const moneyOutA = txs.filter(t => t.transaction_type === 'money-out');
+  const moneyOutA = txs.filter(t => t.tx_type === 'money-out');
 
   if (!moneyOutA.length) {
     container.innerHTML = `<div class="chart-wrap"><p class="chart-empty">No spending data for this period.</p></div>`;
@@ -94,7 +94,7 @@ export async function render(containerId, { txs, sym, from, to }) {
 
   const { bFrom, bTo } = _prevPeriod(from, to);
   const moneyOutB = filterTxByRange(state.transactions, bFrom, bTo)
-    .filter(t => t.transaction_type === 'money-out');
+    .filter(t => t.tx_type === 'money-out');
 
   const groupA = _groupByMinor(moneyOutA);
   const groupB = _groupByMinor(moneyOutB);

@@ -95,7 +95,7 @@ function _renderDonut(viewEl, segments, sym, C, field, fallback, inTxs) {
         if (label === 'Other') return;
         const segTxs = inTxs
           .filter(t => ((t[field] || '').trim() || fallback) === label)
-          .sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+          .sort((a, b) => new Date(b.tx_date_time) - new Date(a.tx_date_time));
         const segTotal = sumAmountBase(segTxs);
 
         drillEl.innerHTML = `
@@ -218,7 +218,7 @@ function _attachTabs(containerId, inTxs, monthKeys, sym, C) {
 
       switch (btn.dataset.d21View) {
         case 'source':
-          _renderDonut(viewEl, _groupBy(inTxs, 'counterparty', 'Unknown source'), sym, C, 'counterparty', 'Unknown source', inTxs);
+          _renderDonut(viewEl, _groupBy(inTxs, 'counterparty_name', 'Unknown source'), sym, C, 'counterparty_name', 'Unknown source', inTxs);
           break;
         case 'category':
           _renderDonut(viewEl, _groupBy(inTxs, 'major_category', 'Uncategorised'), sym, C, 'major_category', 'Uncategorised', inTxs);
@@ -242,7 +242,7 @@ export async function render(containerId, { txs, from, to, sym }) {
     return { destroy() { _destroyChart(); } };
   }
 
-  const inTxs     = txs.filter(t => t.transaction_type === 'money-in');
+  const inTxs     = txs.filter(t => t.tx_type === 'money-in');
   const monthKeys = monthRange(from, to);
 
   if (!inTxs.length) {
@@ -266,7 +266,7 @@ export async function render(containerId, { txs, from, to, sym }) {
 
   // Render default sub-view
   const viewEl = el('dash21-view');
-  _renderDonut(viewEl, _groupBy(inTxs, 'counterparty', 'Unknown source'), sym, C, 'counterparty', 'Unknown source', inTxs);
+  _renderDonut(viewEl, _groupBy(inTxs, 'counterparty_name', 'Unknown source'), sym, C, 'counterparty_name', 'Unknown source', inTxs);
 
   _attachTabs(containerId, inTxs, monthKeys, sym, C);
 

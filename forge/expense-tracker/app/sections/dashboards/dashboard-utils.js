@@ -100,7 +100,7 @@ export function getPeriodBounds(period, customFrom, customTo) {
 
 export function filterTxByRange(txs, from, to) {
   return txs.filter(tx => {
-    const d = new Date(tx.transaction_date_utc);
+    const d = new Date(tx.tx_date_time);
     if (isNaN(d)) return false;
     const local = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     return local >= from && local <= to;
@@ -112,7 +112,7 @@ export function filterTxByRange(txs, from, to) {
 export function groupByDay(txs) {
   const map = new Map();
   txs.forEach(tx => {
-    const d = new Date(tx.transaction_date_utc);
+    const d = new Date(tx.tx_date_time);
     if (isNaN(d)) return;
     const key = `${d.getFullYear()}-${_pad(d.getMonth() + 1)}-${_pad(d.getDate())}`;
     if (!map.has(key)) map.set(key, []);
@@ -124,7 +124,7 @@ export function groupByDay(txs) {
 export function groupByWeek(txs) {
   const map = new Map();
   txs.forEach(tx => {
-    const d = new Date(tx.transaction_date_utc);
+    const d = new Date(tx.tx_date_time);
     if (isNaN(d)) return;
     const key = _isoWeekKey(d);
     if (!map.has(key)) map.set(key, []);
@@ -136,7 +136,7 @@ export function groupByWeek(txs) {
 export function groupByMonth(txs) {
   const map = new Map();
   txs.forEach(tx => {
-    const d = new Date(tx.transaction_date_utc);
+    const d = new Date(tx.tx_date_time);
     if (isNaN(d)) return;
     const key = `${d.getFullYear()}-${_pad(d.getMonth() + 1)}`;
     if (!map.has(key)) map.set(key, []);
@@ -148,7 +148,7 @@ export function groupByMonth(txs) {
 export function groupByQuarter(txs) {
   const map = new Map();
   txs.forEach(tx => {
-    const d = new Date(tx.transaction_date_utc);
+    const d = new Date(tx.tx_date_time);
     if (isNaN(d)) return;
     const key = `${d.getFullYear()}-Q${Math.floor(d.getMonth() / 3) + 1}`;
     if (!map.has(key)) map.set(key, []);
@@ -205,7 +205,7 @@ export function accountBalanceByMonth(accounts, txs, months) {
     let balance = Number(acc.opening_value) || 0;
     const accTxs = txs
       .filter(tx => tx.source_account === acc.id || tx.target_account === acc.id)
-      .sort((a, b) => new Date(a.transaction_date_utc) - new Date(b.transaction_date_utc));
+      .sort((a, b) => new Date(a.tx_date_time) - new Date(b.tx_date_time));
 
     let txIdx = 0;
     months.forEach(monthKey => {
@@ -213,7 +213,7 @@ export function accountBalanceByMonth(accounts, txs, months) {
       const endOfMonth = new Date(yr, mo, 0, 23, 59, 59);
 
       while (txIdx < accTxs.length) {
-        const d = new Date(accTxs[txIdx].transaction_date_utc);
+        const d = new Date(accTxs[txIdx].tx_date_time);
         if (d > endOfMonth) break;
         const tx  = accTxs[txIdx];
         const amt = toBase(tx.amount, tx.currency, tx.fx_rate);
@@ -240,17 +240,17 @@ export function computeBalancesAt(accounts, allTxs, date) {
   });
 
   const sorted = [...allTxs].sort(
-    (a, b) => new Date(a.transaction_date_utc) - new Date(b.transaction_date_utc)
+    (a, b) => new Date(a.tx_date_time) - new Date(b.tx_date_time)
   );
 
   for (const tx of sorted) {
-    if (new Date(tx.transaction_date_utc) > dateEnd) break;
+    if (new Date(tx.tx_date_time) > dateEnd) break;
     const amt = toBase(Number(tx.amount) || 0, tx.currency, tx.fx_rate);
-    if (tx.transaction_type === 'money-out' && accountIds.has(tx.source_account)) {
+    if (tx.tx_type === 'money-out' && accountIds.has(tx.source_account)) {
       balance[tx.source_account] = (balance[tx.source_account] || 0) - amt;
-    } else if (tx.transaction_type === 'money-in' && accountIds.has(tx.target_account)) {
+    } else if (tx.tx_type === 'money-in' && accountIds.has(tx.target_account)) {
       balance[tx.target_account] = (balance[tx.target_account] || 0) + amt;
-    } else if (tx.transaction_type === 'money-transfer') {
+    } else if (tx.tx_type === 'money-transfer') {
       if (accountIds.has(tx.source_account)) balance[tx.source_account] = (balance[tx.source_account] || 0) - amt;
       if (accountIds.has(tx.target_account)) balance[tx.target_account] = (balance[tx.target_account] || 0) + amt;
     }
@@ -273,7 +273,7 @@ export function computeDailyTotalAssets(assetAccounts, allTxs, from, to) {
   });
 
   const sorted = [...allTxs].sort(
-    (a, b) => new Date(a.transaction_date_utc) - new Date(b.transaction_date_utc)
+    (a, b) => new Date(a.tx_date_time) - new Date(b.tx_date_time)
   );
   const daysInPeriod = Math.round((to - from) / 86400000) + 1;
   const dailyTotals  = [];
@@ -283,15 +283,15 @@ export function computeDailyTotalAssets(assetAccounts, allTxs, from, to) {
   for (let d = 0; d < daysInPeriod; d++) {
     const endOfDay = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), 23, 59, 59, 999);
     while (txIdx < sorted.length) {
-      const txDate = new Date(sorted[txIdx].transaction_date_utc);
+      const txDate = new Date(sorted[txIdx].tx_date_time);
       if (txDate > endOfDay) break;
       const tx  = sorted[txIdx];
       const amt = toBase(Number(tx.amount) || 0, tx.currency, tx.fx_rate);
-      if (tx.transaction_type === 'money-out' && accountIds.has(tx.source_account)) {
+      if (tx.tx_type === 'money-out' && accountIds.has(tx.source_account)) {
         balance[tx.source_account] = (balance[tx.source_account] || 0) - amt;
-      } else if (tx.transaction_type === 'money-in' && accountIds.has(tx.target_account)) {
+      } else if (tx.tx_type === 'money-in' && accountIds.has(tx.target_account)) {
         balance[tx.target_account] = (balance[tx.target_account] || 0) + amt;
-      } else if (tx.transaction_type === 'money-transfer') {
+      } else if (tx.tx_type === 'money-transfer') {
         if (accountIds.has(tx.source_account)) balance[tx.source_account] = (balance[tx.source_account] || 0) - amt;
         if (accountIds.has(tx.target_account)) balance[tx.target_account] = (balance[tx.target_account] || 0) + amt;
       }
@@ -457,8 +457,8 @@ export function baseChartOptions(sym, C) {
 
 export function renderDrillTxTable(txs, sym) {
   const rows = txs.map(t => {
-    const date = (t.transaction_date_utc || '').slice(0, 10) || '—';
-    const cp   = t.counterparty_name || t.counterparty || '—';
+    const date = (t.tx_date_time || '').slice(0, 10) || '—';
+    const cp   = t.counterparty_name || '—';
     const cat  = t.minor_category || t.major_category || '—';
     const amt  = sumAmountBase([t]);
     const amtFmt = sym + Math.abs(amt).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

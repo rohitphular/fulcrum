@@ -44,13 +44,13 @@ function _buildMonthly(months12, todayLocal) {
     // Partial month: filter to today for the last bucket
     const txs = (i === 11)
       ? all.filter(t => {
-          const d = new Date(t.transaction_date_utc);
+          const d = new Date(t.tx_date_time);
           return new Date(d.getFullYear(), d.getMonth(), d.getDate()) <= todayLocal;
         })
       : all;
 
-    const inc = sumAmountBase(txs.filter(t => t.transaction_type === 'money-in'));
-    const exp = sumAmountBase(txs.filter(t => t.transaction_type === 'money-out'));
+    const inc = sumAmountBase(txs.filter(t => t.tx_type === 'money-in'));
+    const exp = sumAmountBase(txs.filter(t => t.tx_type === 'money-out'));
     income.push(inc);
     expense.push(exp);
     net.push(inc - exp);

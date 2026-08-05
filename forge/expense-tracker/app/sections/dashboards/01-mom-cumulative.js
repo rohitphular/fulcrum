@@ -127,9 +127,9 @@ function _renderTransactions(container, { txs, from, to, sym }) {
   const maxDays = Math.max(daysInMonthA, daysInMonthB);
 
   // Filter to money-out only
-  const moneyOutA = txs.filter(t => t.transaction_type === 'money-out');
+  const moneyOutA = txs.filter(t => t.tx_type === 'money-out');
   const moneyOutB = filterTxByRange(
-    state.transactions.filter(t => t.transaction_type === 'money-out'),
+    state.transactions.filter(t => t.tx_type === 'money-out'),
     bFrom, bTo
   );
 

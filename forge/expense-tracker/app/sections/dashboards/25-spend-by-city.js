@@ -11,8 +11,8 @@ function _normCountry(raw) { return normCountry(raw); }
 // Composite "City, Country" to disambiguate same city in different countries.
 
 function _cityKey(tx) {
-  const city    = (tx.city    || '').trim();
-  const country = _normCountry(tx.country || '');
+  const city    = (tx.tx_location_city    || '').trim();
+  const country = _normCountry(tx.tx_location_country || '');
 
   if (city && country)   return `${city}, ${country}`;
   if (city)              return city;
@@ -26,7 +26,7 @@ function _groupByCity(outTxs) {
   const map = new Map();
   for (const tx of outTxs) {
     const key = _cityKey(tx);
-    if (!map.has(key)) map.set(key, { txs: [], country: _normCountry(tx.country || '') });
+    if (!map.has(key)) map.set(key, { txs: [], country: _normCountry(tx.tx_location_country || '') });
     map.get(key).txs.push(tx);
   }
 
@@ -101,7 +101,7 @@ function _renderTxDrill(drillEl, outTxs, cityLabel, sym) {
 
   const cityTxs = outTxs
     .filter(t => _cityKey(t) === cityLabel)
-    .sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+    .sort((a, b) => new Date(b.tx_date_time) - new Date(a.tx_date_time));
 
   const total = sumAmountBase(cityTxs);
 
@@ -129,7 +129,7 @@ export async function render(containerId, { txs, sym }) {
     return null;
   }
 
-  const outTxs = txs.filter(t => t.transaction_type === 'money-out');
+  const outTxs = txs.filter(t => t.tx_type === 'money-out');
   if (!outTxs.length) {
     container.innerHTML = `<div class="chart-wrap"><p class="chart-empty">No spend transactions for this period.</p></div>`;
     return null;

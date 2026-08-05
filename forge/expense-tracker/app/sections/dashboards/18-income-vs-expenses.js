@@ -12,8 +12,8 @@ function _buildMonthly(txs, monthKeys) {
   const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const curYYYYMM  = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}`;
 
-  const inByMonth  = groupByMonth(txs.filter(t => t.transaction_type === 'money-in'));
-  const outByMonth = groupByMonth(txs.filter(t => t.transaction_type === 'money-out'));
+  const inByMonth  = groupByMonth(txs.filter(t => t.tx_type === 'money-in'));
+  const outByMonth = groupByMonth(txs.filter(t => t.tx_type === 'money-out'));
 
   const incomeArr  = [];
   const expenseArr = [];
@@ -30,7 +30,7 @@ function _buildMonthly(txs, monthKeys) {
     // Partial month: only count txs up to today
     const filterPartial = arr => isPartial
       ? arr.filter(t => {
-          const d = new Date(t.transaction_date_utc);
+          const d = new Date(t.tx_date_time);
           return new Date(d.getFullYear(), d.getMonth(), d.getDate()) <= todayLocal;
         })
       : arr;
@@ -115,8 +115,8 @@ export async function render(containerId, { txs, from, to, sym }) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
 
   // Group all txs by month key for drill access
-  const inByMonth  = groupByMonth(txs.filter(t => t.transaction_type === 'money-in'));
-  const outByMonth = groupByMonth(txs.filter(t => t.transaction_type === 'money-out'));
+  const inByMonth  = groupByMonth(txs.filter(t => t.tx_type === 'money-in'));
+  const outByMonth = groupByMonth(txs.filter(t => t.tx_type === 'money-out'));
 
   container.innerHTML = `
     <div class="stat-cards">
@@ -203,7 +203,7 @@ export async function render(containerId, { txs, from, to, sym }) {
         // Top income by counterparty
         const incMap = new Map();
         for (const t of monthIn) {
-          const k = t.counterparty || '(unknown)';
+          const k = t.counterparty_name || '(unknown)';
           incMap.set(k, (incMap.get(k) || 0) + sumAmountBase([t]));
         }
         const incRows = [...incMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)

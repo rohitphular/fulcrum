@@ -20,11 +20,11 @@ function getSuggestedTransactions() {
 
   // Filter to money-out only — all signals operate on this subset
   var outTx = allTx.filter(function(tx) {
-    return String(tx.transaction_type) === 'money-out';
+    return String(tx.tx_type) === 'money-out';
   });
   Logger.log(fnName + ': money_out_count=' + outTx.length);
 
-  // Collect suggestions from each signal; map keyed by "counterparty|minor_category"
+  // Collect suggestions from each signal; map keyed by "counterparty_name|minor_category"
   var suggestionMap = {};
 
   _applyRecurringMonthly(outTx, today, suggestionMap);
@@ -60,9 +60,9 @@ function _applyRecurringMonthly(outTx, today, map) {
   // Group relevant transactions by key
   var groups = {};
   outTx.forEach(function(tx) {
-    var d = new Date(tx.transaction_date_utc);
+    var d = new Date(tx.tx_date_time);
     if (isNaN(d.getTime()) || d < cutoff) return;
-    var key = String(tx.counterparty || '') + '|' + String(tx.minor_category || '');
+    var key = String(tx.counterparty_name || '') + '|' + String(tx.minor_category || '');
     if (!groups[key]) groups[key] = { tx: tx, occurrences: [] };
     groups[key].occurrences.push({ tx: tx, date: d });
   });
@@ -95,15 +95,15 @@ function _applyRecurringMonthly(outTx, today, map) {
     if (existing && existing.confidence >= confidence) return;
 
     map[key] = {
-      signal:          'recurring_monthly',
-      counterparty:    String(occs[0].tx.counterparty   || ''),
-      major_category:  _mostFrequent(occs.map(function(o) { return String(o.tx.major_category  || ''); })),
-      minor_category:  String(occs[0].tx.minor_category || ''),
-      source_account:  _mostFrequent(occs.map(function(o) { return String(o.tx.source_account  || ''); })),
-      typical_amount:  _median(occs.map(function(o) { return Number(o.tx.amount) || 0; })),
-      currency:        _mostFrequent(occs.map(function(o) { return String(o.tx.currency        || ''); })),
-      confidence:      confidence,
-      reason:          'monthly \xb7 usually around the ' + _ordinal(medianDay),
+      signal:           'recurring_monthly',
+      counterparty_name: String(occs[0].tx.counterparty_name || ''),
+      major_category:   _mostFrequent(occs.map(function(o) { return String(o.tx.major_category  || ''); })),
+      minor_category:   String(occs[0].tx.minor_category || ''),
+      source_account:   _mostFrequent(occs.map(function(o) { return String(o.tx.source_account  || ''); })),
+      typical_amount:   _median(occs.map(function(o) { return Number(o.tx.amount) || 0; })),
+      currency:         _mostFrequent(occs.map(function(o) { return String(o.tx.currency        || ''); })),
+      confidence:       confidence,
+      reason:           'monthly \xb7 usually around the ' + _ordinal(medianDay),
     };
 
     Logger.log(fnName + ': surfaced key=' + key + ' confidence=' + confidence);
@@ -128,9 +128,9 @@ function _applyRecurringWeekly(outTx, today, map) {
   // Group transactions from the past 8 weeks by key
   var groups = {};
   outTx.forEach(function(tx) {
-    var d = new Date(tx.transaction_date_utc);
+    var d = new Date(tx.tx_date_time);
     if (isNaN(d.getTime()) || d < cutoff) return;
-    var key = String(tx.counterparty || '') + '|' + String(tx.minor_category || '');
+    var key = String(tx.counterparty_name || '') + '|' + String(tx.minor_category || '');
     if (!groups[key]) groups[key] = { tx: tx, occurrences: [] };
     groups[key].occurrences.push({ tx: tx, date: d });
   });
@@ -161,15 +161,15 @@ function _applyRecurringWeekly(outTx, today, map) {
     if (existing && existing.confidence >= confidence) return;
 
     map[key] = {
-      signal:         'recurring_weekly',
-      counterparty:   String(occs[0].tx.counterparty   || ''),
-      major_category: _mostFrequent(occs.map(function(o) { return String(o.tx.major_category  || ''); })),
-      minor_category: String(occs[0].tx.minor_category || ''),
-      source_account: _mostFrequent(occs.map(function(o) { return String(o.tx.source_account  || ''); })),
-      typical_amount: _median(occs.map(function(o) { return Number(o.tx.amount) || 0; })),
-      currency:       _mostFrequent(occs.map(function(o) { return String(o.tx.currency        || ''); })),
-      confidence:     confidence,
-      reason:         'weekly \xb7 usually on ' + _SUGGESTION_DAY_NAMES[modeDow],
+      signal:           'recurring_weekly',
+      counterparty_name: String(occs[0].tx.counterparty_name || ''),
+      major_category:   _mostFrequent(occs.map(function(o) { return String(o.tx.major_category  || ''); })),
+      minor_category:   String(occs[0].tx.minor_category || ''),
+      source_account:   _mostFrequent(occs.map(function(o) { return String(o.tx.source_account  || ''); })),
+      typical_amount:   _median(occs.map(function(o) { return Number(o.tx.amount) || 0; })),
+      currency:         _mostFrequent(occs.map(function(o) { return String(o.tx.currency        || ''); })),
+      confidence:       confidence,
+      reason:           'weekly \xb7 usually on ' + _SUGGESTION_DAY_NAMES[modeDow],
     };
 
     Logger.log(fnName + ': surfaced key=' + key + ' confidence=' + confidence);
@@ -178,7 +178,7 @@ function _applyRecurringWeekly(outTx, today, map) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Signal 3 — time_of_day
-// Look back 4 weeks (28 days); group by (counterparty|minor_category|dow|hour_bucket);
+// Look back 4 weeks (28 days); group by (counterparty_name|minor_category|dow|hour_bucket);
 // qualify if current dow+hour_bucket matches and ≥ 3 distinct days in group;
 // filter counterparties already transacted with today; emit at most 2 suggestions.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -196,21 +196,21 @@ function _applyTimeOfDay(outTx, today, map) {
   // Counterparties already transacted with today
   var transactedTodayCounterparties = {};
   outTx.forEach(function(tx) {
-    var d = new Date(tx.transaction_date_utc);
+    var d = new Date(tx.tx_date_time);
     if (!isNaN(d.getTime()) && _calendarDateStr(d) === todayDateString) {
-      transactedTodayCounterparties[String(tx.counterparty || '')] = true;
+      transactedTodayCounterparties[String(tx.counterparty_name || '')] = true;
     }
   });
 
   // Group transactions from last 4 weeks by extended key (including dow + hour_bucket)
   var groups = {};
   outTx.forEach(function(tx) {
-    var d = new Date(tx.transaction_date_utc);
+    var d = new Date(tx.tx_date_time);
     if (isNaN(d.getTime()) || d < cutoff) return;
     var dow        = d.getDay();
     var hourBucket = Math.floor(d.getHours() / 2);
-    var extKey = String(tx.counterparty || '') + '|' + String(tx.minor_category || '') + '|' + dow + '|' + hourBucket;
-    if (!groups[extKey]) groups[extKey] = { tx: tx, dateSet: {}, counterparty: String(tx.counterparty || ''), minor_category: String(tx.minor_category || ''), dow: dow, occurrences: [] };
+    var extKey = String(tx.counterparty_name || '') + '|' + String(tx.minor_category || '') + '|' + dow + '|' + hourBucket;
+    if (!groups[extKey]) groups[extKey] = { tx: tx, dateSet: {}, counterparty_name: String(tx.counterparty_name || ''), minor_category: String(tx.minor_category || ''), dow: dow, occurrences: [] };
     var dateStr = _calendarDateStr(d);
     groups[extKey].dateSet[dateStr] = true;
     groups[extKey].occurrences.push({ tx: tx, date: d });
@@ -233,23 +233,23 @@ function _applyTimeOfDay(outTx, today, map) {
     if (distinctDays < 2) return;
 
     // Filter if already transacted today with this counterparty
-    if (transactedTodayCounterparties[group.counterparty]) return;
+    if (transactedTodayCounterparties[group.counterparty_name]) return;
 
     var confidence = Math.min((distinctDays / 4) * 0.6, 0.6);
-    var dedupeKey  = group.counterparty + '|' + group.minor_category;
+    var dedupeKey  = group.counterparty_name + '|' + group.minor_category;
     var occs       = group.occurrences;
 
     candidates.push({
-      dedupeKey:      dedupeKey,
-      signal:         'time_of_day',
-      counterparty:   group.counterparty,
-      major_category: _mostFrequent(occs.map(function(o) { return String(o.tx.major_category  || ''); })),
-      minor_category: group.minor_category,
-      source_account: _mostFrequent(occs.map(function(o) { return String(o.tx.source_account  || ''); })),
-      typical_amount: _median(occs.map(function(o) { return Number(o.tx.amount) || 0; })),
-      currency:       _mostFrequent(occs.map(function(o) { return String(o.tx.currency        || ''); })),
-      confidence:     confidence,
-      reason:         'often at this time on ' + _SUGGESTION_DAY_NAMES[dow],
+      dedupeKey:         dedupeKey,
+      signal:            'time_of_day',
+      counterparty_name: group.counterparty_name,
+      major_category:    _mostFrequent(occs.map(function(o) { return String(o.tx.major_category  || ''); })),
+      minor_category:    group.minor_category,
+      source_account:    _mostFrequent(occs.map(function(o) { return String(o.tx.source_account  || ''); })),
+      typical_amount:    _median(occs.map(function(o) { return Number(o.tx.amount) || 0; })),
+      currency:          _mostFrequent(occs.map(function(o) { return String(o.tx.currency        || ''); })),
+      confidence:        confidence,
+      reason:            'often at this time on ' + _SUGGESTION_DAY_NAMES[dow],
     });
   });
 
@@ -261,15 +261,15 @@ function _applyTimeOfDay(outTx, today, map) {
     var existing = map[c.dedupeKey];
     if (existing && existing.confidence >= c.confidence) return;
     map[c.dedupeKey] = {
-      signal:         c.signal,
-      counterparty:   c.counterparty,
-      major_category: c.major_category,
-      minor_category: c.minor_category,
-      source_account: c.source_account,
-      typical_amount: c.typical_amount,
-      currency:       c.currency,
-      confidence:     c.confidence,
-      reason:         c.reason,
+      signal:            c.signal,
+      counterparty_name: c.counterparty_name,
+      major_category:    c.major_category,
+      minor_category:    c.minor_category,
+      source_account:    c.source_account,
+      typical_amount:    c.typical_amount,
+      currency:          c.currency,
+      confidence:        c.confidence,
+      reason:            c.reason,
     };
     Logger.log(fnName + ': surfaced key=' + c.dedupeKey + ' confidence=' + c.confidence);
     emitted++;

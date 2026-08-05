@@ -4,14 +4,14 @@
 // =============================================================================
 
 function validateTransactionCreate(body) {
-  if (!body.transaction_date_utc)
+  if (!body.tx_date_time)
     return { ok: false, error: 'missing_date' };
-  if (!body.transaction_type || !VALID_TRANSACTION_TYPES.includes(body.transaction_type))
+  if (!body.tx_type || !VALID_TRANSACTION_TYPES.includes(body.tx_type))
     return { ok: false, error: 'invalid_transaction_type' };
   if (!body.amount || Number(body.amount) <= 0)
     return { ok: false, error: 'invalid_amount' };
   // money-in: source is external — source_account is not sent by the UI
-  if (body.transaction_type !== 'money-in' && !body.source_account)
+  if (body.tx_type !== 'money-in' && !body.source_account)
     return { ok: false, error: 'missing_source_account' };
 
   const acctTypeErr = _validateCategoryAccountTypeHints(body);
@@ -30,13 +30,13 @@ function validateTransactionCreate(body) {
 function validateTransactionUpdate(body, oldRow) {
   if (!body.row_num)
     return { ok: false, error: 'missing_row_num' };
-  if (!body.transaction_date_utc)
+  if (!body.tx_date_time)
     return { ok: false, error: 'missing_date' };
-  if (!body.transaction_type || !VALID_TRANSACTION_TYPES.includes(body.transaction_type))
+  if (!body.tx_type || !VALID_TRANSACTION_TYPES.includes(body.tx_type))
     return { ok: false, error: 'invalid_transaction_type' };
   if (!body.amount || Number(body.amount) <= 0)
     return { ok: false, error: 'invalid_amount' };
-  if (body.transaction_type !== 'money-in' && !body.source_account)
+  if (body.tx_type !== 'money-in' && !body.source_account)
     return { ok: false, error: 'missing_source_account' };
 
   const acctTypeErr = _validateCategoryAccountTypeHints(body);
@@ -52,7 +52,7 @@ function validateTransactionUpdate(body, oldRow) {
 // ── Account-type hint validation ──────────────────────────────────────────────
 
 function _validateCategoryAccountTypeHints(body) {
-  const cat = _findCategoryHints(body.transaction_type, body.major_category, body.minor_category);
+  const cat = _findCategoryHints(body.tx_type, body.major_category, body.minor_category);
   if (!cat) return null;
 
   if (cat.source_account_mandatory) {
@@ -192,10 +192,10 @@ function _validateFinancialRules(body, oldRow) {
 
   const amount = Number(body.amount) || 0;
 
-  const balanceErr = _checkBalanceRules(body.transaction_type, sourceForCheck, amount);
+  const balanceErr = _checkBalanceRules(body.tx_type, sourceForCheck, amount);
   if (balanceErr) return balanceErr;
 
-  const rule5Err = _checkRule5(body.transaction_type, sourceForCheck, body.major_category, body.minor_category);
+  const rule5Err = _checkRule5(body.tx_type, sourceForCheck, body.major_category, body.minor_category);
   if (rule5Err) return rule5Err;
 
   return { ok: true };
@@ -221,7 +221,7 @@ function _postReversalBalance(sourceAccountId, sourceAccount, oldRow) {
   const oldSource = String(oldRow[txColIndex('source_account')] || '');
   if (oldSource !== String(sourceAccountId)) return sourceAccount;
 
-  const oldType   = String(oldRow[txColIndex('transaction_type')] || '');
+  const oldType   = String(oldRow[txColIndex('tx_type')] || '');
   const oldAmount = Number(oldRow[txColIndex('amount')]) || 0;
 
   let projected = Number(sourceAccount.current_value) || 0;

@@ -46,7 +46,7 @@ function _buildYtdCumulative(txs, yearStart, numMonths, partialMonthTo) {
     let monthTotal;
     if (isLastMonth && partialMonthTo !== null) {
       const filtered = (byMonth.get(monthKey) || []).filter(t => {
-        const d = new Date(t.transaction_date_utc);
+        const d = new Date(t.tx_date_time);
         return new Date(d.getFullYear(), d.getMonth(), d.getDate()) <= partialMonthTo;
       });
       monthTotal = sumAmountBase(filtered);
@@ -131,9 +131,9 @@ function _renderTransactions(container, { from, to, sym }) {
   const bStart    = new Date(yearB, 0, 1);
 
   const moneyOutA = filterTxByRange(state.transactions, yearStart, aEnd)
-    .filter(t => t.transaction_type === 'money-out');
+    .filter(t => t.tx_type === 'money-out');
   const moneyOutB = filterTxByRange(state.transactions, bStart, bEnd)
-    .filter(t => t.transaction_type === 'money-out');
+    .filter(t => t.tx_type === 'money-out');
 
   const dataA = _buildYtdCumulative(moneyOutA, yearStart, numMonths, isCurrentYear ? aEnd : null);
   const dataB = _buildYtdCumulative(moneyOutB, bStart,    numMonths, null);

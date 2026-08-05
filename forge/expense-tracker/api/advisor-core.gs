@@ -110,23 +110,20 @@ function _buildSnapshot() {
   cutoff.setMonth(cutoff.getMonth() - 3);
 
   var recentTx = allTx.filter(function(tx) {
-    var d = new Date(tx.transaction_date_utc);
-    return !isNaN(d.getTime()) && d >= cutoff && tx.transaction_type;
+    var d = new Date(tx.tx_date_time);
+    return !isNaN(d.getTime()) && d >= cutoff && tx.tx_type;
   });
 
   var catSpend = {}, cpSpend = {}, totalIn = 0, totalOut = 0;
   recentTx.forEach(function(tx) {
     var amt = Number(tx.amount) || 0;
-    if (tx.transaction_type === 'money-out') {
+    if (tx.tx_type === 'money-out') {
       totalOut += amt;
       var key = (tx.major_category || 'Uncategorised') + ' / ' + (tx.minor_category || 'Other');
       catSpend[key] = (catSpend[key] || 0) + amt;
-      // F-22 fix: field is `counterparty`, not `counterparty_name`. The old
-      // name made this branch silently store nothing — the advisor's
-      // topCounterparties payload was always empty.
-      var cp = String(tx.counterparty || '').trim();
+      var cp = String(tx.counterparty_name || '').trim();
       if (cp) cpSpend[cp] = (cpSpend[cp] || 0) + amt;
-    } else if (tx.transaction_type === 'money-in') {
+    } else if (tx.tx_type === 'money-in') {
       totalIn += amt;
     }
   });
@@ -163,8 +160,8 @@ function _buildSystemPrompt(snapshot) {
     '## Financial Snapshot\n```json\n' + JSON.stringify(snapshot, null, 2) + '\n```\n\n' +
     '## Requesting Additional Data\n' +
     'If you need specific transactions to answer accurately, respond with ONLY this JSON (nothing else — the user will not see it):\n' +
-    '{"data_request":{"transaction_type":"money-out","major_category":"Food","months_back":3,"limit":50}}\n' +
-    'Filters: transaction_type (money-in/money-out/money-transfer), major_category, minor_category, account_id, ' +
+    '{"data_request":{"tx_type":"money-out","major_category":"Food","months_back":3,"limit":50}}\n' +
+    'Filters: tx_type (money-in/money-out/money-transfer), major_category, minor_category, account_id, ' +
     'months_back (max 12, default 3), limit (max 100, default 50).\n' +
     'Only request data when the snapshot is genuinely insufficient. For general questions the snapshot is enough.';
 }
@@ -225,28 +222,27 @@ function _fetchRequestedData(request) {
 
   var allTx = sheetToObjects(txSheet);
   var filtered = allTx.filter(function(tx) {
-    var d = new Date(tx.transaction_date_utc);
+    var d = new Date(tx.tx_date_time);
     if (isNaN(d.getTime()) || d < cutoff) return false;
-    if (request.transaction_type && tx.transaction_type !== request.transaction_type) return false;
-    if (request.major_category   && tx.major_category   !== request.major_category)  return false;
-    if (request.minor_category   && tx.minor_category   !== request.minor_category)  return false;
-    // F-22 fix: schema names are `source_account` / `target_account`.
+    if (request.tx_type        && tx.tx_type        !== request.tx_type)        return false;
+    if (request.major_category && tx.major_category !== request.major_category) return false;
+    if (request.minor_category && tx.minor_category !== request.minor_category) return false;
     if (request.account_id && tx.source_account !== request.account_id && tx.target_account !== request.account_id) return false;
     return true;
   });
 
-  filtered.sort(function(a, b) { return new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc); });
+  filtered.sort(function(a, b) { return new Date(b.tx_date_time) - new Date(a.tx_date_time); });
 
   return filtered.slice(0, limit).map(function(tx) {
     return {
-      date:         tx.transaction_date_utc,
-      type:         tx.transaction_type,
-      amount:       tx.amount,
-      currency:     tx.currency,
-      major:        tx.major_category,
-      minor:        tx.minor_category,
-      counterparty: tx.counterparty,
-      notes:        tx.notes
+      date:             tx.tx_date_time,
+      type:             tx.tx_type,
+      amount:           tx.amount,
+      currency:         tx.currency,
+      major:            tx.major_category,
+      minor:            tx.minor_category,
+      counterparty:     tx.counterparty_name,
+      notes:            tx.description,
     };
   });
 }

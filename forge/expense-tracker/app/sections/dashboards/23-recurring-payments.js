@@ -44,7 +44,7 @@ function _detectRecurring(outTxs) {
   // Group by normalised counterparty name
   const map = new Map();
   for (const tx of outTxs) {
-    const key = ((tx.counterparty || '').trim() || 'unknown').toLowerCase();
+    const key = ((tx.counterparty_name || '').trim() || 'unknown').toLowerCase();
     if (!map.has(key)) map.set(key, []);
     map.get(key).push(tx);
   }
@@ -53,13 +53,13 @@ function _detectRecurring(outTxs) {
   for (const [, rows] of map) {
     if (rows.length < 2) continue;
 
-    const sorted  = [...rows].sort((a, b) => new Date(a.transaction_date_utc) - new Date(b.transaction_date_utc));
+    const sorted  = [...rows].sort((a, b) => new Date(a.tx_date_time) - new Date(b.tx_date_time));
     const amounts = sorted.map(t => Number(t.amount_base) || 0);
     const amtMean = _mean(amounts);
     if (amtMean <= 0) continue;
     if (_stdDev(amounts) / amtMean > 0.15) continue; // too variable
 
-    const dates = sorted.map(t => new Date(t.transaction_date_utc));
+    const dates = sorted.map(t => new Date(t.tx_date_time));
     const gaps  = dates.slice(1).map((d, i) => _daysBetween(dates[i], d));
     const gMean = _mean(gaps);
     const gSd   = _stdDev(gaps);
@@ -71,7 +71,7 @@ function _detectRecurring(outTxs) {
     if (!frequency) continue;
 
     recurring.push({
-      counterparty: (sorted[0].counterparty || 'Unknown').trim(),
+      counterparty: (sorted[0].counterparty_name || 'Unknown').trim(),
       amount:       amtMean,
       frequency,
       count:        sorted.length,
@@ -187,10 +187,10 @@ function _showHistory(historyEl, cpKey) {
 
   const cpTxs = state.transactions
     .filter(t =>
-      t.transaction_type === 'money-out' &&
-      ((t.counterparty || '').trim() || 'unknown').toLowerCase() === cpKey
+      t.tx_type === 'money-out' &&
+      ((t.counterparty_name || '').trim() || 'unknown').toLowerCase() === cpKey
     )
-    .sort((a, b) => new Date(a.transaction_date_utc) - new Date(b.transaction_date_utc));
+    .sort((a, b) => new Date(a.tx_date_time) - new Date(b.tx_date_time));
 
   if (!cpTxs.length) {
     historyEl.hidden = true;
@@ -200,7 +200,7 @@ function _showHistory(historyEl, cpKey) {
   // Group by YYYY-MM for bar chart
   const monthMap = new Map();
   for (const t of cpTxs) {
-    const mk = t.transaction_date_utc.slice(0, 7);
+    const mk = t.tx_date_time.slice(0, 7);
     if (!monthMap.has(mk)) monthMap.set(mk, 0);
     monthMap.set(mk, monthMap.get(mk) + (Number(t.amount_base) || 0));
   }
@@ -296,9 +296,9 @@ export async function render(containerId, { txs, from, to, sym }) {
 
   // Detect from full history — patterns need multiple months to be identified.
   // Then filter to only those that fired at least once within the selected period.
-  const allOutTxs    = state.transactions.filter(t => t.transaction_type === 'money-out');
-  const periodOutTxs = txs.filter(t => t.transaction_type === 'money-out');
-  const periodKeys   = new Set(periodOutTxs.map(t => ((t.counterparty || '').trim() || 'unknown').toLowerCase()));
+  const allOutTxs    = state.transactions.filter(t => t.tx_type === 'money-out');
+  const periodOutTxs = txs.filter(t => t.tx_type === 'money-out');
+  const periodKeys   = new Set(periodOutTxs.map(t => ((t.counterparty_name || '').trim() || 'unknown').toLowerCase()));
   _recurring = _detectRecurring(allOutTxs).filter(r => periodKeys.has(r.counterparty.toLowerCase()));
   _C           = getCssColors();
 
@@ -314,7 +314,7 @@ export async function render(containerId, { txs, from, to, sym }) {
   const MONTHLY_EQUIV = { weekly: 52 / 12, monthly: 1, quarterly: 1 / 3 };
   const totalMonthly  = _recurring.reduce((s, r) => s + r.amount * MONTHLY_EQUIV[r.frequency], 0);
 
-  const inTxs        = txs.filter(t => t.transaction_type === 'money-in');
+  const inTxs        = txs.filter(t => t.tx_type === 'money-in');
   const monthCount   = Math.max(1, monthRange(from, to).length);
   const monthlyIncome = sumAmountBase(inTxs) / monthCount;
   const pctOfIncome  = monthlyIncome > 0 ? Math.round((totalMonthly / monthlyIncome) * 100) : null;

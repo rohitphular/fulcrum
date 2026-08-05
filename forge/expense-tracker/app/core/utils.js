@@ -27,9 +27,10 @@ export const toBase     = (amount, from, rowFxRate) => _toBase(amount, from, row
 export const fmtBase    = (amount, from, rowFxRate) => _fmtBase(amount, from, rowFxRate, state.rateMap, state.quoteCurrency, state.rates);
 export const fmtNative  = (amount, currency)        => _fmtNative(amount, currency, state.rates);
 
-const ET_COLS = ['id', 'transaction_date_utc', 'transaction_type', 'amount', 'currency',
-  'source_account', 'target_account', 'major_category', 'minor_category',
-  'counterparty', 'notes', 'tags', 'transfer_id', 'fx_rate', 'country', 'payment_method'];
+const ET_COLS = ['id', 'tx_date_time', 'tx_type', 'source_account', 'target_account',
+  'tx_location_area', 'tx_location_city', 'tx_location_country',
+  'amount', 'currency', 'fx_rate', 'major_category', 'minor_category',
+  'tags', 'counterparty_name', 'description'];
 export const exportData = (format, rows)            => _exportData(format, rows, 'expenses', ET_COLS);
 
 // ── Shared context menu ───────────────────────────────────────────────────────

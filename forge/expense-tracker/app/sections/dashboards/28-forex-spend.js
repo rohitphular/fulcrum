@@ -138,7 +138,7 @@ function _renderFxScatter(viewEl, rows, C) {
     label: r.ccy,
     data: r.txs
       .filter(t => t.fx_rate)
-      .map(t => ({ x: new Date(t.transaction_date_utc).getTime(), y: t.fx_rate })),
+      .map(t => ({ x: new Date(t.tx_date_time).getTime(), y: t.fx_rate })),
     backgroundColor: palette[i % palette.length],
     pointRadius:     6,
     pointHoverRadius: 8,
@@ -218,7 +218,7 @@ export async function render(containerId, { txs, sym }) {
     return { destroy() { _destroyChart(); } };
   }
 
-  const outTxs   = txs.filter(t => t.transaction_type === 'money-out');
+  const outTxs   = txs.filter(t => t.tx_type === 'money-out');
   if (!outTxs.length) {
     container.innerHTML = `<div class="chart-wrap"><p class="chart-empty">No spend transactions for this period.</p></div>`;
     _setChart(null);

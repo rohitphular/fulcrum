@@ -103,19 +103,19 @@ function _renderDrillPanel(drillEl, moneyOut, tag, sym) {
 
   const tagTxs = moneyOut
     .filter(t => String(t.tags || '').split(';').map(s => s.toLowerCase().trim()).includes(tag))
-    .sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+    .sort((a, b) => new Date(b.tx_date_time) - new Date(a.tx_date_time));
 
   const total = sumAmountBase(tagTxs);
   const thS   = `padding:8px;font-size:var(--text-xs);color:var(--muted);font-weight:600;white-space:nowrap`;
   const tdS   = `padding:9px 8px;font-size:var(--text-sm);border-bottom:1px solid var(--hair)`;
 
   const bodyRows = tagTxs.map(t => {
-    const d    = new Date(t.transaction_date_utc);
+    const d    = new Date(t.tx_date_time);
     const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
-    const desc = t.description && t.description !== t.counterparty ? t.description : '';
+    const desc = t.description && t.description !== t.counterparty_name ? t.description : '';
     return `<tr>
       <td style="${tdS};color:var(--muted);white-space:nowrap">${esc(date)}</td>
-      <td style="${tdS}">${esc(t.counterparty || '—')}</td>
+      <td style="${tdS}">${esc(t.counterparty_name || '—')}</td>
       <td style="${tdS};color:var(--muted)">${esc(desc)}</td>
       <td style="${tdS};text-align:right;white-space:nowrap">${esc(fmt(sumAmountBase([t])))}</td>
     </tr>`;
@@ -157,7 +157,7 @@ export async function render(containerId, { txs, sym }) {
     return null;
   }
 
-  const moneyOut = txs.filter(t => t.transaction_type === 'money-out');
+  const moneyOut = txs.filter(t => t.tx_type === 'money-out');
   const allRows  = _aggregateTags(moneyOut);
 
   if (!allRows.length) {

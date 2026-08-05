@@ -458,7 +458,7 @@ function _attachEvents() {
         if (key === 'delete') { state.subDeleteRow = row; renderSubscriptions(); }
         if (key === 'txs') {
           const searchTerm = sub?.counterparty || sub?.name || '';
-          state.filters = { types: [], accounts: [], major: [], minor: [], country: '', method: '', tag: '', search: searchTerm };
+          state.filters = { types: [], accounts: [], major: [], minor: [], tx_location_country: '', tag: '', search: searchTerm };
           document.dispatchEvent(new CustomEvent('et:show-section', { detail: 'transactions' }));
         }
       });

@@ -101,7 +101,7 @@ function _renderDrillPanel(drillEl, moneyOut, category, topLabels, sym) {
   const catTxs = (category === 'Other'
     ? moneyOut.filter(t => !topLabels.includes(t.major_category || 'Uncategorised'))
     : moneyOut.filter(t => (t.major_category || 'Uncategorised') === category)
-  ).sort((a, b) => new Date(b.transaction_date_utc) - new Date(a.transaction_date_utc));
+  ).sort((a, b) => new Date(b.tx_date_time) - new Date(a.tx_date_time));
 
   const total = sumAmountBase(catTxs);
 
@@ -129,7 +129,7 @@ export async function render(containerId, { txs, sym }) {
     return null;
   }
 
-  const moneyOut = txs.filter(t => t.transaction_type === 'money-out');
+  const moneyOut = txs.filter(t => t.tx_type === 'money-out');
 
   if (!moneyOut.length) {
     container.innerHTML = `<div class="chart-wrap"><p class="chart-empty">No spending data for this period.</p></div>`;

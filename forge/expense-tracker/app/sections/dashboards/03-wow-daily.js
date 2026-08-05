@@ -100,9 +100,9 @@ function _renderTransactions(container, { from, sym }) {
   const cutoffDate    = isCurrentWeek ? todayLocal : null;
 
   const moneyOutA = filterTxByRange(state.transactions, aFrom, aTo)
-    .filter(t => t.transaction_type === 'money-out');
+    .filter(t => t.tx_type === 'money-out');
   const moneyOutB = filterTxByRange(state.transactions, bFrom, bTo)
-    .filter(t => t.transaction_type === 'money-out');
+    .filter(t => t.tx_type === 'money-out');
 
   const dataA = _buildWeeklyDaily(moneyOutA, aFrom, cutoffDate);
   const dataB = _buildWeeklyDaily(moneyOutB, bFrom, null);
