@@ -2,6 +2,7 @@
 import argparse
 import sys
 import time
+import traceback
 
 import config
 from jobs import ALL_JOBS
@@ -43,6 +44,7 @@ def main():
             success += 1
         except Exception as e:
             print(f"  [{job.name}] FAILED: {e}")
+            traceback.print_exc()
 
     print(f"\n[runner] finished {success}/{total} jobs")
     if success < total:

@@ -70,6 +70,7 @@ export const state = {
   insightChartInstance: null,
   insightDrillMajor:    null,   // active major category for 11-category-drilldown (null = top level)
   insightDrillMinor:    null,
+  insightMode:          'precomputed',  // 'precomputed' | 'live'
 
   advisorMessages: [],
 

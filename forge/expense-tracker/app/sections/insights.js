@@ -6,7 +6,7 @@ import { ExpenseAPI } from '../core/api.js';
 
 const INSIGHTS = [
   // Cash flow rates
-  { id: '00-earn-burn-rate',    label: 'Income, Expense & Savings',  group: 'Cash flow',            tabs: false, description: 'Trailing-average income, expense, and savings rate per day — three lines in one view. Blue band = saving; red band = overspending. Use the window chips to adjust smoothing.', periods: ['last_3', 'last_6', 'last_12', 'ytd', 'last_year', 'custom'] },
+  { id: '00-earn-burn-rate',    label: 'Income, Expense & Savings',  group: 'Cash flow',            tabs: false, description: 'Trailing-average income, expense, and savings rate per day — three lines in one view. Blue band = saving; red band = overspending. Use the window chips to adjust smoothing.', periods: ['last_3', 'last_6', 'last_12', 'ytd', 'last_year', 'custom'], defaultVariant: '30d' },
   // Spending comparisons
   { id: '01-mom-cumulative',    label: 'Month-on-Month daily cumulative', group: 'Spending comparisons', tabs: true,  description: 'Cumulative spend day-by-day through the month, compared against the previous month.',                          periods: ['this_month', 'last_month', 'custom'],                       pcChart: 'line'    },
   { id: '02-yoy-monthly',       label: 'Year-on-Year monthly',            group: 'Spending comparisons', tabs: true,  description: 'Monthly spend by calendar month, this year vs the same period last year.',                                   periods: ['this_month', 'last_month', 'ytd', 'last_year', 'custom'],  pcChart: 'bar'     },
@@ -118,11 +118,16 @@ function _buildShellHtml() {
       </div>`
     : '';
 
+  const modeHtml = `
+    <option value="precomputed"${state.insightMode === 'precomputed' ? ' selected' : ''}>Pre-Computed</option>
+    <option value="live"${state.insightMode === 'live' ? ' selected' : ''}>Live</option>`;
+
   return `
     <div class="insight-controls">
       <div class="insight-top-row">
         <select class="insight-selector" id="insightSelector">${selectorHtml}</select>
         ${hidePeriod ? '' : `<select class="insight-period-select" id="insightPeriodSelect">${periodHtml}</select>`}
+        <select class="insight-mode-select" id="insightModeSelect">${modeHtml}</select>
       </div>
       <div class="insight-custom-dates${customHidden}" id="insightCustomDates">
         <input type="date" id="insightCustomFrom" value="${esc(state.insightCustomFrom)}">
@@ -167,6 +172,11 @@ function _attachShellEvents() {
     if (id === 'insightCustomTo') {
       state.insightCustomTo = e.target.value;
       if (state.insightCustomFrom && state.insightCustomTo) _renderActiveInsight();
+      return;
+    }
+    if (id === 'insightModeSelect') {
+      state.insightMode = e.target.value;
+      _renderActiveInsight();
     }
   }, { signal });
 
@@ -214,33 +224,62 @@ async function _renderActiveInsight() {
     ? `<div class="insight-warn">⚠ No exchange rate for <strong>${esc(missingRates.join(', '))}</strong> — affected transactions excluded from totals. <a href="#" data-action="go-rates">Add rates →</a></div>`
     : '';
 
-  // Precomputed lookup key — 'default' for fixed-window insights; skip custom ranges.
   const periodKey   = dash.periods === false ? 'default' : state.insightPeriod;
   const derivedFrom = dash.tabs ? state.insightTab : 'default';
-  const canFastPath = !!(dash.pcChart && periodKey !== 'custom');
 
-  // Fire precomputed lookup and module load in parallel so neither blocks the other.
-  const [precomputed, renderer] = await Promise.all([
-    canFastPath
-      ? ExpenseAPI.getComputedInsights({ insight_id: state.insightId, period_key: periodKey, derived_from: derivedFrom, chart_variant: '' }).catch(() => null)
-      : Promise.resolve(null),
-    _loadRenderer(state.insightId),
-  ]);
+  const isPrecomputed = state.insightMode === 'precomputed';
+
+  // Pre-Computed mode: always call the API for non-custom periods.
+  // pcChart only governs rendering method, not whether we fetch.
+  if (isPrecomputed && periodKey !== 'custom') {
+    const [precomputed, renderer] = await Promise.all([
+      ExpenseAPI.getComputedInsights({
+        insight_id: state.insightId, period_key: periodKey,
+        derived_from: derivedFrom, chart_variant: dash.defaultVariant || '',
+      }).catch(() => null),
+      _loadRenderer(state.insightId),
+    ]);
+
+    if (myId !== _renderId) return;
+
+    inner.innerHTML = `${rateWarn}<div id="insightChart"></div>`;
+
+    if (!precomputed?.ok) {
+      el('insightChart').innerHTML =
+        `<div class="insight-placeholder">No pre-computed data for <strong>${esc(state.insightId)}</strong> / <strong>${esc(periodKey)}</strong>.<br>Run the insights job or switch to <em>Live</em> mode.</div>`;
+      return;
+    }
+
+    // Precomputed data available — generic render if pcChart supports it.
+    if (dash.pcChart) {
+      const chartInstance = _renderFromPayload(el('insightChart'), precomputed.data, dash, sym);
+      if (myId !== _renderId) { try { chartInstance?.destroy(); } catch (_) {} return; }
+      if (chartInstance) state.insightChartInstance = chartInstance;
+      _appendComputedAt(inner, precomputed.computed_at, false);
+      return;
+    }
+
+    // No generic renderer — fall through to local renderer but honour the server timestamp.
+    if (renderer) {
+      const chartInstance = await renderer.render('insightChart', {
+        txs, accounts: state.accounts, from, to, sym,
+        tab: state.insightTab, period: state.insightPeriod,
+        precomputed: precomputed.data,
+      });
+      if (myId !== _renderId) { try { chartInstance?.destroy(); } catch (_) {} return; }
+      if (chartInstance) state.insightChartInstance = chartInstance;
+      _appendComputedAt(inner, precomputed.computed_at, false);
+    }
+    return;
+  }
+
+  // Live mode: skip API entirely, always compute locally.
+  const renderer = await _loadRenderer(state.insightId);
 
   if (myId !== _renderId) return;
 
   inner.innerHTML = `${rateWarn}<div id="insightChart"></div>`;
 
-  // Fast path: render generic chart from precomputed payload.
-  if (precomputed?.ok && dash.pcChart) {
-    const chartInstance = _renderFromPayload(el('insightChart'), precomputed.data, dash, sym);
-    if (myId !== _renderId) { try { chartInstance?.destroy(); } catch (_) {} return; }
-    if (chartInstance) state.insightChartInstance = chartInstance;
-    _appendComputedAt(inner, precomputed.computed_at, false);
-    return;
-  }
-
-  // Local compute fallback.
   if (!renderer) {
     inner.innerHTML = `${rateWarn}<div class="insight-placeholder">Insight <strong>${esc(state.insightId)}</strong> is not yet implemented.</div>`;
     return;
