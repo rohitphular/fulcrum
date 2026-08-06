@@ -1,4 +1,4 @@
-.PHONY: app-start app-stop api-deploy api-logs help
+.PHONY: app-start app-stop api-deploy api-logs job-start job-setup help
 
 help:
 	@echo ""
@@ -6,6 +6,8 @@ help:
 	@echo "  app-stop     Stop the local HTTP server"
 	@echo "  api-deploy   Deploy GAS backend (interactive: pick env)"
 	@echo "  api-logs     Open GAS executions page in browser (interactive: pick env)"
+	@echo "  job-start    Run all jobs (ENV=dev|prod, JOB=name optional)"
+	@echo "  job-setup    Create venv and install job dependencies"
 	@echo ""
 
 app-start:
@@ -45,3 +47,21 @@ api-deploy:
 
 api-logs:
 	bash cicd/logs.sh
+
+job-setup:
+	python3 -m venv job/.venv
+	job/.venv/bin/pip install -r job/requirements.txt
+	@echo "Setup done. venv is at job/.venv"
+
+job-start:
+	@echo ""; \
+	echo "  1) dev"; \
+	echo "  2) prod"; \
+	echo ""; \
+	printf "Select environment: "; read -r CHOICE; \
+	if [ "$$CHOICE" = "1" ]; then ENV="dev"; \
+	elif [ "$$CHOICE" = "2" ]; then ENV="prod"; \
+	else echo "Invalid choice '$$CHOICE'. Enter 1 or 2."; exit 1; \
+	fi; \
+	JOB_ARG=$${JOB:+--job $$JOB}; \
+	job/.venv/bin/python job/runner.py --env $$ENV $$JOB_ARG
