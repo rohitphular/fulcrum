@@ -3,11 +3,13 @@
   "dev": {
     "script_id": "1pAeKp8vN9GLRNi83Uqb92U83uRECjAmUBmxQGCQ86HEzxLY-YzeyQaeM",
     "deployment_id": "AKfycbxWTOuXeCkH4tsDvrmCjkjxlhIZqLyIhxfvXR51ymWRc1FGAOYkLt0rkeGjTfQmWAv2RA",
-    "script_url": "https://script.google.com/macros/s/AKfycbxWTOuXeCkH4tsDvrmCjkjxlhIZqLyIhxfvXR51ymWRc1FGAOYkLt0rkeGjTfQmWAv2RA/exec"
+    "script_url": "https://script.google.com/macros/s/AKfycbxWTOuXeCkH4tsDvrmCjkjxlhIZqLyIhxfvXR51ymWRc1FGAOYkLt0rkeGjTfQmWAv2RA/exec",
+    "spreadsheet_id": "1Rb9zVu-pJOYUvNhdfyjpdgf1v2mw3HKX6NGQUFX_kJg"
   },
   "prod": {
     "script_id": "1yyhaGhHmdF5nQl7QrspClEMKBD8Sc639-5TShOj6puQdBu_MSfI5FTBk",
     "deployment_id": "AKfycbz21kZuwPCTVWKmLcUmogk2ZECYAL4Jibc8Dfs8dZmdUc-HSzqVLvqJPcpc6AhzUOWJUg",
-    "script_url": "https://script.google.com/macros/s/AKfycbz21kZuwPCTVWKmLcUmogk2ZECYAL4Jibc8Dfs8dZmdUc-HSzqVLvqJPcpc6AhzUOWJUg/exec"
+    "script_url": "https://script.google.com/macros/s/AKfycbz21kZuwPCTVWKmLcUmogk2ZECYAL4Jibc8Dfs8dZmdUc-HSzqVLvqJPcpc6AhzUOWJUg/exec",
+    "spreadsheet_id": "1tUtzrHCZzQd4GTBKJPNtSX2_PIWjGWqZQqHBUDEUlFc"
   }
 }
