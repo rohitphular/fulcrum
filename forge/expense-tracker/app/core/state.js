@@ -62,8 +62,8 @@ export const state = {
   suggestionsLoaded:  false,  // true after first fetch
   suggestionsFetching: false, // true while fetch is in-flight
 
-  dashId:            '01-mom-cumulative',
-  dashPeriod:        'this_month',
+  dashId:            '00-earn-burn-rate',
+  dashPeriod:        'last_3',
   dashCustomFrom:    '',
   dashCustomTo:      '',
   dashTab:           'transactions',

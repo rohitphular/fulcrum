@@ -4,6 +4,8 @@ import { el, esc, getSymbol } from '../core/utils.js';
 import { getPeriodBounds, filterTxByRange, findMissingRates } from './dashboards/dashboard-utils.js';
 
 const DASHBOARDS = [
+  // Cash flow rates
+  { id: '00-earn-burn-rate',    label: 'Income, Expense & Savings',  group: 'Cash flow',            tabs: false, description: 'Trailing-average income, expense, and savings rate per day — three lines in one view. Blue band = saving; red band = overspending. Use the window chips to adjust smoothing.', periods: ['last_3', 'last_6', 'last_12', 'ytd', 'last_year', 'custom'] },
   // Spending comparisons
   { id: '01-mom-cumulative',    label: 'Month-on-Month daily cumulative', group: 'Spending comparisons', tabs: true,  description: 'Cumulative spend day-by-day through the month, compared against the previous month.',                          periods: ['this_month', 'last_month', 'custom'] },
   { id: '02-yoy-monthly',       label: 'Year-on-Year monthly',            group: 'Spending comparisons', tabs: true,  description: 'Monthly spend by calendar month, this year vs the same period last year.',                                   periods: ['this_month', 'last_month', 'ytd', 'last_year', 'custom'] },
@@ -25,7 +27,6 @@ const DASHBOARDS = [
   { id: '16-asset-vs-liability', label: 'Assets vs liabilities',          group: 'Net worth',            tabs: false, description: 'Total asset value vs total liability value over time.' },
   { id: '17-liability-paydown', label: 'Liability paydown',               group: 'Net worth',            tabs: false, description: 'How your liabilities have changed over time, by liability account.' },
   // Cash flow
-  { id: '18-income-vs-expenses', label: 'Income vs expenses',             group: 'Cash flow',            tabs: false, description: 'Income vs expenses by month. Click a bar to see the breakdown for that month.' },
   { id: '19-cashflow-waterfall', label: 'Cashflow waterfall',             group: 'Cash flow',            tabs: false, description: 'Where money came in and went out each month, shown as a waterfall. Click a bar to see transactions.' },
   { id: '20-savings-rate',      label: 'Savings rate',                    group: 'Cash flow',            tabs: false, description: 'What percentage of income is saved each month.' },
   { id: '21-income-sources',    label: 'Income sources',                  group: 'Cash flow',            tabs: false, description: 'Where your income comes from. Click a segment to see transactions for that source.' },
