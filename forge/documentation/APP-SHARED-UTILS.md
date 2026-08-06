@@ -149,9 +149,9 @@ export const getSymbol = (c)       => _getSymbol(c, state.rates);
 
 ---
 
-## `dashboard-utils.js` — dashboard computation helpers
+## `insight-utils.js` — insight computation helpers
 
-Module-scoped utility library for the dashboard section. Lives at `sections/dashboards/dashboard-utils.js` (not in `_shared/` — it is expense-tracker specific).
+Module-scoped utility library for the insight section. Lives at `sections/insights/insight-utils.js` (not in `_shared/` — it is expense-tracker specific).
 
 All monetary computation uses the state-aware wrappers from `core/utils.js` (`fmtBase`, `fmtNative`, `getSymbol`) — these automatically read `state.rateMap`, `state.rates`, and `state.quoteCurrency`.
 

@@ -196,7 +196,7 @@ Do not invent new utility-style classes (`.mt-4`, `.flex`) — use the existing 
 <button id="themeToggle">
 ```
 
-Sections use a `<sectionName>Content` pattern: `dashboardContent`, `transactionsContent`.
+Sections use a `<sectionName>Content` pattern: `insightContent`, `transactionsContent`.
 
 ### `data-*` attributes
 
@@ -218,13 +218,13 @@ state.txEditRow    // number | null — row being edited
 state.txDeleteRow  // number | null — inline delete confirm
 state.txDeleteBlocked  // { referenced_count: N } | null
 
-// Dashboard section — domain prefix: dash
-state.dashId           // string — active dashboard slug
-state.dashPeriod       // string — active period preset
-state.dashCustomFrom   // string — custom range start (YYYY-MM-DD)
-state.dashCustomTo     // string — custom range end (YYYY-MM-DD)
-state.dashTab          // string — 'transactions' | 'accounts'
-state.dashChartInstance  // Chart | null — active Chart.js instance
+// Insight section — domain prefix: insight
+state.insightId           // string — active insight slug
+state.insightPeriod       // string — active period preset
+state.insightCustomFrom   // string — custom range start (YYYY-MM-DD)
+state.insightCustomTo     // string — custom range end (YYYY-MM-DD)
+state.insightTab          // string — 'transactions' | 'accounts'
+state.insightChartInstance // Chart | null — active Chart.js instance
 ```
 
 **Domain prefix register** — one prefix per section/concept:
@@ -235,7 +235,7 @@ state.dashChartInstance  // Chart | null — active Chart.js instance
 | `acc` | Accounts |
 | `cat` | Categories |
 | `rate` | Rates |
-| `dash` | Dashboard |
+| `insight` | Insight |
 
 Map lookups are `<domain>Map`: `accountMap`, `rateMap`.
 

@@ -77,4 +77,4 @@ These are signalled in the UI but do not prevent saving:
 | `†` marker next to amount | Row uses its own `fx_rate` rather than the global rate | Transactions list |
 | `⚠ N rows have warnings` banner | Stored row has missing `id`, missing `transaction_date_utc`, or invalid `transaction_type` | Above transactions table |
 
-Malformed rows are excluded from dashboard totals and account balance arithmetic — they exist purely as a diagnostic to surface bad data in the underlying store.
+Malformed rows are excluded from insight totals and account balance arithmetic — they exist purely as a diagnostic to surface bad data in the underlying store.

@@ -12,7 +12,7 @@ Schema reference: [data-model.md § Transaction](data-model.md#transaction). Bal
 - Eight independent filter dimensions, combined with AND
 - Active-filter chips with one-click removal
 - Sortable, paginated table; mobile uses card layout
-- Date-range scoping (shared with the dashboard)
+- Date-range scoping (shared with the insight section)
 - CSV / JSON export of the date-range-filtered set
 - CSV bulk import — upload, preview, then submit; duplicates shown as "already exists" badges and counted separately
 - Warning banner separating malformed rows from the main table
@@ -113,7 +113,7 @@ Example for a £100 → ₹10,500 transfer at rate 105: `[FX: 100 GBP <-> 10500 
 | Search | Substring | Case-insensitive contains across `counterparty`, `notes`, and the source account name |
 | Method | Single-select | Reserved — `payment_method` is not currently populated |
 
-Date range is applied first (shared with dashboard), then the filter set.
+Date range is applied first (shared with the insight section), then the filter set.
 
 ### Active filters as chips
 
@@ -131,7 +131,7 @@ Client-side, default 50 rows per page (selectable: 10 / 25 / 50). Resets to page
 
 Rows missing `id`, `transaction_date_utc`, or with an invalid `transaction_type` are diverted into a collapsed warning section. They:
 
-- Do NOT participate in dashboard totals
+- Do NOT participate in insight totals
 - Do NOT affect account balances (their balance-effect would already have been applied at creation time)
 - ARE visible by clicking the `⚠ N rows have warnings` banner
 - ARE only fixable by editing the underlying store directly — the app surfaces them as a diagnostic only

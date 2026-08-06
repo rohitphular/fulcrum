@@ -15,7 +15,7 @@ function validateRateUpsert(body) {
   }
 
   // F-5 fix: symbol is rendered into HTML via innerHTML across the frontend
-  // (balance cells, dashboard cards, transaction amounts). Reject any
+  // (balance cells, insight cards, transaction amounts). Reject any
   // HTML-meaningful character or backslash at the ingestion gate so a
   // self-XSS payload can never land in the rates sheet.
   if (body.symbol !== undefined && body.symbol !== null) {

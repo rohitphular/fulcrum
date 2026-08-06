@@ -62,13 +62,14 @@ export const state = {
   suggestionsLoaded:  false,  // true after first fetch
   suggestionsFetching: false, // true while fetch is in-flight
 
-  dashId:            '00-earn-burn-rate',
-  dashPeriod:        'last_3',
-  dashCustomFrom:    '',
-  dashCustomTo:      '',
-  dashTab:           'transactions',
-  dashChartInstance: null,
-  dashDrillMajor:    null,   // active major category for 11-category-drilldown (null = top level)
+  insightId:            '00-earn-burn-rate',
+  insightPeriod:        'last_3',
+  insightCustomFrom:    '',
+  insightCustomTo:      '',
+  insightTab:           'transactions',
+  insightChartInstance: null,
+  insightDrillMajor:    null,   // active major category for 11-category-drilldown (null = top level)
+  insightDrillMinor:    null,
 
   advisorMessages: [],
 

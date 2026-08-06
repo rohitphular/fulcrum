@@ -6,13 +6,13 @@ A local Python compute layer that reads raw expense-tracker data from Google She
 runs processing jobs (KPI computation, aggregations, analysis), and writes results
 back to dedicated output sheets. The existing GAS `/exec` endpoint then serves
 pre-computed results to the frontend — the UI no longer needs to process raw data
-for dashboards.
+for insights.
 
 ---
 
 ## Goals
 
-1. Pre-compute dashboard KPIs so the frontend is display-only
+1. Pre-compute insight KPIs so the frontend is display-only
 2. Provide a pluggable job system — adding a new KPI = adding one Python file
 3. Keep it local — no cloud infra, no GAS scripts for computation
 4. Lay the foundation for local LLM analysis later

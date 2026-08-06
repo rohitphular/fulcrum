@@ -10,7 +10,7 @@ Part of the **[Fulcrum Forge](../)** family of static web apps backed by Google 
 - **Maintain balances** — every transaction adjusts the affected accounts; edits use a two-phase reversal so balances stay exact
 - **Multi-currency** — per-account currency with FX rates against a configurable base currency (default GBP); per-transaction `fx_rate` override for cross-currency transfers
 - **Classify** — two-level category taxonomy (`major → minor`) scoped per transaction type
-- **Analyse** — dashboard with income/expense/net/savings-rate cards, monthly trend, drillable category breakdown, per-account spend
+- **Analyse** — insight section with income/expense/net/savings-rate cards, monthly trend, drillable category breakdown, per-account spend
 - **Manage accounts** — 13 account types across Asset and Liability groups with type-specific fields (loan terms, credit limit, overdraft, investment platform, …)
 
 Full capability list and out-of-scope items: **[_docs/overview.md](_docs/overview.md)**.
@@ -92,7 +92,7 @@ _docs/
 ├── financial-rules.md    ← the six hard-block validation rules
 ├── categories.md         ← two-level taxonomy + account-type hints
 ├── rates.md              ← FX rates, upsert, conversion function
-├── dashboard.md          ← summary cards, charts, date range
+├── insight.md            ← summary cards, charts, date range
 └── raw-requirement.md    ← original product brief (historical)
 ```
 

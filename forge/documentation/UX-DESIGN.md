@@ -90,12 +90,12 @@ Dark mode swaps these variables under `[data-theme="dark"]` in `style-tokens.css
 <header class="app-header">
   <div class="app-header-inner">…brand + controls…</div>
   <nav class="tab-nav" id="tabNav">
-    <button class="tab-btn" data-section="dashboard">Dashboard</button>
+    <button class="tab-btn" data-section="insight">Insight</button>
     …
   </nav>
 </header>
 <main class="app-main">
-  <section class="app-section" id="dashboard"><div id="dashboardContent"></div></section>
+  <section class="app-section" id="insight"><div id="insightContent"></div></section>
   <section class="app-section hidden" id="…">…</section>
 </main>
 ```
@@ -485,7 +485,7 @@ if (window.__configMissing || !window.CONFIG?.SCRIPT_URL) {
 
 ---
 
-## Dashboard & Chart patterns
+## Insight & Chart patterns
 
 ### Chart.js integration
 
@@ -516,7 +516,7 @@ const C = {
 
 Re-run this block before recreating the chart when the theme changes.
 
-### Chart.js global defaults (set once in the dashboard section entry point)
+### Chart.js global defaults (set once in the insight section entry point)
 
 ```js
 if (window.Chart) {
@@ -551,14 +551,14 @@ if (window.Chart) {
 
 ### Canvas lifecycle
 
-Always destroy an existing chart before recreating it (switching dashboards, period changes, theme changes):
+Always destroy an existing chart before recreating it (switching insights, period changes, theme changes):
 
 ```js
 if (state.dashChartInstance) {
   state.dashChartInstance.destroy();
   state.dashChartInstance = null;
 }
-el('dashboardContent').innerHTML = '';
+el('insightContent').innerHTML = '';
 // ... then create new chart and store in state.dashChartInstance
 ```
 
@@ -579,7 +579,7 @@ Failing to call `destroy()` causes Chart.js to leak canvas contexts and throw `"
 | Horizontal bars | Required for > 5 labelled items |
 | Line point radius | `3` desktop, `5` mobile |
 
-### Dashboard section CSS classes
+### Insight section CSS classes
 
 | Class | Purpose |
 |---|---|
@@ -661,7 +661,7 @@ Minimal multi-tab shell:
       </div>
     </div>
     <nav class="tab-nav" id="tabNav">
-      <button class="tab-btn" data-section="dashboard">Dashboard</button>
+      <button class="tab-btn" data-section="insight">Insight</button>
     </nav>
   </header>
 
@@ -674,8 +674,8 @@ Minimal multi-tab shell:
   </div>
 
   <main class="app-main">
-    <section class="app-section" id="dashboard">
-      <div id="dashboardContent"></div>
+    <section class="app-section" id="insight">
+      <div id="insightContent"></div>
     </section>
   </main>
 </div>

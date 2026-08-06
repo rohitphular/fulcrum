@@ -18,7 +18,7 @@ categorised flows.
 **Dual capture model:** You can add transactions directly from the app (preferred
 for mobile use), or type rows straight into the Google Sheet — both paths land in
 the same `transactions` tab and are equally valid. The sheet is the source of
-truth; the app is both a capture tool and an analysis dashboard.
+truth; the app is both a capture tool and an analysis platform.
 
 ---
 
@@ -256,7 +256,7 @@ Five tabs:
 
 | Tab | Contents |
 |---|---|
-| **Dashboard** | Summary cards + charts. Date-range and base-currency controls pinned to the header. |
+| **Insight** | Summary cards + charts. Date-range and base-currency controls pinned to the header. |
 | **Transactions** | Add-transaction form + filterable/paginated transaction table. |
 | **Accounts** | Read-only list of accounts from the `accounts` tab (name, currency, type). |
 | **Categories** | Read-only tree view of the categories hierarchy (for reference). |
@@ -264,7 +264,7 @@ Five tabs:
 
 ---
 
-## 7. Dashboard tab
+## 7. Insight tab
 
 ### Header controls (sticky)
 - **Base currency selector** (default GBP) — reconverts all figures across the whole app on change.

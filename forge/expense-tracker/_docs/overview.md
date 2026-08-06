@@ -53,7 +53,7 @@ Liabilities are modelled as accounts with negative balances. There is no separat
 | Transactions | CRUD; eight filter dimensions; client-side date range; sort; pagination; CSV/JSON export; cascading category dropdowns; FX rate when accounts differ in currency |
 | Categories | CRUD; two-level taxonomy scoped per transaction type; archive without delete; auto-seed on first run |
 | Rates | Upsert per currency; base currency read-only; auto-seed on first run |
-| Dashboard | Income/Expense/Net/Savings-rate cards; monthly bar chart; spend by category (drillable major → minor); spend by account |
+| Insight | Income/Expense/Net/Savings-rate cards; monthly bar chart; spend by category (drillable major → minor); spend by account |
 | Multi-currency | Per-account currency; base currency conversion via rates table; per-transaction `fx_rate` override for cross-currency transfers |
 | Theming | Light + dark, persisted per user |
 

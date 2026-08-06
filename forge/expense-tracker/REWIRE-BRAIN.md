@@ -56,7 +56,7 @@ Shared code for all Forge modules: `forge/_shared/` (sheets-client.js, auth.js, 
 | Multi-currency — per-account currency, FX rates, base-currency conversion | ✓ Done |
 | Categories — two-level taxonomy (major → minor), account-type hints | ✓ Done |
 | FX Rates — manage rates, auto-seeded with GBP/INR/USD/EUR/AED defaults | ✓ Done |
-| Dashboard — summary cards, monthly trend chart, category breakdown | ✓ Done |
+| Insight — summary cards, monthly trend chart, category breakdown | ✓ Done |
 | Advisor — LLM chat panel (OpenAI gpt-4o-mini, script property key) | ✓ Done |
 | Auth — PIN + TOTP gate, IP-based lockout after 3 failures | ✓ Done |
 | CI/CD — one-command deploy via `make api-deploy` | ✓ Done |

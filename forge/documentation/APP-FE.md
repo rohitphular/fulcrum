@@ -32,7 +32,7 @@ app/
 │   └── ui.js                 Re-exports showLoading / hideLoading / showMsg from _shared
 │
 ├── sections/               One file per tab; each exports a single render<Name>() fn
-│   ├── dashboard.js
+│   ├── insights.js
 │   ├── transactions.js
 │   ├── accounts.js
 │   ├── categories.js
@@ -198,7 +198,7 @@ export const state = {
   transactionSchema: null,
   categorySchema:    null,
 
-  // Dashboard date filter
+  // Insight date filter
   dateRange:  'this_month',
   customFrom: '',
   customTo:   '',
@@ -372,14 +372,14 @@ async function _saveTransaction(form) {
 
 Always dispatch `<module>:reload` after a successful mutation — never call `loadAll()` or `renderXxx()` directly after a save.
 
-### Dashboard sub-sections
+### Insight sub-sections
 
-The dashboard section (`sections/dashboard.js`) is a coordinator — it owns the selector, period picker, and tab strip, and delegates rendering to one of 28 sub-modules in `sections/dashboards/`.
+The insight section (`sections/insights.js`) is a coordinator — it owns the selector, period picker, and tab strip, and delegates rendering to one of 28 sub-modules in `sections/insights/`.
 
 Each sub-module exports a single function:
 
 ```js
-// sections/dashboards/08-category-pie.js
+// sections/insights/08-category-pie.js
 export function render(containerId, options) {
   const container = el(containerId);
   container.innerHTML = _buildHtml(options);  // set innerHTML first
@@ -388,13 +388,13 @@ export function render(containerId, options) {
 }
 ```
 
-`dashboard.js` calls `render()` and stores the returned instance in `state.dashChartInstance`. Before every render, it calls `state.dashChartInstance.destroy()` to avoid canvas context leaks.
+`insights.js` calls `render()` and stores the returned instance in `state.dashChartInstance`. Before every render, it calls `state.dashChartInstance.destroy()` to avoid canvas context leaks.
 
 **Chart.js color values** must be read from CSS at runtime via `getComputedStyle(document.documentElement).getPropertyValue('--teal').trim()`. CSS `var(--token)` strings cannot be passed directly to Chart.js dataset properties.
 
-**Dark mode**: when the theme changes, re-render the active dashboard so Chart.js picks up the new CSS variable values. Wire this in the existing `setTheme()` call in `main.js`.
+**Dark mode**: when the theme changes, re-render the active insight so Chart.js picks up the new CSS variable values. Wire this in the existing `setTheme()` call in `main.js`.
 
-State keys for the dashboard section (add to `core/state.js`):
+State keys for the insight section (add to `core/state.js`):
 
 ```js
 dashId:            '01-mom-cumulative',

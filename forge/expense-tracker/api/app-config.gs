@@ -3,13 +3,14 @@
 // Shared across all other .gs files via GAS global scope.
 // =============================================================================
 
-const TRANSACTIONS_SHEET  = 'transactions';
-const CATEGORIES_SHEET    = 'categories';
-const ACCOUNTS_SHEET      = 'accounts';
-const RATES_SHEET         = 'rates';
-const SUBSCRIPTIONS_SHEET = 'subscriptions';
-const AUDIT_SHEET         = 'audit_access';
-const ADVISOR_SHEET       = 'advisor_chat';
+const TRANSACTIONS_SHEET       = 'transactions';
+const CATEGORIES_SHEET         = 'categories';
+const ACCOUNTS_SHEET           = 'accounts';
+const RATES_SHEET              = 'rates';
+const SUBSCRIPTIONS_SHEET      = 'subscriptions';
+const AUDIT_SHEET              = 'audit_access';
+const ADVISOR_SHEET            = 'advisor_chat';
+const COMPUTED_INSIGHTS_SHEET  = 'computed_insights';
 const MAX_FAILURES        = 3;
 
 const ADVISOR_COLUMNS = ['timestamp', 'role', 'content'];

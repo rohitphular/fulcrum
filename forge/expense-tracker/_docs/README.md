@@ -13,7 +13,7 @@ Reverse-engineered, language-agnostic specification for the Expense Tracker app.
 7. **[financial-rules.md](financial-rules.md)** — The six hard-block validation rules (insufficient balance, credit limit, no-money-out-from-loan, FX required, …)
 8. **[categories.md](categories.md)** — Two-level taxonomy, archive semantics, account-type hints, auto-seed
 9. **[rates.md](rates.md)** — FX rates, upsert semantics, conversion function, row-level vs global rate priority
-10. **[dashboard.md](dashboard.md)** — Summary cards, monthly chart, category drilldown, per-account spend, date-range filter
+10. **[insight.md](insight.md)** — Summary cards, monthly chart, category drilldown, per-account spend, date-range filter
 
 ## Historical
 
@@ -29,7 +29,7 @@ The following decisions are reference-implementation choices, NOT requirements. 
 | Apps Script `doGet` / `doPost` | HTTP entry points with action dispatch | Any HTTP framework: Express, FastAPI, Spring, ASP.NET |
 | Vanilla JS modules | Static SPA with no build step | React / Vue / Svelte / Solid / native mobile — the section pattern (form-above-table, sort, filter, paginate) maps cleanly |
 | `_audit` sheet for IP tracking | A keyed counter + lock-state store | Redis, a DB table, even an in-memory map for single-instance deploys |
-| Chart.js | A 2D bar charting library | Any equivalent — the dashboard chart shapes are simple bars |
+| Chart.js | A 2D bar charting library | Any equivalent — the insight chart shapes are simple bars |
 | Session in `sessionStorage` | Per-tab, short-lived session token | Cookie + server session, JWT, encrypted client storage |
 
 Required regardless of platform:

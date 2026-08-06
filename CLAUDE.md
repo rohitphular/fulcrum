@@ -16,7 +16,7 @@ Read `expense-tracker/REWIRE-BRAIN.md` for current project state, URLs, and what
 
 | Task | Read first |
 |---|---|
-| Writing or modifying backend `.gs` files | `documentation/APP-BE-GS.md` |
+| Writing or modifying backend `.gs` files | `documentation/APP-BE-GSCRIPT.md` |
 | Writing or modifying Python job processor | `documentation/APP-BE-PYTHON.md` |
 | Writing or modifying frontend `.js` / `.html` files | `documentation/APP-FE.md` |
 | Authentication, PIN, TOTP, audit log | `documentation/APP-AUTH.md` |

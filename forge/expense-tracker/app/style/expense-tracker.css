@@ -144,7 +144,7 @@ h1 { font-size: var(--text-2xl); font-weight: 700; letter-spacing: -.02em; margi
 .tab-btn:hover  { color: var(--ink); }
 .tab-btn.active { color: var(--ink); border-bottom-color: var(--ember); font-weight: 600; }
 
-/* date range bar (dashboard only) — sits below tab-nav, inside header border */
+/* date range bar (transactions only) — sits below tab-nav, inside header border */
 .date-range-bar {
   border-top: 1px solid var(--hair);
   overflow: hidden;
@@ -216,7 +216,7 @@ h2 { font-size: var(--text-xl); font-weight: 700; margin: 0; }
 .card { background: var(--panel); border: 1px solid var(--hair); border-radius: 14px; padding: 20px 22px; }
 .card + .card { margin-top: 16px; }
 
-/* ── summary cards (dashboard) ── */
+/* ── summary cards (insight) ── */
 .summary-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 14px; margin-bottom: 24px;
@@ -529,19 +529,19 @@ td.td-truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; wh
 }
 .chart-back-btn:hover { color: var(--ink); }
 
-/* ── dashboard controls ── */
-.dash-controls {
+/* ── insight controls ── */
+.insight-controls {
   display: flex; flex-direction: column; gap: 10px;
   margin-bottom: 20px;
 }
-.dash-top-row {
+.insight-top-row {
   display: flex; gap: 8px; align-items: stretch;
 }
 @media (max-width: 600px) {
-  .dash-top-row { flex-direction: column; }
-  .dash-period-select { width: 100%; }
+  .insight-top-row { flex-direction: column; }
+  .insight-period-select { width: 100%; }
 }
-.dash-selector {
+.insight-selector {
   font-family: var(--grotesk); font-size: var(--text-base); color: var(--ink);
   background: var(--panel); border: 1px solid var(--hair-strong); border-radius: 10px;
   padding: 10px 36px 10px 12px; flex: 1; cursor: pointer;
@@ -550,10 +550,10 @@ td.td-truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; wh
   background-repeat: no-repeat; background-position: right 12px center; background-size: 12px 8px;
   min-height: 44px;
 }
-.dash-period-row {
+.insight-period-row {
   display: flex; flex-direction: column; gap: 8px;
 }
-.dash-period-select {
+.insight-period-select {
   font-family: var(--grotesk); font-size: var(--text-sm); color: var(--ink);
   background: var(--panel); border: 1px solid var(--hair); border-radius: 8px;
   padding: 8px 32px 8px 10px; cursor: pointer; height: 100%;
@@ -562,29 +562,29 @@ td.td-truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; wh
   background-repeat: no-repeat; background-position: right 10px center; background-size: 11px 7px;
   min-height: 44px;
 }
-.dash-custom-dates {
+.insight-custom-dates {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
-.dash-custom-dates input[type="date"] {
+.insight-custom-dates input[type="date"] {
   font-family: var(--mono); font-size: var(--text-sm); color: var(--ink);
   background: var(--panel); border: 1px solid var(--hair); border-radius: 8px;
   padding: 8px 10px; min-height: 44px; flex: 1; min-width: 130px;
 }
-.dash-custom-sep { color: var(--muted); font-size: var(--text-sm); }
-.dash-tabs {
+.insight-custom-sep { color: var(--muted); font-size: var(--text-sm); }
+.insight-tabs {
   display: flex; gap: 6px;
 }
-.dash-tab {
+.insight-tab {
   flex: 1; padding: 10px 14px; min-height: 44px;
   font-family: var(--grotesk); font-size: var(--text-sm); font-weight: 500;
   background: var(--panel); color: var(--muted);
   border: 1px solid var(--hair); border-radius: 8px;
   cursor: pointer; transition: background .15s, color .15s, border-color .15s;
 }
-.dash-tab.active {
+.insight-tab.active {
   background: var(--teal); color: white; border-color: var(--teal);
 }
-.dash-tab:not(.active):hover { color: var(--ink); border-color: var(--hair-strong); }
+.insight-tab:not(.active):hover { color: var(--ink); border-color: var(--hair-strong); }
 
 /* ── drill-down table ── */
 .drill-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 4px; }
@@ -598,10 +598,10 @@ td.td-truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; wh
 .drill-td-num     { text-align: right; white-space: nowrap; }
 .drill-empty      { padding: 12px; text-align: center; color: var(--muted); }
 
-/* ── dashboard warn banner ── */
-.dash-description { font-size: var(--text-sm); color: var(--muted); margin: 6px 0 0; line-height: 1.5; }
+/* ── insight warn banner ── */
+.insight-description { font-size: var(--text-sm); color: var(--muted); margin: 6px 0 0; line-height: 1.5; }
 
-.dash-warn {
+.insight-warn {
   background: var(--ember-soft);
   border: 1px solid var(--ember);
   border-radius: 10px;
@@ -610,17 +610,27 @@ td.td-truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; wh
   margin-bottom: 14px;
   line-height: 1.5;
 }
-.dash-warn a { color: var(--ember); font-weight: 600; text-decoration: none; }
-.dash-warn a:hover { text-decoration: underline; }
+.insight-warn a { color: var(--ember); font-weight: 600; text-decoration: none; }
+.insight-warn a:hover { text-decoration: underline; }
 
-/* ── dashboard placeholder / loading ── */
-.dash-placeholder {
+/* ── insight placeholder / loading ── */
+.insight-placeholder {
   text-align: center;
   font-family: var(--mono); font-size: var(--text-sm); color: var(--muted);
   padding: 48px 20px;
 }
+.insight-meta {
+  display: flex; align-items: center; gap: 6px;
+  font-size: var(--text-xs); color: var(--muted);
+  padding: 8px 0 2px;
+}
+.insight-meta-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.insight-meta-live   { background: var(--teal); }
+.insight-meta-cached { background: var(--muted); }
 
-/* ── stat cards (used by individual dashboards) ── */
+/* ── stat cards (used by individual insights) ── */
 .stat-cards {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

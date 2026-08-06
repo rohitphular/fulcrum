@@ -25,7 +25,7 @@ app/
 │   ├── utils.js              el, esc, fmtDateTime, fmtNative, fmtBase, exportData …
 │   └── ui.js                 re-exports loading/toast helpers from forge/_shared/ui.js
 ├── sections/               one module per tab; each exports a render<Name>() function
-│   ├── dashboard.js          summary cards, charts
+│   ├── insights.js           summary cards, charts
 │   ├── transactions.js       filterable + sortable list (largest module — ~1200 lines)
 │   ├── accounts.js           accounts table + net-worth summary
 │   ├── categories.js         category tree (major → minor) with archive toggle
@@ -42,7 +42,7 @@ Design tokens (`--ink`, `--ember`, `--teal`, type scale, fonts) live in `../../_
 1. `index.html` links `_shared/style-tokens.css` then `style/expense-tracker.css`, loads `config.js` (sets `window.CONFIG.SCRIPT_URL`), then `main.js` as `type="module"`.
 2. `main.js` checks for a session token. No token → show PIN gate. Valid token → hide overlay, reveal `.app-shell`.
 3. Schemas are fetched once (`loadAccountSchema`, `loadTransactionSchema`, `loadCategorySchema`) and stored on `state`.
-4. The Dashboard renders by default. Clicking a tab calls `showSection(name)` which calls the section's `renderXxx()`.
+4. The Insight section renders by default. Clicking a tab calls `showSection(name)` which calls the section's `renderXxx()`.
 5. On any data mutation (save / delete), the section fires `document.dispatchEvent(new CustomEvent('et:reload'))` — `main.js` listens, refetches, and re-renders the current section.
 
 ## State model
@@ -58,7 +58,7 @@ state.rates          // [] of FX rates
 state.rateMap        // { GBP: 1, INR: 105, … }
 state.quoteCurrency  // 'GBP'
 
-state.dateRange / customFrom / customTo   // dashboard + tx filter
+state.dateRange / customFrom / customTo   // insight + tx filter
 state.filters                              // transactions filter bar
 state.txSort / txPage / txPerPage          // tx table state
 
