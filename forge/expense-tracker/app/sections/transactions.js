@@ -6,9 +6,8 @@ import { ExpenseAPI } from '../core/api.js';
 
 let filterOpen      = false;
 let _txImportParsed = null;
-
-
-let _txMenuKey = null;
+let _txMenuKey      = null;
+let _txEventsAbort  = null;
 
 function _dispatchTxAction(action, row) {
   if (action === 'tx-view')           { state.txViewRow = row; state.txEditRow = null; state.txDeleteRow = null; state.txAddOpen = false; renderTransactions(); }
@@ -164,7 +163,6 @@ function _txTypeMap() {
 }
 
 export function renderTransactions() {
-  closeContextMenu();
   _txMenuKey = null;
 
   // Fire-and-forget suggestions fetch — only once per session
@@ -184,8 +182,12 @@ export function renderTransactions() {
   const txEl = el('transactionsContent');
   const rows = filteredTx();
 
-  const validRows = rows.filter(tx =>  tx.id && tx.tx_date_time && (state.transactionSchema?.types ?? ['money-in', 'money-out', 'money-transfer']).includes(tx.tx_type));
-  const warnRows  = rows.filter(tx => !tx.id || !tx.tx_date_time || !(state.transactionSchema?.types ?? ['money-in', 'money-out', 'money-transfer']).includes(tx.tx_type));
+  const _rawTypes   = state.transactionSchema?.types ?? [];
+  const _validTypes = new Set(_rawTypes.length
+    ? _rawTypes.map(t => (typeof t === 'string' ? t : t.value))
+    : ['money-in', 'money-out', 'money-transfer']);
+  const validRows = rows.filter(tx =>  tx.id && tx.tx_date_time && _validTypes.has(tx.tx_type));
+  const warnRows  = rows.filter(tx => !tx.id || !tx.tx_date_time || !_validTypes.has(tx.tx_type));
 
   const viewTx     = state.txViewRow !== null ? validRows.find(tx => tx._row === state.txViewRow) : null;
   const editTx     = state.txEditRow !== null ? validRows.find(tx => tx._row === state.txEditRow) : null;
@@ -378,6 +380,10 @@ function _renderTxTable(validRows, warnRows) {
 }
 
 function _attachEvents() {
+  if (_txEventsAbort) _txEventsAbort.abort();
+  _txEventsAbort = new AbortController();
+  const { signal } = _txEventsAbort;
+
   const content = el('transactionsContent');
   if (!content) return;
 
@@ -388,12 +394,12 @@ function _attachEvents() {
       state.txSort.col = col;
       state.txPage = 1;
       renderTransactions();
-    });
+    }, { signal });
   });
 
-  el('prevPage')?.addEventListener('click', () => { state.txPage--; renderTransactions(); });
-  el('nextPage')?.addEventListener('click', () => { state.txPage++; renderTransactions(); });
-  el('txPerPage')?.addEventListener('change', e => { state.txPerPage = Number(e.target.value); state.txPage = 1; renderTransactions(); });
+  el('prevPage')?.addEventListener('click', () => { state.txPage--; renderTransactions(); }, { signal });
+  el('nextPage')?.addEventListener('click', () => { state.txPage++; renderTransactions(); }, { signal });
+  el('txPerPage')?.addEventListener('change', e => { state.txPerPage = Number(e.target.value); state.txPage = 1; renderTransactions(); }, { signal });
 
   content.addEventListener('click', e => {
     const btn = e.target.closest('[data-action]');
@@ -428,10 +434,10 @@ function _attachEvents() {
         amount:              s.typical_amount,
         currency:            s.currency,
         counterparty_name:   s.counterparty_name,
-        tx_location_area:    '',
-        tx_location_city:    '',
-        tx_location_country: '',
-        tags:                '',
+        tx_location_area:    s.tx_location_area    || '',
+        tx_location_city:    s.tx_location_city    || '',
+        tx_location_country: s.tx_location_country || '',
+        tags:                s.tags                || '',
         description:         '',
         fx_rate:             '',
       };
@@ -441,7 +447,7 @@ function _attachEvents() {
       return;
     }
     _dispatchTxAction(action, row);
-  });
+  }, { signal });
 }
 
 function _sortTx(rows) {
@@ -1362,7 +1368,7 @@ function _renderSuggestionsPanel() {
       </button>
       <div class="suggestions-body" id="suggestionsBody">
         <div class="suggestions-scroll">
-          ${[1,2,3,4,5,6,7].map(() => `<div class="suggestion-card suggestion-skeleton"></div>`).join('')}
+          ${Array.from({length: 10}).map(() => `<div class="suggestion-card suggestion-skeleton"></div>`).join('')}
         </div>
       </div>
     </div>`;

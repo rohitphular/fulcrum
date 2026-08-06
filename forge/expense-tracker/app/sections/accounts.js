@@ -53,7 +53,6 @@ function _balanceCell(a, compact = false) {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 export function renderAccounts() {
-  closeContextMenu();
   _accMenuKey = null;
   const viewAcc    = state.accViewRow !== null ? state.accounts.find(a => a._row === state.accViewRow) : null;
   const editAcc    = state.accEditRow !== null ? state.accounts.find(a => a._row === state.accEditRow) : null;

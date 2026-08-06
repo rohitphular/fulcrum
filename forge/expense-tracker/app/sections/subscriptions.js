@@ -348,7 +348,6 @@ let _subMenuKey = null;
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 export function renderSubscriptions() {
-  closeContextMenu();
   _subMenuKey = null;
   const content    = el('subscriptionsContent');
   const anyOpen    = state.subAddOpen || state.subEditRow !== null;

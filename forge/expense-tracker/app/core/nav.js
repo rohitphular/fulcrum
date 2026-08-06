@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { el } from './utils.js';
+import { el, closeContextMenu } from './utils.js';
 import { renderDashboard } from '../sections/dashboard.js';
 import { renderTransactions } from '../sections/transactions.js';
 import { renderAccounts } from '../sections/accounts.js';
@@ -14,6 +14,7 @@ document.addEventListener('et:show-section', e => showSection(e.detail));
 
 export function showSection(id) {
   if (!SECTIONS.includes(id)) id = 'dashboard';
+  closeContextMenu();
   SECTIONS.forEach(s => el(s).classList.toggle('hidden', s !== id));
   el('tabNav').querySelectorAll('.tab-btn').forEach(btn =>
     btn.classList.toggle('active', btn.dataset.section === id)

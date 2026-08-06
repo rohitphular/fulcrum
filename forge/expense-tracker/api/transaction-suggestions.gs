@@ -1,8 +1,8 @@
 // =============================================================================
 // FULCRUM FORGE — Transaction Suggestions: heuristic suggestion engine
-// Applies 3 signals (recurring_monthly, recurring_weekly, time_of_day) to
-// money-out transactions and returns up to 5 deduplicated suggestions ranked
-// by confidence descending.
+// Applies 4 signals (recurring_monthly, recurring_weekly, time_of_day,
+// recent_frequent) to money-out transactions and returns up to 10
+// deduplicated suggestions ranked by confidence descending.
 // =============================================================================
 
 const _SUGGESTION_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -30,11 +30,12 @@ function getSuggestedTransactions() {
   _applyRecurringMonthly(outTx, today, suggestionMap);
   _applyRecurringWeekly(outTx, today, suggestionMap);
   _applyTimeOfDay(outTx, today, suggestionMap);
+  _applyRecentFrequent(outTx, today, suggestionMap);
 
-  // Sort by confidence descending, return top 5
+  // Sort by confidence descending, return top 10
   const results = Object.values(suggestionMap)
     .sort(function(a, b) { return b.confidence - a.confidence; })
-    .slice(0, 5);
+    .slice(0, 10);
 
   console.log(fnName + ': suggestions_returned=' + results.length);
   return results;
@@ -95,15 +96,19 @@ function _applyRecurringMonthly(outTx, today, map) {
     if (existing && existing.confidence >= confidence) return;
 
     map[key] = {
-      signal:           'recurring_monthly',
-      counterparty_name: String(occs[0].tx.counterparty_name || ''),
-      major_category:   _mostFrequent(occs.map(function(o) { return String(o.tx.major_category  || ''); })),
-      minor_category:   String(occs[0].tx.minor_category || ''),
-      source_account:   _mostFrequent(occs.map(function(o) { return String(o.tx.source_account  || ''); })),
-      typical_amount:   _median(occs.map(function(o) { return Number(o.tx.amount) || 0; })),
-      currency:         _mostFrequent(occs.map(function(o) { return String(o.tx.currency        || ''); })),
-      confidence:       confidence,
-      reason:           'monthly \xb7 usually around the ' + _ordinal(medianDay),
+      signal:              'recurring_monthly',
+      counterparty_name:   String(occs[0].tx.counterparty_name || ''),
+      major_category:      _mostFrequent(occs.map(function(o) { return String(o.tx.major_category     || ''); })),
+      minor_category:      String(occs[0].tx.minor_category || ''),
+      source_account:      _mostFrequent(occs.map(function(o) { return String(o.tx.source_account     || ''); })),
+      typical_amount:      _median(occs.map(function(o) { return Number(o.tx.amount) || 0; })),
+      currency:            _mostFrequent(occs.map(function(o) { return String(o.tx.currency           || ''); })),
+      tx_location_area:    _mostFrequent(occs.map(function(o) { return String(o.tx.tx_location_area   || ''); })),
+      tx_location_city:    _mostFrequent(occs.map(function(o) { return String(o.tx.tx_location_city   || ''); })),
+      tx_location_country: _mostFrequent(occs.map(function(o) { return String(o.tx.tx_location_country|| ''); })),
+      tags:                _mostFrequent(occs.map(function(o) { return String(o.tx.tags              || ''); })),
+      confidence:          confidence,
+      reason:              'monthly \xb7 usually around the ' + _ordinal(medianDay),
     };
 
     console.log(fnName + ': surfaced key=' + key + ' confidence=' + confidence);
@@ -161,15 +166,19 @@ function _applyRecurringWeekly(outTx, today, map) {
     if (existing && existing.confidence >= confidence) return;
 
     map[key] = {
-      signal:           'recurring_weekly',
-      counterparty_name: String(occs[0].tx.counterparty_name || ''),
-      major_category:   _mostFrequent(occs.map(function(o) { return String(o.tx.major_category  || ''); })),
-      minor_category:   String(occs[0].tx.minor_category || ''),
-      source_account:   _mostFrequent(occs.map(function(o) { return String(o.tx.source_account  || ''); })),
-      typical_amount:   _median(occs.map(function(o) { return Number(o.tx.amount) || 0; })),
-      currency:         _mostFrequent(occs.map(function(o) { return String(o.tx.currency        || ''); })),
-      confidence:       confidence,
-      reason:           'weekly \xb7 usually on ' + _SUGGESTION_DAY_NAMES[modeDow],
+      signal:              'recurring_weekly',
+      counterparty_name:   String(occs[0].tx.counterparty_name || ''),
+      major_category:      _mostFrequent(occs.map(function(o) { return String(o.tx.major_category     || ''); })),
+      minor_category:      String(occs[0].tx.minor_category || ''),
+      source_account:      _mostFrequent(occs.map(function(o) { return String(o.tx.source_account     || ''); })),
+      typical_amount:      _median(occs.map(function(o) { return Number(o.tx.amount) || 0; })),
+      currency:            _mostFrequent(occs.map(function(o) { return String(o.tx.currency           || ''); })),
+      tx_location_area:    _mostFrequent(occs.map(function(o) { return String(o.tx.tx_location_area   || ''); })),
+      tx_location_city:    _mostFrequent(occs.map(function(o) { return String(o.tx.tx_location_city   || ''); })),
+      tx_location_country: _mostFrequent(occs.map(function(o) { return String(o.tx.tx_location_country|| ''); })),
+      tags:                _mostFrequent(occs.map(function(o) { return String(o.tx.tags              || ''); })),
+      confidence:          confidence,
+      reason:              'weekly \xb7 usually on ' + _SUGGESTION_DAY_NAMES[modeDow],
     };
 
     console.log(fnName + ': surfaced key=' + key + ' confidence=' + confidence);
@@ -178,15 +187,15 @@ function _applyRecurringWeekly(outTx, today, map) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Signal 3 — time_of_day
-// Look back 4 weeks (28 days); group by (counterparty_name|minor_category|dow|hour_bucket);
-// qualify if current dow+hour_bucket matches and ≥ 3 distinct days in group;
-// filter counterparties already transacted with today; emit at most 2 suggestions.
+// Look back 8 weeks (56 days); group by (counterparty_name|minor_category|dow|hour_bucket);
+// qualify if current dow+hour_bucket matches and ≥ 2 distinct days in group;
+// filter counterparties already transacted with today; emit at most 5 suggestions.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function _applyTimeOfDay(outTx, today, map) {
   const fnName       = '_applyTimeOfDay';
   const cutoff       = new Date(today);
-  cutoff.setDate(cutoff.getDate() - 28);
+  cutoff.setDate(cutoff.getDate() - 56);
   cutoff.setHours(0, 0, 0, 0);
 
   const todayDow        = today.getDay();
@@ -240,24 +249,28 @@ function _applyTimeOfDay(outTx, today, map) {
     const occs       = group.occurrences;
 
     candidates.push({
-      dedupeKey:         dedupeKey,
-      signal:            'time_of_day',
-      counterparty_name: group.counterparty_name,
-      major_category:    _mostFrequent(occs.map(function(o) { return String(o.tx.major_category  || ''); })),
-      minor_category:    group.minor_category,
-      source_account:    _mostFrequent(occs.map(function(o) { return String(o.tx.source_account  || ''); })),
-      typical_amount:    _median(occs.map(function(o) { return Number(o.tx.amount) || 0; })),
-      currency:          _mostFrequent(occs.map(function(o) { return String(o.tx.currency        || ''); })),
-      confidence:        confidence,
-      reason:            'often at this time on ' + _SUGGESTION_DAY_NAMES[dow],
+      dedupeKey:           dedupeKey,
+      signal:              'time_of_day',
+      counterparty_name:   group.counterparty_name,
+      major_category:      _mostFrequent(occs.map(function(o) { return String(o.tx.major_category     || ''); })),
+      minor_category:      group.minor_category,
+      source_account:      _mostFrequent(occs.map(function(o) { return String(o.tx.source_account     || ''); })),
+      typical_amount:      _median(occs.map(function(o) { return Number(o.tx.amount) || 0; })),
+      currency:            _mostFrequent(occs.map(function(o) { return String(o.tx.currency           || ''); })),
+      tx_location_area:    _mostFrequent(occs.map(function(o) { return String(o.tx.tx_location_area   || ''); })),
+      tx_location_city:    _mostFrequent(occs.map(function(o) { return String(o.tx.tx_location_city   || ''); })),
+      tx_location_country: _mostFrequent(occs.map(function(o) { return String(o.tx.tx_location_country|| ''); })),
+      tags:                _mostFrequent(occs.map(function(o) { return String(o.tx.tags              || ''); })),
+      confidence:          confidence,
+      reason:              'often at this time on ' + _SUGGESTION_DAY_NAMES[dow],
     });
   });
 
-  // Sort candidates by confidence and emit at most 2
+  // Sort candidates by confidence and emit at most 5
   candidates.sort(function(a, b) { return b.confidence - a.confidence; });
   let emitted = 0;
   candidates.forEach(function(c) {
-    if (emitted >= 2) return;
+    if (emitted >= 5) return;
     const existing = map[c.dedupeKey];
     if (existing && existing.confidence >= c.confidence) return;
     map[c.dedupeKey] = {
@@ -273,6 +286,74 @@ function _applyTimeOfDay(outTx, today, map) {
     };
     console.log(fnName + ': surfaced key=' + c.dedupeKey + ' confidence=' + c.confidence);
     emitted++;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Signal 4 — recent_frequent
+// Look back 60 days; qualify counterparties seen ≥ 2 times that have not
+// already been surfaced by a stronger signal and have not been transacted
+// with today. Confidence = min(count / 15, 0.35) — always lower than the
+// recurrence signals so it only fills remaining slots.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _applyRecentFrequent(outTx, today, map) {
+  const fnName      = '_applyRecentFrequent';
+  const cutoff      = new Date(today);
+  cutoff.setDate(cutoff.getDate() - 60);
+  cutoff.setHours(0, 0, 0, 0);
+
+  const todayDateString = _calendarDateStr(today);
+
+  // Counterparties already transacted with today
+  const transactedToday = {};
+  outTx.forEach(function(tx) {
+    const d = new Date(tx.tx_date_time);
+    if (!isNaN(d.getTime()) && _calendarDateStr(d) === todayDateString) {
+      transactedToday[String(tx.counterparty_name || '')] = true;
+    }
+  });
+
+  // Group by key over last 60 days
+  const groups = {};
+  outTx.forEach(function(tx) {
+    const d = new Date(tx.tx_date_time);
+    if (isNaN(d.getTime()) || d < cutoff) return;
+    const key = String(tx.counterparty_name || '') + '|' + String(tx.minor_category || '');
+    if (!groups[key]) groups[key] = { tx: tx, occurrences: [] };
+    groups[key].occurrences.push({ tx: tx, date: d });
+  });
+
+  Object.keys(groups).forEach(function(key) {
+    // Skip if already surfaced by a stronger signal
+    if (map[key]) return;
+
+    const group = groups[key];
+    const occs  = group.occurrences;
+    if (occs.length < 2) return;
+
+    // Skip if transacted today
+    const cpName = String(occs[0].tx.counterparty_name || '');
+    if (transactedToday[cpName]) return;
+
+    const confidence = Math.min(occs.length / 15, 0.35);
+    map[key] = {
+      signal:              'recent_frequent',
+      counterparty_name:   cpName,
+      major_category:      _mostFrequent(occs.map(function(o) { return String(o.tx.major_category     || ''); })),
+      minor_category:      String(occs[0].tx.minor_category || ''),
+      source_account:      _mostFrequent(occs.map(function(o) { return String(o.tx.source_account     || ''); })),
+      typical_amount:      _median(occs.map(function(o) { return Number(o.tx.amount) || 0; })),
+      currency:            _mostFrequent(occs.map(function(o) { return String(o.tx.currency           || ''); })),
+      tx_location_area:    _mostFrequent(occs.map(function(o) { return String(o.tx.tx_location_area   || ''); })),
+      tx_location_city:    _mostFrequent(occs.map(function(o) { return String(o.tx.tx_location_city   || ''); })),
+      tx_location_country: _mostFrequent(occs.map(function(o) { return String(o.tx.tx_location_country|| ''); })),
+      tags:                _mostFrequent(occs.map(function(o) { return String(o.tx.tags              || ''); })),
+      confidence:          confidence,
+      reason:              occs.length + ' times in the last 2 months',
+    };
+
+    console.log(fnName + ': surfaced key=' + key + ' confidence=' + confidence);
   });
 }
 
