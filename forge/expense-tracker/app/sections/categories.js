@@ -396,7 +396,7 @@ async function _submitCatImport(categories) {
     showMsg(parts.join(' · ') || 'Nothing to import');
     document.dispatchEvent(new CustomEvent('et:reload'));
   } catch (err) {
-    console.warn('[categories] _submitCatImport failed:', err);
+    console.error('[categories] _submitCatImport failed:', err);
     if (errEl) errEl.textContent = 'Connection error.';
     if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
   } finally {
@@ -568,7 +568,7 @@ async function _saveNewCategory() {
       if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
     }
   } catch (err) {
-    console.warn('[categories] _saveNewCategory failed:', err);
+    console.error('[categories] _saveNewCategory failed:', err);
     if (errEl) errEl.textContent = 'Connection error.';
     if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
   } finally {
@@ -623,7 +623,7 @@ async function _saveCatEdit() {
       if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
     }
   } catch (err) {
-    console.warn('[categories] _saveCatEdit failed:', err);
+    console.error('[categories] _saveCatEdit failed:', err);
     if (errEl) errEl.textContent = 'Connection error.';
     if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
   } finally {
@@ -648,7 +648,7 @@ async function _deleteCat(rowNum) {
       renderCategories();
     }
   } catch (err) {
-    console.warn('[categories] _deleteCat failed:', err);
+    console.error('[categories] _deleteCat failed:', err);
     showMsg('Connection error.', 'warn');
     state.catDeleteRow = null;
     renderCategories();

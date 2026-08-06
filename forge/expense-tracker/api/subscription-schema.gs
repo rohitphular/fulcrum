@@ -230,3 +230,13 @@ function getSubscriptionSheetColumns() {
 function getSubscriptionSchemaField(key) { return SUBSCRIPTION_SCHEMA[key] || null; }
 
 function subColIndex(key) { return getColIndex(SUBSCRIPTION_SCHEMA, key); }
+
+function getFieldsForSubscriptionType(type) {
+  return Object.keys(SUBSCRIPTION_SCHEMA).map(function(key) {
+    const f = SUBSCRIPTION_SCHEMA[key];
+    return { key: key, editable: f.editable, required: f.required_for === null };
+  }).filter(function(f) {
+    const schema = SUBSCRIPTION_SCHEMA[f.key];
+    return schema.applies_to === null || schema.applies_to === type;
+  });
+}

@@ -45,7 +45,7 @@ const TRANSACTION_SCHEMA = {
     group: 'core',
     applies_to: null,
     required_for: null,
-    editable: false,
+    editable: true,
     default_value: null,
   },
   source_account: {

@@ -104,12 +104,6 @@ function _clampedDate(year, month, dayOfMonth) {
   return new Date(year, month, Math.min(dayOfMonth, lastDay));
 }
 
-// True when date d is on or after the calendar day (year, month, day).
-function _dateGte(d, year, month, day) {
-  const ref = new Date(year, month, day);
-  return d >= ref;
-}
-
 // YYYY-MM-DD from a local Date object.
 function _isoDate(d) {
   const y  = d.getFullYear();

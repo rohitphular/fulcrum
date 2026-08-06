@@ -62,6 +62,7 @@ function createCategory(body) {
   setCol('is_subscription_eligible', body.is_subscription_eligible === true || body.is_subscription_eligible === 'true');
 
   sheet.appendRow(row);
+  // Categories have no auto-generated id — the composite (tx_type, major_category, minor_category) is the key.
   return { ok: true };
 }
 

@@ -73,5 +73,5 @@ export function openContextMenu(triggerBtn, items, onSelect) {
     if (e.target.closest('.tx-menu-trigger')) return;
     if (!_ctxMenuEl?.contains(e.target)) closeContextMenu();
   };
-  setTimeout(() => document.addEventListener('click', _ctxHandler, true), 0);
+  document.addEventListener('click', _ctxHandler, true);
 }

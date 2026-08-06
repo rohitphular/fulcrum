@@ -15,17 +15,7 @@ function createAccount(body) {
   const validation = validateAccountCreate(body);
   if (!validation.ok) return validation;
 
-  // listRates() auto-seeds default currencies (GBP, INR, USD, EUR, AED) when
-  // the rates sheet is empty; reading the sheet directly misses that seeding.
-  const ratesData       = listRates();
-  const knownCurrencies = {};
-  ratesData.forEach(function(r) {
-    if (r.currency) knownCurrencies[String(r.currency).trim().toUpperCase()] = true;
-  });
   const normCurrency = String(body.currency).trim().toUpperCase();
-  if (!knownCurrencies[normCurrency]) {
-    return { ok: false, error: 'unknown_currency:' + normCurrency };
-  }
 
   const cols   = getAccountSheetColumns();
   const sheet  = getOrCreateSheet(ACCOUNTS_SHEET, cols);

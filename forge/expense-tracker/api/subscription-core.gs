@@ -8,7 +8,8 @@ function listSubscriptions() {
   const rows  = sheetToObjectsWithRow(sheet);
 
   rows.forEach(function(row) {
-    const isActive = row.is_active === true || row.is_active === 'true' || row.is_active === 'TRUE';
+    const isActive = row.is_active === true || String(row.is_active).toLowerCase() === 'true';
+    row.is_active = isActive;
     if (!isActive) {
       row.next_payment_date = '';
       return;

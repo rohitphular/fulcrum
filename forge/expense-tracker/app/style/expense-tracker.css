@@ -120,7 +120,7 @@ h1 { font-size: var(--text-2xl); font-weight: 700; letter-spacing: -.02em; margi
 
 /* theme toggle */
 .theme-btn {
-  font-size: 16px; line-height: 1;
+  font-size: var(--text-xl); line-height: 1;
   background: none; border: 1px solid var(--hair-strong); border-radius: 8px;
   padding: 5px 8px; cursor: pointer; color: var(--muted);
   transition: color .15s, border-color .15s, background .15s;
@@ -396,9 +396,9 @@ h2 { font-size: var(--text-xl); font-weight: 700; margin: 0; }
 .suggestion-card {
   flex: 0 0 160px;
   scroll-snap-align: start;
-  background: var(--surface);
+  background: var(--panel);
   border: 1px solid var(--hair);
-  border-radius: var(--radius);
+  border-radius: 14px;
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -488,7 +488,7 @@ td.td-truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; wh
   visibility: hidden; opacity: 0;
   position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%);
   background: var(--ink); color: var(--panel);
-  font-size: var(--text-sm); font-family: var(--sans, sans-serif); font-weight: 400;
+  font-size: var(--text-sm); font-family: var(--grotesk); font-weight: 400;
   padding: 5px 9px; border-radius: 6px; white-space: nowrap;
   z-index: 200; pointer-events: none;
   transition: opacity .15s ease;
@@ -899,7 +899,7 @@ td.td-keywords { max-width: 220px; }
   gap: 0 8px;
 }
 .rate-card-body    { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.rate-card-code    { font-size: 16px; font-weight: 600; color: var(--ink); font-family: var(--mono); }
+.rate-card-code    { font-size: var(--text-xl); font-weight: 600; color: var(--ink); font-family: var(--mono); }
 .rate-card-sym     { font-size: var(--text-base); font-weight: 400; color: var(--muted); margin-left: 4px; }
 .rate-card-rate    { font-size: var(--text-lg); font-weight: 600; white-space: nowrap; text-align: right; }
 .rate-card-updated { font-size: var(--text-xs); color: var(--muted); font-family: var(--mono); }

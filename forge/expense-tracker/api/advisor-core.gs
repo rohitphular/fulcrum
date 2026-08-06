@@ -39,14 +39,14 @@ function advisorChat(body) {
 }
 
 function getAdvisorHistory() {
-  const sheet = getOrCreateSheet(ADVISOR_SHEET, ['timestamp', 'role', 'content']);
+  const sheet = getOrCreateSheet(ADVISOR_SHEET, ADVISOR_COLUMNS);
   return sheetToObjects(sheet).map(function(row) {
     return { timestamp: row.timestamp, role: row.role, content: row.content };
   });
 }
 
 function clearAdvisorHistory() {
-  const sheet   = getOrCreateSheet(ADVISOR_SHEET, ['timestamp', 'role', 'content']);
+  const sheet   = getOrCreateSheet(ADVISOR_SHEET, ADVISOR_COLUMNS);
   const lastRow = sheet.getLastRow();
   if (lastRow > 1) sheet.deleteRows(2, lastRow - 1);
   return { ok: true };
@@ -55,7 +55,7 @@ function clearAdvisorHistory() {
 // ── Private helpers ───────────────────────────────────────────────────────────
 
 function _getRecentHistory(n) {
-  const sheet = getOrCreateSheet(ADVISOR_SHEET, ['timestamp', 'role', 'content']);
+  const sheet = getOrCreateSheet(ADVISOR_SHEET, ADVISOR_COLUMNS);
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return [];
   const startRow = Math.max(2, lastRow - n + 1);
@@ -65,12 +65,12 @@ function _getRecentHistory(n) {
 }
 
 function _saveToHistory(role, content) {
-  const sheet = getOrCreateSheet(ADVISOR_SHEET, ['timestamp', 'role', 'content']);
+  const sheet = getOrCreateSheet(ADVISOR_SHEET, ADVISOR_COLUMNS);
   sheet.appendRow([new Date().toISOString(), role, content]);
 }
 
 function _trimHistory() {
-  const sheet   = getOrCreateSheet(ADVISOR_SHEET, ['timestamp', 'role', 'content']);
+  const sheet   = getOrCreateSheet(ADVISOR_SHEET, ADVISOR_COLUMNS);
   const lastRow = sheet.getLastRow();
   if (lastRow > 101) sheet.deleteRows(2, lastRow - 101);
 }
@@ -98,9 +98,8 @@ function _buildSnapshot() {
     acctList.push({ name: a.name, type: a.type, sub_type: a.sub_type || '', currency: a.currency, balance: Math.round(bal * 100) / 100 });
   });
 
-  const ss      = SpreadsheetApp.getActiveSpreadsheet();
-  const txSheet = ss.getSheetByName(TRANSACTIONS_SHEET);
-  const allTx   = txSheet ? sheetToObjects(txSheet) : [];
+  const txSheet = getOrCreateSheet(TRANSACTIONS_SHEET, getTransactionSheetColumns());
+  const allTx   = sheetToObjects(txSheet);
 
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - 3);
@@ -180,11 +179,16 @@ function _callOpenAi(apiKey, systemPrompt, messages) {
     const resp = UrlFetchApp.fetch('https://api.openai.com/v1/chat/completions', options);
     const code = resp.getResponseCode();
     const data = JSON.parse(resp.getContentText());
-    if (code !== 200) return { ok: false, error: data.error ? data.error.message : 'api_error_' + code };
+    if (code !== 200) {
+      console.warn('_callOpenAi: status=' + code + ' error=' + (data.error ? data.error.message : 'unknown'));
+      return { ok: false, error: 'openai_' + code, detail: data.error ? data.error.message : 'api_error' };
+    }
     const content = (data.choices && data.choices[0]) ? data.choices[0].message.content : '';
+    console.log('_callOpenAi: status=200 tokens=' + (data.usage ? data.usage.total_tokens : 'unknown'));
     return { ok: true, content: content };
   } catch (e) {
-    return { ok: false, error: 'fetch_error: ' + e.message };
+    console.error('_callOpenAi: ' + e.message);
+    return { ok: false, error: 'fetch_error', detail: e.message };
   }
 }
 
@@ -207,9 +211,7 @@ function _parseDataRequest(content) {
 }
 
 function _fetchRequestedData(request) {
-  const ss      = SpreadsheetApp.getActiveSpreadsheet();
-  const txSheet = ss.getSheetByName(TRANSACTIONS_SHEET);
-  if (!txSheet) return [];
+  const txSheet = getOrCreateSheet(TRANSACTIONS_SHEET, getTransactionSheetColumns());
 
   const monthsBack = Math.min(Number(request.months_back) || 3, 12);
   const limit      = Math.min(Number(request.limit) || 50, 100);

@@ -415,6 +415,31 @@ function _attachEvents() {
       ], key => { _txMenuKey = null; _dispatchTxAction(key, row); });
       return;
     }
+    if (action === 'sugg-add') {
+      const key = btn.dataset.key;
+      const s = state.suggestions.find(x => `${x.counterparty_name}|${x.minor_category}` === key);
+      if (!s) return;
+      state.txCopyPrefill = {
+        tx_type:             'money-out',
+        major_category:      s.major_category,
+        minor_category:      s.minor_category,
+        source_account:      s.source_account,
+        target_account:      '',
+        amount:              s.typical_amount,
+        currency:            s.currency,
+        counterparty_name:   s.counterparty_name,
+        tx_location_area:    '',
+        tx_location_city:    '',
+        tx_location_country: '',
+        tags:                '',
+        description:         '',
+        fx_rate:             '',
+      };
+      state.txAddOpen    = true;
+      state.txImportOpen = false;
+      renderTransactions();
+      return;
+    }
     _dispatchTxAction(action, row);
   });
 }
@@ -891,7 +916,7 @@ async function _saveTransaction() {
       btn.disabled = false; btn.textContent = 'Save';
     }
   } catch (err) {
-    console.warn('[transactions] _saveTransaction failed:', err);
+    console.error('[transactions] _saveTransaction failed:', err);
     errEl.textContent = 'Connection error.';
     btn.disabled = false; btn.textContent = 'Save';
   } finally {
@@ -1295,7 +1320,7 @@ async function _saveEdit() {
       errEl.textContent = 'Error: ' + (res.error || 'unknown');
     }
   } catch (err) {
-    console.warn('[transactions] _saveEdit failed:', err);
+    console.error('[transactions] _saveEdit failed:', err);
     errEl.textContent = 'Connection error.';
   } finally {
     hideLoading();
@@ -1317,7 +1342,7 @@ async function _confirmDelete(rowNum) {
       renderTransactions();
     }
   } catch (err) {
-    console.warn('[transactions] _confirmDelete failed:', err);
+    console.error('[transactions] _confirmDelete failed:', err);
     showMsg('Connection error.', 'warn');
     state.txDeleteRow = null;
     renderTransactions();
@@ -1631,7 +1656,7 @@ async function _submitTxImport(transactions) {
       showMsg(`${created} imported · ${skipped} skipped · ${failed} failed`, 'warn');
     }
   } catch (err) {
-    console.warn('[transactions] _submitTxImport failed:', err);
+    console.error('[transactions] _submitTxImport failed:', err);
     if (errEl) errEl.textContent = 'Connection error.';
     if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
   } finally {
@@ -1644,45 +1669,12 @@ function _attachSuggestionEvents() {
     state.suggestionsOpen = !state.suggestionsOpen;
     renderTransactions();
   });
-
-  const content = el('transactionsContent');
-  if (!content) return;
-
-  content.addEventListener('click', e => {
-    const btn = e.target.closest('[data-action="sugg-add"]');
-    if (!btn) return;
-    const key = btn.dataset.key;
-
-    if (btn.dataset.action === 'sugg-add') {
-      const s = state.suggestions.find(x => `${x.counterparty_name}|${x.minor_category}` === key);
-      if (!s) return;
-      state.txCopyPrefill = {
-        tx_type:             'money-out',
-        major_category:      s.major_category,
-        minor_category:      s.minor_category,
-        source_account:      s.source_account,
-        target_account:      '',
-        amount:              s.typical_amount,
-        currency:            s.currency,
-        counterparty_name:   s.counterparty_name,
-        tx_location_area:    '',
-        tx_location_city:    '',
-        tx_location_country: '',
-        tags:                '',
-        description:         '',
-        fx_rate:             '',
-      };
-      state.txAddOpen      = true;
-      state.txImportOpen   = false;
-      renderTransactions();
-    }
-  }, { capture: false });
 }
 
 function _attachFilterEvents() {
   el('filterToggle')?.addEventListener('click', () => { filterOpen = !filterOpen; renderTransactions(); });
 
-  document.querySelectorAll('[data-filter-type]').forEach(cb => {
+  el('transactionsContent')?.querySelectorAll('[data-filter-type]').forEach(cb => {
     cb.addEventListener('change', () => {
       const t = cb.dataset.filterType;
       if (cb.checked) { if (!state.filters.types.includes(t)) state.filters.types.push(t); }
@@ -1713,7 +1705,7 @@ function _attachFilterEvents() {
     state.txPage = 1; renderTransactions();
   });
 
-  document.querySelectorAll('.chip-remove').forEach(btn => {
+  el('transactionsContent')?.querySelectorAll('.chip-remove').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.chipKey;
       const val = btn.dataset.chipVal;

@@ -25,6 +25,18 @@ function validateAccountCreate(body) {
     return { ok: false, error: 'invalid_sub_type' };
   }
 
+  // Cross-entity: currency must exist in the rates sheet.
+  // listRates() auto-seeds defaults (GBP, INR, USD, EUR, AED) on an empty sheet.
+  const normCurrency    = String(body.currency).trim().toUpperCase();
+  const ratesData       = listRates();
+  const knownCurrencies = {};
+  ratesData.forEach(function(r) {
+    if (r.currency) knownCurrencies[String(r.currency).trim().toUpperCase()] = true;
+  });
+  if (!knownCurrencies[normCurrency]) {
+    return { ok: false, error: 'unknown_currency:' + normCurrency };
+  }
+
   return { ok: true };
 }
 

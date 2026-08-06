@@ -39,6 +39,15 @@ function validateTransactionUpdate(body, oldRow) {
   if (body.tx_type !== 'money-in' && !body.source_account)
     return { ok: false, error: 'missing_source_account' };
 
+  // Reject immutable fields
+  const fields = getFieldsForTransactionType(body.tx_type);
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i];
+    if (!field.editable && field.key !== 'row_num' && body[field.key] !== undefined) {
+      return { ok: false, error: 'field_not_editable:' + field.key };
+    }
+  }
+
   const acctTypeErr = _validateCategoryAccountTypeHints(body);
   if (acctTypeErr) return acctTypeErr;
 
@@ -155,8 +164,8 @@ function validateFxRate(sourceAccount, targetAccount, fxRate) {
 // POST or a request from a stale UI cannot bypass the rules. Specifications:
 // docs/financial-rules.md.
 //
-//   Rules 1 & 3 — source-side asset balance cannot go negative
-//   Rules 2 & 4 — source-side credit-card limit cannot be exceeded
+//   Rules 1 & 3 — source-side asset/investment balance cannot go negative
+//   Rules 2 & 4 — intentionally unenforced: credit_card_limit field not yet added (see financial-rules.md)
 //   Rule 5     — money-out from a loan account is blocked (except Interest & charges)
 //   Rule 6     — FX rate required for cross-currency transfer (validateFxRate above)
 //
@@ -236,7 +245,8 @@ function _postReversalBalance(sourceAccountId, sourceAccount, oldRow) {
   return copy;
 }
 
-// Rules 1–4 (source side): asset insufficient balance, credit-card limit exceeded.
+// Rules 1 & 3 (source side): asset/investment balance cannot go negative.
+// Rules 2 & 4 are intentionally unenforced pending a credit_card_limit schema field (see financial-rules.md).
 function _checkBalanceRules(transactionType, sourceAccount, amount) {
   if (!sourceAccount) return null;
   if (transactionType !== 'money-out' && transactionType !== 'money-transfer') return null;

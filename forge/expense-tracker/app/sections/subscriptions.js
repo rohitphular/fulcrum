@@ -190,7 +190,7 @@ function _renderForm(sub = null) {
       </div>` : ''}
     </div>
     <div class="form-actions">
-      <button class="btn btn-primary btn-sm" data-action="sub-save">Save</button>
+      <button id="subSaveBtn" class="btn btn-primary btn-sm" data-action="sub-save">Save</button>
       <button class="btn btn-secondary btn-sm" data-action="sub-cancel">Cancel</button>
     </div>
     <div class="pin-error" id="subFormError"></div>
@@ -452,7 +452,7 @@ function _attachEvents() {
         if (key === 'toggle') { _toggle(row); }
         if (key === 'delete') { state.subDeleteRow = row; renderSubscriptions(); }
         if (key === 'txs') {
-          const searchTerm = sub?.counterparty || sub?.name || '';
+          const searchTerm = sub?.counterparty_name || sub?.name || '';
           state.filters = { types: [], accounts: [], major: [], minor: [], tx_location_country: '', tag: '', search: searchTerm };
           document.dispatchEvent(new CustomEvent('et:show-section', { detail: 'transactions' }));
         }
@@ -517,6 +517,8 @@ async function _saveAdd() {
   }
 
   showLoading();
+  const saveBtn = el('subSaveBtn');
+  if (saveBtn) saveBtn.disabled = true;
   try {
     const res = await ExpenseAPI.createSubscription({ ...body, is_active: true });
     if (res.ok) {
@@ -532,9 +534,10 @@ async function _saveAdd() {
       if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
     }
   } catch (err) {
-    console.warn('[subscriptions] _saveAdd failed:', err);
+    console.error('[subscriptions] _saveAdd failed:', err);
     if (errEl) errEl.textContent = 'Connection error.';
   } finally {
+    if (saveBtn) saveBtn.disabled = false;
     hideLoading();
   }
 }
@@ -561,6 +564,8 @@ async function _saveEdit(row) {
   const isActive = el('subIsActive')?.checked ?? true;
 
   showLoading();
+  const saveBtn = el('subSaveBtn');
+  if (saveBtn) saveBtn.disabled = true;
   try {
     const res = await ExpenseAPI.updateSubscription({ ...body, row_num: row, is_active: isActive });
     if (res.ok) {
@@ -572,9 +577,10 @@ async function _saveEdit(row) {
       if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
     }
   } catch (err) {
-    console.warn('[subscriptions] _saveEdit failed:', err);
+    console.error('[subscriptions] _saveEdit failed:', err);
     if (errEl) errEl.textContent = 'Connection error.';
   } finally {
+    if (saveBtn) saveBtn.disabled = false;
     hideLoading();
   }
 }
@@ -610,7 +616,7 @@ async function _toggle(row) {
       showMsg('Update failed: ' + (res.error || 'unknown'), 'warn');
     }
   } catch (err) {
-    console.warn('[subscriptions] _toggle failed:', err);
+    console.error('[subscriptions] _toggle failed:', err);
     showMsg('Connection error.', 'warn');
   } finally {
     hideLoading();
@@ -632,7 +638,7 @@ async function _confirmDelete(row) {
       renderSubscriptions();
     }
   } catch (err) {
-    console.warn('[subscriptions] _confirmDelete failed:', err);
+    console.error('[subscriptions] _confirmDelete failed:', err);
     showMsg('Connection error.', 'warn');
     state.subDeleteRow = null;
     renderSubscriptions();

@@ -134,14 +134,6 @@ async function init() {
   el('customFrom')?.addEventListener('change', e => { state.customFrom = e.target.value; if (state.transactions.length) renderTransactions(); });
   el('customTo')?.addEventListener('change',   e => { state.customTo   = e.target.value; if (state.transactions.length) renderTransactions(); });
 
-  const savedRange = sessionStorage.getItem('et_date_range');
-  if (savedRange) {
-    state.dateRange = savedRange;
-    el('dateRangeBar')?.querySelectorAll('.range-btn').forEach(b =>
-      b.classList.toggle('active', b.dataset.range === state.dateRange)
-    );
-  }
-
   // Quote currency change
   el('quoteCurrencySelect')?.addEventListener('change', e => {
     state.quoteCurrency = e.target.value;

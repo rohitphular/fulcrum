@@ -9,15 +9,16 @@ const ACCOUNTS_SHEET      = 'accounts';
 const RATES_SHEET         = 'rates';
 const SUBSCRIPTIONS_SHEET = 'subscriptions';
 const AUDIT_SHEET         = 'audit_access';
-const MAX_FAILURES       = 3;
+const ADVISOR_SHEET       = 'advisor_chat';
+const MAX_FAILURES        = 3;
+
+const ADVISOR_COLUMNS = ['timestamp', 'role', 'content'];
 
 // TRANSACTION_COLUMNS, VALID_TRANSACTION_TYPES, txColIndex() removed — all in transaction-schema.gs
 
 // CATEGORY_COLUMNS removed — use getCategorySheetColumns() from category-schema.gs
 // RATES_COLUMNS removed — use getRateSheetColumns() from rate-schema.gs
 // ACCOUNT_COLUMNS removed — use getAccountSheetColumns() from account-schema.gs
-
-const ADVISOR_SHEET = 'advisor_chat';
 
 const AUDIT_COLUMNS = [
   'ip', 'city', 'country', 'user_agent',

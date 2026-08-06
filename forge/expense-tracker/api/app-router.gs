@@ -15,6 +15,7 @@ function doGet(e) {
 
   if (action === 'verify') {
     if (!checkPin(e.parameter.pin)) {
+      console.log('checkPin: fail ip=' + meta.ip);
       recordAccess(meta, false);
       return json({ ok: false, error: 'auth' });
     }
@@ -26,11 +27,14 @@ function doGet(e) {
   }
 
   if (!checkPin(e.parameter.pin)) {
+    console.log('checkPin: fail ip=' + meta.ip);
     recordAccess(meta, false);
     return json({ ok: false, error: 'auth' });
   }
   recordAccess(meta, true);
 
+  // Migration helpers (migrateTransactionColumnHeaders, migrateCategoryMandatoryFlags) were
+  // removed — getOrCreateSheet() handles new columns via column-append on every call.
   if (action === 'list_transactions')  { return json({ ok: true, data: listTransactions() }); }
   if (action === 'list_categories')    { return json({ ok: true, data: listCategories() }); }
   if (action === 'list_accounts')      return json({ ok: true, data: listAccounts() });
@@ -57,6 +61,7 @@ function doPost(e) {
   if (checkLocked(meta.ip)) return json({ ok: false, error: 'locked' });
 
   if (!checkPin(body.pin)) {
+    console.log('checkPin: fail ip=' + meta.ip);
     recordAccess(meta, false);
     return json({ ok: false, error: 'auth' });
   }

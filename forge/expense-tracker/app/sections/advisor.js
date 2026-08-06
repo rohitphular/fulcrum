@@ -1,4 +1,3 @@
-/* global SheetsClient */
 import { ExpenseAPI } from '../core/api.js';
 import { state } from '../core/state.js';
 import { el, esc } from '../core/utils.js';
@@ -79,7 +78,7 @@ async function _loadHistory() {
       console.warn('[advisor] _loadHistory failed:', res.error);
     }
   } catch (err) {
-    console.warn('[advisor] _loadHistory failed:', err);
+    console.error('[advisor] _loadHistory failed:', err);
   } finally {
     hideLoading();
   }
@@ -160,7 +159,7 @@ async function _sendMessage() {
     }
   } catch (err) {
     el('advisorTyping')?.remove();
-    console.warn('[advisor] _sendMessage error:', err);
+    console.error('[advisor] _sendMessage error:', err);
     showMsg('Connection error — could not reach the advisor.', 'warn');
     state.advisorMessages = state.advisorMessages.slice(0, -1);
     _renderMessages();
@@ -183,7 +182,7 @@ async function _clearHistory() {
       showMsg('Failed to clear history', 'warn');
     }
   } catch (err) {
-    console.warn('[advisor] _clearHistory error:', err);
+    console.error('[advisor] _clearHistory error:', err);
     showMsg('Connection error', 'warn');
   } finally {
     hideLoading();

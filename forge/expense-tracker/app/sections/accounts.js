@@ -623,7 +623,7 @@ async function _saveNew() {
       if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
     }
   } catch (_) {
-    console.warn('[accounts] _saveNew failed:', _);
+    console.error('[accounts] _saveNew failed:', _);
     if (errEl) errEl.textContent = 'Connection error.';
     if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
   } finally {
@@ -667,7 +667,7 @@ async function _saveEdit() {
       if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
     }
   } catch (_) {
-    console.warn('[accounts] _saveEdit failed:', _);
+    console.error('[accounts] _saveEdit failed:', _);
     if (errEl) errEl.textContent = 'Connection error.';
     if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
   } finally {
@@ -700,7 +700,7 @@ async function _confirmDelete(rowNum) {
       renderAccounts();
     }
   } catch (_) {
-    console.warn('[accounts] _confirmDelete failed:', _);
+    console.error('[accounts] _confirmDelete failed:', _);
     showMsg('Connection error.', 'warn');
     state.accDeleteRow = null;
     state.accDeleteBlocked = null;
@@ -736,7 +736,7 @@ async function _archiveAccount(rowNum) {
       renderAccounts();
     }
   } catch (_) {
-    console.warn('[accounts] _archiveAccount failed:', _);
+    console.error('[accounts] _archiveAccount failed:', _);
     showMsg('Connection error.', 'warn');
     state.accDeleteBlocked = null;
     state.accDeleteRow = null;
@@ -781,10 +781,10 @@ async function _submitImport(accounts) {
         <tr>
           <td>${esc(r.name)}</td>
           <td>${r.ok
-            ? `<span class="badge badge-in">created</span>`
+            ? `<span class="badge badge-et-in">created</span>`
             : r.error === 'duplicate_account'
               ? `<span class="badge" style="color:var(--muted)">already exists</span>`
-              : `<span class="badge badge-out">${esc(r.error || 'unknown')}</span>`}
+              : `<span class="badge badge-et-out">${esc(r.error || 'unknown')}</span>`}
           </td>
         </tr>`).join('');
       const status = el('accImportStatus');
@@ -802,7 +802,7 @@ async function _submitImport(accounts) {
       showMsg(`${created} imported · ${skipped} skipped · ${failed} failed`, 'warn');
     }
   } catch (_) {
-    console.warn('[accounts] _submitImport failed:', _);
+    console.error('[accounts] _submitImport failed:', _);
     if (errEl) errEl.textContent = 'Connection error.';
     if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
   } finally {

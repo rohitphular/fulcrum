@@ -77,6 +77,9 @@ function recordAccess(meta, success) {
     const isLocked      = values[i][10] === true || shouldLock;
     const lockedAt      = shouldLock ? now : (values[i][11] || '');
 
+    if (shouldLock) console.log('recordAccess: locked ip=' + ip + ' failures=' + failureCount);
+    if (success && (Number(values[i][8]) || 0) > 0) console.log('recordAccess: success ip=' + ip);
+
     sheet.getRange(rowNum, 4).setValue(meta.ua);
     sheet.getRange(rowNum, 6).setValue(now);
     sheet.getRange(rowNum, 7).setValue(totalAttempts);

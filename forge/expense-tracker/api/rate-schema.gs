@@ -66,6 +66,16 @@ function getRateSchemaField(key) { return RATE_SCHEMA[key] || null; }
 
 function rateColIndex(name) { return getColIndex(RATE_SCHEMA, name); }
 
+function getFieldsForRateType(type) {
+  return Object.keys(RATE_SCHEMA).map(function(key) {
+    const f = RATE_SCHEMA[key];
+    return { key: key, editable: f.editable, required: f.required_for === null };
+  }).filter(function(f) {
+    const schema = RATE_SCHEMA[f.key];
+    return schema.applies_to === null || schema.applies_to === type;
+  });
+}
+
 // Client payload — serialised subset returned by get_rate_schema
 function getRateSchemaForClient() {
   return Object.keys(RATE_SCHEMA).map(function(key) {

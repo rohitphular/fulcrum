@@ -74,7 +74,6 @@ export const state = {
 
   subscriptions: [],
   subAddOpen:    false,
-  subViewRow:    null,
   subEditRow:    null,
   subDeleteRow:  null,
   subPrefill:    null,  // { name, counterparty_name, amount, currency, source_account, major_category, minor_category, tags }

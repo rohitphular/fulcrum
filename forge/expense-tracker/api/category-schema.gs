@@ -19,6 +19,8 @@ const CATEGORY_SCHEMA = {
     type: 'enum',
     enum_values: null, // resolved at runtime: VALID_TRANSACTION_TYPES
     group: 'core',
+    applies_to: null,
+    required_for: null,
     editable: true,
     default_value: 'money-out',
   },
@@ -29,6 +31,8 @@ const CATEGORY_SCHEMA = {
     type: 'string',
     enum_values: null,
     group: 'core',
+    applies_to: null,
+    required_for: null,
     editable: true,
     default_value: '',
   },
@@ -39,6 +43,8 @@ const CATEGORY_SCHEMA = {
     type: 'string',
     enum_values: null,
     group: 'core',
+    applies_to: null,
+    required_for: null,
     editable: true,
     default_value: '',
   },
@@ -49,6 +55,8 @@ const CATEGORY_SCHEMA = {
     type: 'string',
     enum_values: null,
     group: 'core',
+    applies_to: null,
+    required_for: [],
     editable: true,
     default_value: '',
   },
@@ -59,6 +67,8 @@ const CATEGORY_SCHEMA = {
     type: 'boolean',
     enum_values: null,
     group: 'core',
+    applies_to: null,
+    required_for: null,
     editable: true,
     default_value: true,
   },
@@ -71,6 +81,8 @@ const CATEGORY_SCHEMA = {
     type: 'string',
     enum_values: null,
     group: 'classification',
+    applies_to: null,
+    required_for: [],
     editable: true,
     default_value: '',
   },
@@ -81,6 +93,8 @@ const CATEGORY_SCHEMA = {
     type: 'string',
     enum_values: null,
     group: 'classification',
+    applies_to: null,
+    required_for: [],
     editable: true,
     default_value: '',
   },
@@ -98,6 +112,8 @@ const CATEGORY_SCHEMA = {
     type: 'multi-select',
     enum_values: null, // resolved at runtime: VALID_ACCOUNT_TYPES
     group: 'account_hints',
+    applies_to: null,
+    required_for: [],
     editable: true,
     default_value: '',
   },
@@ -108,6 +124,8 @@ const CATEGORY_SCHEMA = {
     type: 'multi-select',
     enum_values: null, // resolved at runtime: VALID_ACCOUNT_TYPES
     group: 'account_hints',
+    applies_to: null,
+    required_for: [],
     editable: true,
     default_value: '',
   },
@@ -119,6 +137,8 @@ const CATEGORY_SCHEMA = {
     type:                  'boolean',
     enum_values:           null,
     group:                 'account_hints',
+    applies_to:            null,
+    required_for:          [],
     editable:              true,
     default_value:         false,
   },
@@ -129,6 +149,8 @@ const CATEGORY_SCHEMA = {
     type:                  'boolean',
     enum_values:           null,
     group:                 'account_hints',
+    applies_to:            null,
+    required_for:          [],
     editable:              true,
     default_value:         false,
   },
@@ -141,6 +163,8 @@ const CATEGORY_SCHEMA = {
     type: 'enum',
     enum_values: ['account-credit', 'account-debit', 'funds-transfer', 'forex-transfer', 'debt-repayment'],
     group: 'meta',
+    applies_to: null,
+    required_for: [],
     editable: true,
     default_value: null,
   },
@@ -151,6 +175,8 @@ const CATEGORY_SCHEMA = {
     type:                  'boolean',
     enum_values:           null,
     group:                 'meta',
+    applies_to:            null,
+    required_for:          [],
     editable:              true,
     default_value:         false,
   },
@@ -166,22 +192,9 @@ function getCategorySchemaForClient() {
       return { value: v, label: labels[v] || v };
     }),
     account_types: VALID_ACCOUNT_TYPES.map(function(v) {
-      const labels = {
-        current: 'Current Account', savings: 'Savings Account', cash: 'Cash',
-        investment: 'Investment',
-        mortgage: 'Mortgage', auto_loan: 'Auto Loan', heloc: 'HELOC',
-        personal_loan: 'Personal Loan', student_loan: 'Student Loan',
-        medical_loan: 'Medical Loan', debt_consolidation: 'Debt Consolidation',
-        credit_card: 'Credit Card', overdraft: 'Overdraft',
-      };
-      const groups = {
-        current: 'asset', savings: 'asset', cash: 'asset', investment: 'asset',
-        mortgage: 'liability', auto_loan: 'liability', heloc: 'liability',
-        personal_loan: 'liability', student_loan: 'liability',
-        medical_loan: 'liability', debt_consolidation: 'liability',
-        credit_card: 'liability', overdraft: 'liability',
-      };
-      return { value: v, label: labels[v] || v, group: groups[v] || 'asset' };
+      const labels = { asset: 'Asset', investment: 'Investment', liability: 'Liability' };
+      const groups = { asset: 'asset', investment: 'investment', liability: 'liability' };
+      return { value: v, label: labels[v] || v, group: groups[v] || v };
     }),
   };
 }
@@ -189,6 +202,16 @@ function getCategorySchemaForClient() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper functions
 // ─────────────────────────────────────────────────────────────────────────────
+
+function getFieldsForCategoryType(type) {
+  return Object.keys(CATEGORY_SCHEMA).map(function(key) {
+    const f = CATEGORY_SCHEMA[key];
+    return { key: key, editable: f.editable, required: f.required_for === null };
+  }).filter(function(f) {
+    const schema = CATEGORY_SCHEMA[f.key];
+    return schema.applies_to === null || schema.applies_to === type;
+  });
+}
 
 function getCategorySheetColumns() {
   return Object.values(CATEGORY_SCHEMA)
