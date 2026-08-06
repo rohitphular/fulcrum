@@ -3,7 +3,7 @@
 // =============================================================================
 
 function listTransactions() {
-  return sheetToObjectsWithRow(getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS));
+  return sheetToObjectsWithRow(getOrCreateSheet(TRANSACTIONS_SHEET, getTransactionSheetColumns()));
 }
 
 function createTransaction(body) {
@@ -27,7 +27,8 @@ function createTransaction(body) {
   const wfType = resolveWorkflow(hints ? hints.workflow_type : null);
   if (typeof wfType !== 'string') return wfType;
 
-  const sheet = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
+  const cols  = getTransactionSheetColumns();
+  const sheet = getOrCreateSheet(TRANSACTIONS_SHEET, cols);
 
   // Duplicate guard — reject if an identical row already exists
   const dupCheck = _checkDuplicate(sheet, body);
@@ -37,24 +38,28 @@ function createTransaction(body) {
   // Augment description with the conversion rate used (no-op when not cross-currency).
   const finalDescription = applyFxNote(body.description, body.source_account, body.target_account, amount, fxRate);
 
-  sheet.appendRow([
-    id,
-    body.tx_date_time,
-    body.tx_type,
-    body.source_account         || '',
-    body.target_account         || '',
-    body.tx_location_area       || '',
-    body.tx_location_city       || '',
-    body.tx_location_country    || '',
-    amount,
-    body.currency               || '',
-    fxRate > 0 ? fxRate : '',
-    body.major_category         || '',
-    body.minor_category         || '',
-    normaliseTags(body.tags),
-    body.counterparty_name      || '',
-    finalDescription,
-  ]);
+  const row = new Array(cols.length).fill('');
+  function setCol(key, value) {
+    const field = getTransactionSchemaField(key);
+    if (field) row[field.sheet_column_position - 1] = (value === undefined || value === null) ? '' : value;
+  }
+  setCol('id',                   id);
+  setCol('tx_date_time',         body.tx_date_time);
+  setCol('tx_type',              body.tx_type);
+  setCol('source_account',       body.source_account      || '');
+  setCol('target_account',       body.target_account      || '');
+  setCol('tx_location_area',     body.tx_location_area    || '');
+  setCol('tx_location_city',     body.tx_location_city    || '');
+  setCol('tx_location_country',  body.tx_location_country || '');
+  setCol('amount',               amount);
+  setCol('currency',             body.currency            || '');
+  setCol('fx_rate',              fxRate > 0 ? fxRate : '');
+  setCol('major_category',       body.major_category      || '');
+  setCol('minor_category',       body.minor_category      || '');
+  setCol('tags',                 normaliseTags(body.tags));
+  setCol('counterparty_name',    body.counterparty_name   || '');
+  setCol('description',          finalDescription);
+  sheet.appendRow(row);
 
   const wfResult = executeWorkflow(wfType, {
     source_account: body.source_account || '',
@@ -72,12 +77,13 @@ function updateTransaction(body) {
   // Row-range guard runs first so we can hand the old row to the validator,
   // which uses it to compute the post-reversal balance for Rules 1–5.
   if (!body.row_num) return { ok: false, error: 'missing_row_num' };
-  const sheet   = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
+  const cols   = getTransactionSheetColumns();
+  const sheet  = getOrCreateSheet(TRANSACTIONS_SHEET, cols);
   const rowNum  = Number(body.row_num);
   const lastRow = sheet.getLastRow();
   if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
 
-  const oldRow = sheet.getRange(rowNum, 1, 1, TRANSACTION_COLUMNS.length).getValues()[0];
+  const oldRow = sheet.getRange(rowNum, 1, 1, cols.length).getValues()[0];
 
   const validation = validateTransactionUpdate(body, oldRow);
   if (!validation.ok) return validation;
@@ -139,24 +145,25 @@ function updateTransaction(body) {
   // so changing fx_rate updates the inline rate record correctly.
   const finalDescription = applyFxNote(body.description, body.source_account, body.target_account, newAmount, newFxRate);
 
-  // Update cols 2–16 (tx_date_time through description); col 1 (id) is immutable
-  sheet.getRange(rowNum, 2, 1, 15).setValues([[
-    body.tx_date_time,
-    body.tx_type,
-    body.source_account         || '',
-    body.target_account         || '',
-    body.tx_location_area       || '',
-    body.tx_location_city       || '',
-    body.tx_location_country    || '',
-    newAmount,
-    body.currency               || '',
-    newFxRate > 0 ? newFxRate : '',
-    body.major_category         || '',
-    body.minor_category         || '',
-    normaliseTags(body.tags),
-    body.counterparty_name      || '',
-    finalDescription,
-  ]]);
+  function writeField(key, value) {
+    const field = getTransactionSchemaField(key);
+    if (!field || !field.editable) return;
+    sheet.getRange(rowNum, field.sheet_column_position).setValue(value);
+  }
+  writeField('tx_date_time',        body.tx_date_time);
+  writeField('source_account',      body.source_account      || '');
+  writeField('target_account',      body.target_account      || '');
+  writeField('tx_location_area',    body.tx_location_area    || '');
+  writeField('tx_location_city',    body.tx_location_city    || '');
+  writeField('tx_location_country', body.tx_location_country || '');
+  writeField('amount',              newAmount);
+  writeField('currency',            body.currency            || '');
+  writeField('fx_rate',             newFxRate > 0 ? newFxRate : '');
+  writeField('major_category',      body.major_category      || '');
+  writeField('minor_category',      body.minor_category      || '');
+  writeField('tags',                normaliseTags(body.tags));
+  writeField('counterparty_name',   body.counterparty_name   || '');
+  writeField('description',         finalDescription);
 
   return { ok: true };
 }
@@ -164,12 +171,13 @@ function updateTransaction(body) {
 function deleteTransaction(body) {
   if (!body.row_num) return { ok: false, error: 'missing_row_num' };
 
-  const sheet   = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
+  const cols  = getTransactionSheetColumns();
+  const sheet = getOrCreateSheet(TRANSACTIONS_SHEET, cols);
   const rowNum  = Number(body.row_num);
   const lastRow = sheet.getLastRow();
   if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
 
-  const row    = sheet.getRange(rowNum, 1, 1, TRANSACTION_COLUMNS.length).getValues()[0];
+  const row    = sheet.getRange(rowNum, 1, 1, cols.length).getValues()[0];
   const txType          = String(row[txColIndex('tx_type')]);
   const txMajor         = String(row[txColIndex('major_category')] || '');
   const txMinor         = String(row[txColIndex('minor_category')] || '');
@@ -198,12 +206,12 @@ function createTransactionsBulk(body) {
   if (!Array.isArray(body.transactions) || body.transactions.length === 0)
     return { ok: false, error: 'missing_transactions' };
 
-  var results = [];
+  const results = [];
   body.transactions.forEach(function(tx) {
-    var txBody = {};
+    const txBody = {};
     Object.keys(tx).forEach(function(k) { txBody[k] = tx[k]; });
     txBody.pin = body.pin;
-    var r = createTransaction(txBody);
+    const r = createTransaction(txBody);
     results.push({
       label: (tx.tx_date_time || '').slice(0, 10) + ' ' + String(tx.description || tx.counterparty_name || '').slice(0, 40),
       ok:    r.ok,
@@ -212,7 +220,7 @@ function createTransactionsBulk(body) {
     });
   });
 
-  var failed = results.filter(function(r) { return !r.ok; });
+  const failed = results.filter(function(r) { return !r.ok; });
   return {
     ok:      failed.length === 0,
     created: results.length - failed.length,
@@ -224,23 +232,23 @@ function createTransactionsBulk(body) {
 // Returns { ok: false, error: 'duplicate_transaction' } if a row with the same
 // (date, type, amount, source_account, target_account) already exists.
 function _checkDuplicate(sheet, body) {
-  var rows = sheet.getDataRange().getValues();
+  const rows = sheet.getDataRange().getValues();
   if (rows.length < 2) return null;
 
-  var ciDate   = txColIndex('tx_date_time');
-  var ciType   = txColIndex('tx_type');
-  var ciAmt    = txColIndex('amount');
-  var ciSrc    = txColIndex('source_account');
-  var ciTgt    = txColIndex('target_account');
+  const ciDate   = txColIndex('tx_date_time');
+  const ciType   = txColIndex('tx_type');
+  const ciAmt    = txColIndex('amount');
+  const ciSrc    = txColIndex('source_account');
+  const ciTgt    = txColIndex('target_account');
 
-  var inDate   = String(body.tx_date_time   || '');
-  var inType   = String(body.tx_type        || '');
-  var inAmt    = Number(body.amount);
-  var inSrc    = String(body.source_account || '');
-  var inTgt    = String(body.target_account || '');
+  const inDate   = String(body.tx_date_time   || '');
+  const inType   = String(body.tx_type        || '');
+  const inAmt    = Number(body.amount);
+  const inSrc    = String(body.source_account || '');
+  const inTgt    = String(body.target_account || '');
 
-  for (var i = 1; i < rows.length; i++) {
-    var r = rows[i];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
     if (
       String(r[ciDate]) === inDate   &&
       String(r[ciType]) === inType   &&

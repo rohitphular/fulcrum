@@ -4,13 +4,7 @@ import { ExpenseAPI } from './core/api.js';
 import { el, esc } from './core/utils.js';
 import { showLoading, hideLoading, showMsg } from './core/ui.js';
 import { showSection } from './core/nav.js';
-import { renderDashboard } from './sections/dashboard.js';
 import { renderTransactions } from './sections/transactions.js';
-import { renderAccounts } from './sections/accounts.js';
-import { renderCategories } from './sections/categories.js';
-import { renderRates } from './sections/rates.js';
-import { renderAdvisor } from './sections/advisor.js';
-import { renderSubscriptions } from './sections/subscriptions.js';
 import { showPinGate, hidePinGate, fetchGeo, submitPin, readSession, clearSession } from './core/auth.js';
 import { loadAccountSchema, loadTransactionSchema, loadCategorySchema } from './core/schema.js';
 
@@ -33,14 +27,7 @@ function setTheme(theme) {
   const btn = el('themeToggle');
   if (btn) btn.textContent = theme === 'dark' ? '☀' : '☽';
   if (!state.transactions.length) return;
-  const active = sessionStorage.getItem('et_section') || 'dashboard';
-  if (active === 'dashboard')    renderDashboard();
-  if (active === 'transactions') renderTransactions();
-  if (active === 'accounts')     renderAccounts();
-  if (active === 'categories')   renderCategories();
-  if (active === 'rates')        renderRates();
-  if (active === 'advisor')       renderAdvisor();
-  if (active === 'subscriptions') renderSubscriptions();
+  showSection(sessionStorage.getItem('et_section') || 'dashboard');
 }
 
 // ── Data loading ──────────────────────────────────────────────────────────────
@@ -103,14 +90,10 @@ async function loadAll() {
     }
 
     populateQuoteCurrencySelect();
-    const activeSection = sessionStorage.getItem('et_section') || 'dashboard';
-    showSection(activeSection);
-    // Refresh background sections so balances and Net Worth are never stale
-    // regardless of which tab the user is on. Sections are hidden so no jank.
-    if (activeSection !== 'accounts')   renderAccounts();
-    if (activeSection !== 'dashboard')  renderDashboard();
+    showSection(sessionStorage.getItem('et_section') || 'dashboard');
 
   } catch (_) {
+    console.error('[main] loadAll failed:', _);
     showMsg('Connection error — check your internet and reload.', 'warn');
   } finally {
     hideLoading();
@@ -163,15 +146,11 @@ async function init() {
   el('quoteCurrencySelect')?.addEventListener('change', e => {
     state.quoteCurrency = e.target.value;
     localStorage.setItem('et_quote_currency', state.quoteCurrency);
-    const active = sessionStorage.getItem('et_section') || 'dashboard';
-    if (active === 'dashboard')    renderDashboard();
-    if (active === 'transactions') renderTransactions();
-    if (active === 'accounts')     renderAccounts();
+    showSection(sessionStorage.getItem('et_section') || 'dashboard');
   });
 
   // Reload events — fired by mutations instead of calling loadAll directly
   document.addEventListener('et:reload', loadAll);
-  document.addEventListener('subscriptions:reload', loadAll);
 
   // Config check
   if (window.__configMissing) {

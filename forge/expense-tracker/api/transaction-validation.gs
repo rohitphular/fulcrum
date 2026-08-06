@@ -81,7 +81,7 @@ function _findCategoryHints(type, major, minor) {
   const sheet  = getOrCreateSheet(CATEGORIES_SHEET, getCategorySheetColumns());
   const values = sheet.getDataRange().getValues();
   const ci = {
-    type:         catColIndex('transaction_type'),
+    type:         catColIndex('tx_type'),
     major:        catColIndex('major_category'),
     minor:        catColIndex('minor_category'),
     src:          catColIndex('source_account_types'),
@@ -92,7 +92,7 @@ function _findCategoryHints(type, major, minor) {
   };
   for (let i = 1; i < values.length; i++) {
     if (values[i][ci.type] === type && values[i][ci.major] === major && values[i][ci.minor] === minor) {
-      var toBool = function(v) { return v === true || String(v).toLowerCase() === 'true'; };
+      const toBool = function(v) { return v === true || String(v).toLowerCase() === 'true'; };
       return {
         source_account_types:      String(values[i][ci.src]          || '').trim(),
         target_account_types:      String(values[i][ci.dst]          || '').trim(),
@@ -145,7 +145,7 @@ function validateFxRate(sourceAccount, targetAccount, fxRate) {
   const fromCcy = accountCurrencyMap[sourceAccount];
   const toCcy   = accountCurrencyMap[targetAccount];
   if (fromCcy && toCcy && fromCcy !== toCcy && fxRate <= 0) {
-    return { ok: false, error: `FX rate required for ${fromCcy} → ${toCcy} transaction.` };
+    return { ok: false, error: 'fx_rate_required' };
   }
   return { ok: true };
 }

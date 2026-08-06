@@ -14,6 +14,7 @@ export async function loadAccountSchema() {
     localStorage.setItem(ACCT_CACHE_KEY, JSON.stringify(res.data));
     return res.data;
   }
+  console.warn('[schema] account schema fetch failed:', res?.error);
   return null;
 }
 
@@ -27,6 +28,7 @@ export async function loadTransactionSchema() {
     localStorage.setItem(TX_CACHE_KEY, JSON.stringify(res.data));
     return res.data;
   }
+  console.warn('[schema] transaction schema fetch failed:', res?.error);
   return null;
 }
 
@@ -40,5 +42,6 @@ export async function loadCategorySchema() {
     localStorage.setItem(CAT_CACHE_KEY, JSON.stringify(res.data));
     return res.data;
   }
+  console.warn('[schema] category schema fetch failed:', res?.error);
   return null;
 }

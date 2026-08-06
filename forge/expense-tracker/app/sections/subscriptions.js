@@ -24,24 +24,19 @@ const DOW_LABELS = [
 
 // ── Category helpers ──────────────────────────────────────────────────────────
 
-const TX_TYPES = [
-  { value: 'money-out',      label: 'Money out'      },
-  { value: 'money-in',       label: 'Money in'       },
-  { value: 'money-transfer', label: 'Money transfer' },
-];
-
-function _txTypeOpts(selectedVal = '') {
+function _txTypeOpts(selected = '') {
+  const types = state.transactionSchema?.types ?? ['money-in', 'money-out', 'money-transfer'];
   return `<option value="">— select —</option>` +
-    TX_TYPES.map(t => {
-      const sel = selectedVal === t.value ? 'selected' : '';
-      return `<option value="${esc(t.value)}" ${sel}>${esc(t.label)}</option>`;
+    types.map(t => {
+      const v = typeof t === 'string' ? t : t.value;
+      return `<option value="${esc(v)}"${v === selected ? ' selected' : ''}>${esc(v)}</option>`;
     }).join('');
 }
 
 function _majorOpts(txType, selectedVal = '') {
   if (!txType) return `<option value="">— select type first —</option>`;
   const cats = state.categories.filter(c =>
-    c.is_subscription_eligible === true && c.transaction_type === txType
+    c.is_subscription_eligible === true && c.tx_type === txType
   );
   const seen = new Map();
   cats.forEach(c => {
@@ -62,7 +57,7 @@ function _majorOpts(txType, selectedVal = '') {
 function _minorOpts(txType, major, selectedVal = '') {
   if (!major) return `<option value="">— select major first —</option>`;
   const cats = state.categories.filter(c =>
-    c.is_subscription_eligible === true && c.transaction_type === txType && c.major_category === major
+    c.is_subscription_eligible === true && c.tx_type === txType && c.major_category === major
   );
   return `<option value="">— select —</option>` +
     cats.map(c => {
@@ -100,20 +95,20 @@ function _dayFieldHtml(frequency, dayVal = '') {
 // ── Form HTML ─────────────────────────────────────────────────────────────────
 
 function _renderForm(sub = null) {
-  const p      = state.subPrefill || {};
+  const p      = state.subPrefill;   // null when opening a fresh form; non-null when subscribing from a tx
   const isEdit = sub !== null;
 
-  const nameVal        = isEdit ? (sub.name             || '') : (p.name              || '');
-  const cpVal          = isEdit ? (sub.counterparty_name || '') : (p.counterparty_name || '');
-  const amountVal      = isEdit ? (sub.amount            || '') : (p.amount            || '');
-  const currencyVal    = isEdit ? (sub.currency          || '') : (p.currency          || '');
-  const freqVal        = isEdit ? (sub.frequency         || 'monthly') : (p.frequency || 'monthly');
-  const srcAccVal      = isEdit ? (sub.source_account    || '') : (p.source_account   || '');
-  const txTypeVal      = isEdit ? (sub.transaction_type  || '') : (p.transaction_type || '');
-  const majorVal       = isEdit ? (sub.major_category    || '') : (p.major_category   || '');
-  const minorVal       = isEdit ? (sub.minor_category    || '') : (p.minor_category   || '');
-  const tagsVal        = isEdit ? (String(sub.tags       || '').replace(/;/g, ', ')) : (String(p.tags || '').replace(/;/g, ', '));
-  const notesVal       = isEdit ? (sub.notes             || '') : '';
+  const nameVal        = isEdit ? (sub.name             || '') : (p ? (p.name              ?? 'FAILURE') : '');
+  const cpVal          = isEdit ? (sub.counterparty_name || '') : (p ? (p.counterparty_name ?? 'FAILURE') : '');
+  const amountVal      = isEdit ? (sub.amount            || '') : (p ? (p.amount            ?? 'FAILURE') : '');
+  const currencyVal    = isEdit ? (sub.currency          || '') : (p ? (p.currency          ?? 'FAILURE') : '');
+  const freqVal        = isEdit ? (sub.frequency         || 'monthly') : (p ? (p.frequency  ?? 'monthly') : 'monthly');
+  const srcAccVal      = isEdit ? (sub.source_account    || '') : (p ? (p.source_account    ?? 'FAILURE') : '');
+  const txTypeVal      = isEdit ? (sub.tx_type  || '') : (p ? (p.tx_type  ?? 'FAILURE') : '');
+  const majorVal       = isEdit ? (sub.major_category    || '') : (p ? (p.major_category    ?? 'FAILURE') : '');
+  const minorVal       = isEdit ? (sub.minor_category    || '') : (p ? (p.minor_category    ?? 'FAILURE') : '');
+  const tagsVal        = isEdit ? (String(sub.tags       || '').replace(/;/g, ', ')) : (p ? String(p.tags ?? '').replace(/;/g, ', ') : '');
+  const descriptionVal = isEdit ? (sub.description        || '') : '';
   const dayVal         = isEdit ? (sub.day_of_week || sub.day_of_month || '') : '';
 
   const freqOpts = FREQUENCIES.map(f =>
@@ -184,8 +179,8 @@ function _renderForm(sub = null) {
         <input type="text" id="subTags" value="${esc(tagsVal)}" placeholder="streaming, entertainment">
       </div>
       <div class="field form-grid-span-4">
-        <label for="subNotes">Notes</label>
-        <input type="text" id="subNotes" value="${esc(notesVal)}" placeholder="Optional note">
+        <label for="subDescription">Notes</label>
+        <input type="text" id="subDescription" value="${esc(descriptionVal)}" placeholder="Optional note">
       </div>
       ${isEdit ? `
       <div class="field form-grid-span-4">
@@ -484,11 +479,11 @@ function _collectForm() {
     day_of_week:       dayOfWeek,
     day_of_month:      dayOfMonth,
     source_account:    el('subSourceAccount')?.value   || '',
-    transaction_type:  el('subTxType')?.value          || '',
+    tx_type:           el('subTxType')?.value          || '',
     major_category:    el('subMajor')?.value           || '',
     minor_category:    el('subMinor')?.value           || '',
     tags:              (el('subTags')?.value           || '').trim(),
-    notes:             (el('subNotes')?.value          || '').trim(),
+    description:       (el('subDescription')?.value     || '').trim(),
   };
 }
 
@@ -528,13 +523,16 @@ async function _saveAdd() {
       showMsg('Subscription added.');
       state.subAddOpen = false;
       state.subPrefill = null;
-      document.dispatchEvent(new CustomEvent('subscriptions:reload'));
+      document.dispatchEvent(new CustomEvent('et:reload'));
     } else if (res.error === 'duplicate_subscription') {
+      console.warn('[subscriptions] _saveAdd failed:', res?.error);
       if (errEl) errEl.textContent = 'A subscription with this name already exists.';
     } else {
+      console.warn('[subscriptions] _saveAdd failed:', res?.error);
       if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
     }
-  } catch (_) {
+  } catch (err) {
+    console.warn('[subscriptions] _saveAdd failed:', err);
     if (errEl) errEl.textContent = 'Connection error.';
   } finally {
     hideLoading();
@@ -568,11 +566,13 @@ async function _saveEdit(row) {
     if (res.ok) {
       showMsg('Subscription updated.');
       state.subEditRow = null;
-      document.dispatchEvent(new CustomEvent('subscriptions:reload'));
+      document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
+      console.warn('[subscriptions] _saveEdit failed:', res?.error);
       if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
     }
-  } catch (_) {
+  } catch (err) {
+    console.warn('[subscriptions] _saveEdit failed:', err);
     if (errEl) errEl.textContent = 'Connection error.';
   } finally {
     hideLoading();
@@ -595,20 +595,22 @@ async function _toggle(row) {
       day_of_month:     sub.day_of_month || '',
       day_of_week:      sub.day_of_week  || '',
       source_account:   sub.source_account || '',
-      transaction_type: sub.transaction_type || '',
+      tx_type:          sub.tx_type || '',
       major_category:   sub.major_category || '',
       minor_category:   sub.minor_category || '',
       tags:             sub.tags || '',
-      notes:            sub.notes || '',
+      description:      sub.description || '',
       is_active:        newActive,
     });
     if (res.ok) {
       showMsg(newActive ? 'Subscription resumed.' : 'Subscription paused.');
-      document.dispatchEvent(new CustomEvent('subscriptions:reload'));
+      document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
+      console.warn('[subscriptions] _toggle failed:', res?.error);
       showMsg('Update failed: ' + (res.error || 'unknown'), 'warn');
     }
-  } catch (_) {
+  } catch (err) {
+    console.warn('[subscriptions] _toggle failed:', err);
     showMsg('Connection error.', 'warn');
   } finally {
     hideLoading();
@@ -622,13 +624,15 @@ async function _confirmDelete(row) {
     if (res.ok) {
       showMsg('Subscription deleted.');
       state.subDeleteRow = null;
-      document.dispatchEvent(new CustomEvent('subscriptions:reload'));
+      document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
+      console.warn('[subscriptions] _confirmDelete failed:', res?.error);
       showMsg('Delete failed: ' + (res.error || 'unknown'), 'warn');
       state.subDeleteRow = null;
       renderSubscriptions();
     }
-  } catch (_) {
+  } catch (err) {
+    console.warn('[subscriptions] _confirmDelete failed:', err);
     showMsg('Connection error.', 'warn');
     state.subDeleteRow = null;
     renderSubscriptions();

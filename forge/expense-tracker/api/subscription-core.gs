@@ -3,12 +3,12 @@
 // =============================================================================
 
 function listSubscriptions() {
-  var cols  = getSubscriptionSheetColumns();
-  var sheet = getOrCreateSheet(SUBSCRIPTIONS_SHEET, cols);
-  var rows  = sheetToObjectsWithRow(sheet);
+  const cols  = getSubscriptionSheetColumns();
+  const sheet = getOrCreateSheet(SUBSCRIPTIONS_SHEET, cols);
+  const rows  = sheetToObjectsWithRow(sheet);
 
   rows.forEach(function(row) {
-    var isActive = row.is_active === true || row.is_active === 'true' || row.is_active === 'TRUE';
+    const isActive = row.is_active === true || row.is_active === 'true' || row.is_active === 'TRUE';
     if (!isActive) {
       row.next_payment_date = '';
       return;
@@ -24,29 +24,29 @@ function listSubscriptions() {
 }
 
 function createSubscription(body) {
-  var validation = validateSubscriptionCreate(body);
+  const validation = validateSubscriptionCreate(body);
   if (!validation.ok) return validation;
 
-  var cols  = getSubscriptionSheetColumns();
-  var sheet = getOrCreateSheet(SUBSCRIPTIONS_SHEET, cols);
+  const cols  = getSubscriptionSheetColumns();
+  const sheet = getOrCreateSheet(SUBSCRIPTIONS_SHEET, cols);
 
   // Duplicate guard — reject if a subscription with the same name already exists
-  var nameColIdx   = subColIndex('name');
-  var existingRows = sheet.getDataRange().getValues();
-  var normName     = String(body.name).trim().toLowerCase();
-  for (var i = 1; i < existingRows.length; i++) {
+  const nameColIdx   = subColIndex('name');
+  const existingRows = sheet.getDataRange().getValues();
+  const normName     = String(body.name).trim().toLowerCase();
+  for (let i = 1; i < existingRows.length; i++) {
     if (String(existingRows[i][nameColIdx] || '').trim().toLowerCase() === normName) {
       return { ok: false, error: 'duplicate_subscription' };
     }
   }
 
-  var id  = generateSubscriptionId(sheet);
-  var now = new Date().toISOString();
+  const id  = generateSubscriptionId(sheet);
+  const now = new Date().toISOString();
 
-  var row = new Array(cols.length).fill('');
+  const row = new Array(cols.length).fill('');
 
   function setCol(key, value) {
-    var field = getSubscriptionSchemaField(key);
+    const field = getSubscriptionSchemaField(key);
     if (field) row[field.sheet_column_position - 1] = (value === undefined || value === null) ? '' : value;
   }
 
@@ -63,9 +63,9 @@ function createSubscription(body) {
   setCol('minor_category',   String(body.minor_category || '').trim());
   setCol('tags',             normaliseTags(body.tags || ''));
   setCol('is_active',        true);
-  setCol('notes',            String(body.notes || '').trim());
+  setCol('description',      String(body.description || '').trim());
   setCol('created_at',       now);
-  setCol('transaction_type', String(body.transaction_type || '').trim());
+  setCol('tx_type',          String(body.tx_type || '').trim());
 
   sheet.appendRow(row);
   return { ok: true, id: id };
@@ -75,17 +75,17 @@ function createSubscriptionsBulk(body) {
   if (!Array.isArray(body.subscriptions) || body.subscriptions.length === 0)
     return { ok: false, error: 'missing_subscriptions' };
 
-  var results = [];
+  const results = [];
   body.subscriptions.forEach(function(sub) {
-    var subBody = {};
+    const subBody = {};
     Object.keys(sub).forEach(function(k) { subBody[k] = sub[k]; });
     subBody.pin = body.pin;
-    var r = createSubscription(subBody);
+    const r = createSubscription(subBody);
     results.push({ name: sub.name || '', ok: r.ok, error: r.error || null, id: r.id || null });
   });
 
-  var failed  = results.filter(function(r) { return !r.ok && r.error !== 'duplicate_subscription'; });
-  var skipped = results.filter(function(r) { return r.error === 'duplicate_subscription'; });
+  const failed  = results.filter(function(r) { return !r.ok && r.error !== 'duplicate_subscription'; });
+  const skipped = results.filter(function(r) { return r.error === 'duplicate_subscription'; });
   return {
     ok:      failed.length === 0,
     created: results.length - failed.length - skipped.length,
@@ -96,17 +96,17 @@ function createSubscriptionsBulk(body) {
 }
 
 function updateSubscription(body) {
-  var validation = validateSubscriptionUpdate(body);
+  const validation = validateSubscriptionUpdate(body);
   if (!validation.ok) return validation;
 
-  var cols    = getSubscriptionSheetColumns();
-  var sheet   = getOrCreateSheet(SUBSCRIPTIONS_SHEET, cols);
-  var rowNum  = Number(body.row_num);
-  var lastRow = sheet.getLastRow();
+  const cols    = getSubscriptionSheetColumns();
+  const sheet   = getOrCreateSheet(SUBSCRIPTIONS_SHEET, cols);
+  const rowNum  = Number(body.row_num);
+  const lastRow = sheet.getLastRow();
   if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
 
   function writeField(key, value) {
-    var field = getSubscriptionSchemaField(key);
+    const field = getSubscriptionSchemaField(key);
     if (!field || !field.editable) return;
     sheet.getRange(rowNum, field.sheet_column_position).setValue(value);
   }
@@ -123,8 +123,8 @@ function updateSubscription(body) {
   writeField('minor_category',   String(body.minor_category || '').trim());
   writeField('tags',             normaliseTags(body.tags || ''));
   writeField('is_active',        body.is_active === true || body.is_active === 'true');
-  writeField('notes',            String(body.notes || '').trim());
-  writeField('transaction_type', String(body.transaction_type || '').trim());
+  writeField('description',      String(body.description || '').trim());
+  writeField('tx_type',          String(body.tx_type || '').trim());
 
   return { ok: true };
 }
@@ -132,10 +132,10 @@ function updateSubscription(body) {
 function deleteSubscription(body) {
   if (!body.row_num) return { ok: false, error: 'missing_row_num' };
 
-  var cols    = getSubscriptionSheetColumns();
-  var sheet   = getOrCreateSheet(SUBSCRIPTIONS_SHEET, cols);
-  var rowNum  = Number(body.row_num);
-  var lastRow = sheet.getLastRow();
+  const cols    = getSubscriptionSheetColumns();
+  const sheet   = getOrCreateSheet(SUBSCRIPTIONS_SHEET, cols);
+  const rowNum  = Number(body.row_num);
+  const lastRow = sheet.getLastRow();
   if (rowNum < 2 || rowNum > lastRow) return { ok: false, error: 'invalid_row' };
 
   sheet.deleteRow(rowNum);

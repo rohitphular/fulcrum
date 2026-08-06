@@ -4,7 +4,7 @@
 // =============================================================================
 
 function validateAccountCreate(body) {
-  var type = String(body.type || '').trim();
+  const type = String(body.type || '').trim();
   if (VALID_ACCOUNT_TYPES.indexOf(type) === -1) {
     return { ok: false, error: 'invalid_account_type' };
   }
@@ -12,11 +12,11 @@ function validateAccountCreate(body) {
   if (!String(body.currency || '').trim()) return { ok: false, error: 'missing_currency' };
 
   // sub_type is required for all account types
-  var subType = String(body.sub_type || '').trim();
+  const subType = String(body.sub_type || '').trim();
   if (!subType) return { ok: false, error: 'missing_sub_type' };
 
   // sub_type must be from the correct set for the given type
-  var validSubTypes =
+  const validSubTypes =
     type === 'asset'      ? ASSET_SUB_TYPES :
     type === 'investment' ? INVESTMENT_SUB_TYPES :
     type === 'liability'  ? LIABILITY_SUB_TYPES : [];
@@ -33,9 +33,9 @@ function validateAccountUpdate(body, currentType) {
   if (!String(body.name || '').trim()) return { ok: false, error: 'missing_name' };
 
   // Reject attempts to send immutable fields
-  var fields = getFieldsForAccountType(currentType);
-  for (var i = 0; i < fields.length; i++) {
-    var field = fields[i];
+  const fields = getFieldsForAccountType(currentType);
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i];
     if (!field.editable && field.key !== 'row_num' && body[field.key] !== undefined) {
       return { ok: false, error: 'field_not_editable:' + field.key };
     }

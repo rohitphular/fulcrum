@@ -270,23 +270,23 @@ async function _saveNewRate() {
   if (!rate || rate <= 0) { errEl.textContent = 'Rate must be a positive number.'; return; }
 
   const saveBtn = el('rateSaveNew');
-  saveBtn.style.opacity = '.4'; saveBtn.style.pointerEvents = 'none'; saveBtn.textContent = 'Saving…';
+  saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
   showLoading();
   try {
     const res = await ExpenseAPI.upsertRate({ currency, symbol, rate });
     if (res.ok) {
-      state.rates.push({ currency, symbol, rate, updated_at: new Date().toISOString() });
-      state.rateMap[currency] = rate;
       state.rateAddOpen = false;
       showMsg('Currency added.');
-      renderRates();
+      document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
+      console.warn('[rates] _saveNewRate failed:', res?.error);
       errEl.textContent = 'Failed: ' + (res.error || 'unknown');
-      saveBtn.style.opacity = ''; saveBtn.style.pointerEvents = ''; saveBtn.textContent = 'Save';
+      saveBtn.disabled = false; saveBtn.textContent = 'Save';
     }
   } catch (_) {
+    console.warn('[rates] _saveNewRate failed:', _);
     errEl.textContent = 'Connection error.';
-    saveBtn.style.opacity = ''; saveBtn.style.pointerEvents = ''; saveBtn.textContent = 'Save';
+    saveBtn.disabled = false; saveBtn.textContent = 'Save';
   } finally {
     hideLoading();
   }
@@ -305,24 +305,23 @@ async function _saveEdit(currency) {
   }
 
   const saveBtn = el('rateSaveEdit');
-  if (saveBtn) { saveBtn.style.opacity = '.4'; saveBtn.style.pointerEvents = 'none'; saveBtn.textContent = 'Saving…'; }
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
   showLoading();
   try {
     const res = await ExpenseAPI.upsertRate({ currency, rate: rateVal, symbol: symbolVal });
     if (res.ok) {
-      const r = state.rates.find(r => r.currency === currency);
-      if (r) { r.rate = rateVal; r.symbol = symbolVal; r.updated_at = new Date().toISOString(); }
-      state.rateMap[currency] = rateVal;
-      state.rateEditCurrency  = null;
+      state.rateEditCurrency = null;
       showMsg('Rate updated.');
-      renderRates();
+      document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
+      console.warn('[rates] _saveEdit failed:', res?.error);
       if (errEl) errEl.textContent = 'Failed: ' + (res.error || 'unknown');
-      if (saveBtn) { saveBtn.style.opacity = ''; saveBtn.style.pointerEvents = ''; saveBtn.textContent = 'Save'; }
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
     }
   } catch (_) {
+    console.warn('[rates] _saveEdit failed:', _);
     if (errEl) errEl.textContent = 'Connection error.';
-    if (saveBtn) { saveBtn.style.opacity = ''; saveBtn.style.pointerEvents = ''; saveBtn.textContent = 'Save'; }
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
   } finally {
     hideLoading();
   }
@@ -335,12 +334,10 @@ async function _confirmDelete(currency) {
   try {
     const res = await ExpenseAPI.deleteRate({ currency });
     if (res.ok) {
-      state.rates          = state.rates.filter(r => r.currency !== currency);
-      delete state.rateMap[currency];
       state.rateDeleteCurrency = null;
       state.rateDeleteBlocked  = null;
       showMsg('Currency removed.');
-      renderRates();
+      document.dispatchEvent(new CustomEvent('et:reload'));
     } else if (res.error === 'currency_in_use_by_accounts' || res.error === 'currency_in_use_by_transactions') {
       // T-05: keep the row in delete-confirm state, switch to blocked variant.
       state.rateDeleteBlocked = {
@@ -349,9 +346,11 @@ async function _confirmDelete(currency) {
       };
       renderRates();
     } else {
+      console.warn('[rates] _confirmDelete failed:', res?.error);
       showMsg('Failed: ' + (res.error || 'unknown'), 'warn');
     }
   } catch (_) {
+    console.warn('[rates] _confirmDelete failed:', _);
     showMsg('Connection error.', 'warn');
   } finally {
     hideLoading();

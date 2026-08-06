@@ -44,7 +44,7 @@ function adjustAccountBalance(accountId, delta) {
     sheet.getRange(i + 1, balanceColNum).setValue(current + delta);
     return { ok: true };
   }
-  console.log('adjustAccountBalance: account_not_found id=' + accountId + ' delta=' + delta);
+  console.warn('adjustAccountBalance: account_not_found id=' + accountId + ' delta=' + delta);
   return { ok: false, error: 'account_not_found:' + accountId };
 }
 

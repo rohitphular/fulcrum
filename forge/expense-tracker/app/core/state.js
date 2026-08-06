@@ -1,5 +1,3 @@
-export const VALID_TX_TYPES = ['money-in', 'money-out', 'money-transfer'];
-
 export const state = {
   transactions:  [],
   categories:    [],
@@ -44,12 +42,16 @@ export const state = {
   categorySchema:     null,  // { types, account_types }
 
   accAddOpen:       false,
+  accImportOpen:    false,
   accViewRow:       null,
   accEditRow:       null,
   accDeleteRow:     null,
   accDeleteBlocked: null,   // { referenced_count: N } when deletion is refused — paired with accDeleteRow
 
+  catImportOpen:  false,
+
   txAddOpen:      false,
+  txImportOpen:   false,
   txEditRow:      null,
   txDeleteRow:    null,
   txViewRow:      null,
@@ -72,6 +74,7 @@ export const state = {
 
   subscriptions: [],
   subAddOpen:    false,
+  subViewRow:    null,
   subEditRow:    null,
   subDeleteRow:  null,
   subPrefill:    null,  // { name, counterparty_name, amount, currency, source_account, major_category, minor_category, tags }

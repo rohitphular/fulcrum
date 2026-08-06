@@ -126,8 +126,8 @@ const ACCOUNT_SCHEMA = {
     editable: true,
     default_value: true,
   },
-  notes: {
-    sheet_column_name: 'notes',
+  description: {
+    sheet_column_name: 'description',
     sheet_column_position: 9,
     ui_label: 'Notes',
     type: 'string',
@@ -157,12 +157,12 @@ const ACCOUNT_SCHEMA = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function getAccountSchemaForClient() {
-  var TYPE_LABELS = {
+  const TYPE_LABELS = {
     asset:       'Asset',
     investment:  'Investment',
     liability:   'Liability',
   };
-  var TYPE_GROUPS = {
+  const TYPE_GROUPS = {
     asset:       'asset',
     investment:  'investment',
     liability:   'liability',
@@ -193,7 +193,7 @@ function getAccountSheetColumns() {
 function getFieldsForAccountType(type) {
   return Object.keys(ACCOUNT_SCHEMA)
     .filter(function(key) {
-      var f = ACCOUNT_SCHEMA[key];
+      const f = ACCOUNT_SCHEMA[key];
       return f.applies_to === null || f.applies_to.indexOf(type) !== -1;
     })
     .map(function(key) { return Object.assign({ key: key }, ACCOUNT_SCHEMA[key]); });

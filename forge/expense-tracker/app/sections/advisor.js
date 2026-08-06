@@ -2,11 +2,21 @@
 import { ExpenseAPI } from '../core/api.js';
 import { state } from '../core/state.js';
 import { el, esc } from '../core/utils.js';
-import { showMsg } from '../core/ui.js';
+import { showMsg, showLoading, hideLoading } from '../core/ui.js';
+
+let _clearConfirm = false;
 
 export function renderAdvisor() {
   const content = el('advisorContent');
   if (!content) return;
+
+  const clearArea = _clearConfirm
+    ? `<div class="confirm-strip" id="advisorClearConfirm">
+        <span class="confirm-text">Clear all conversation history?</span>
+        <button class="btn-link danger" id="advisorConfirmClear">Yes, clear</button>
+        <button class="btn-link muted" id="advisorCancelClear">Cancel</button>
+      </div>`
+    : `<button class="advisor-clear-btn" id="advisorClearBtn">Clear history</button>`;
 
   content.innerHTML = `
     <div class="advisor-wrap">
@@ -18,7 +28,7 @@ export function renderAdvisor() {
             <div class="advisor-subtitle">Powered by GPT-4o mini</div>
           </div>
         </div>
-        <button class="advisor-clear-btn" id="advisorClearBtn">Clear history</button>
+        ${clearArea}
       </div>
       <div class="advisor-messages" id="advisorMessages"></div>
       <div class="advisor-input-bar">
@@ -40,17 +50,39 @@ export function renderAdvisor() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendMessage(); }
   });
   el('advisorSendBtn')?.addEventListener('click', _sendMessage);
-  el('advisorClearBtn')?.addEventListener('click', _clearHistory);
+
+  if (_clearConfirm) {
+    el('advisorConfirmClear')?.addEventListener('click', async () => {
+      _clearConfirm = false;
+      await _clearHistory();
+    });
+    el('advisorCancelClear')?.addEventListener('click', () => {
+      _clearConfirm = false;
+      renderAdvisor();
+    });
+  } else {
+    el('advisorClearBtn')?.addEventListener('click', () => {
+      _clearConfirm = true;
+      renderAdvisor();
+    });
+  }
 }
 
 async function _loadHistory() {
+  showLoading();
   try {
     const res = await ExpenseAPI.getAdvisorHistory();
     if (res.ok) {
       state.advisorMessages = res.data || [];
       _renderMessages();
+    } else {
+      console.warn('[advisor] _loadHistory failed:', res.error);
     }
-  } catch (_) {}
+  } catch (err) {
+    console.warn('[advisor] _loadHistory failed:', err);
+  } finally {
+    hideLoading();
+  }
 }
 
 function _renderMessages() {
@@ -112,6 +144,7 @@ async function _sendMessage() {
   const sendBtn = el('advisorSendBtn');
   if (sendBtn) sendBtn.disabled = true;
 
+  showLoading();
   try {
     const res = await ExpenseAPI.advisorChat({ message });
     el('advisorTyping')?.remove();
@@ -120,32 +153,39 @@ async function _sendMessage() {
       state.advisorMessages = [...state.advisorMessages, { role: 'assistant', content: res.content }];
       _renderMessages();
     } else {
+      console.warn('[advisor] _sendMessage failed:', res.error);
       showMsg('Advisor error: ' + (res.error || 'unknown'), 'warn');
       state.advisorMessages = state.advisorMessages.slice(0, -1);
       _renderMessages();
     }
-  } catch (_) {
+  } catch (err) {
     el('advisorTyping')?.remove();
+    console.warn('[advisor] _sendMessage error:', err);
     showMsg('Connection error — could not reach the advisor.', 'warn');
     state.advisorMessages = state.advisorMessages.slice(0, -1);
     _renderMessages();
   } finally {
+    hideLoading();
     if (sendBtn) sendBtn.disabled = false;
     input.focus();
   }
 }
 
 async function _clearHistory() {
-  if (!confirm('Clear all advisor conversation history?')) return;
+  showLoading();
   try {
     const res = await ExpenseAPI.clearAdvisorHistory();
     if (res.ok) {
       state.advisorMessages = [];
       _renderMessages();
     } else {
+      console.warn('[advisor] _clearHistory failed:', res.error);
       showMsg('Failed to clear history', 'warn');
     }
-  } catch (_) {
+  } catch (err) {
+    console.warn('[advisor] _clearHistory error:', err);
     showMsg('Connection error', 'warn');
+  } finally {
+    hideLoading();
   }
 }

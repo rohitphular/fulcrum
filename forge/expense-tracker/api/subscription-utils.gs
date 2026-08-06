@@ -4,18 +4,18 @@
 // =============================================================================
 
 function generateSubscriptionId(sheet) {
-  var now     = new Date();
-  var year    = now.getUTCFullYear();
-  var month   = String(now.getUTCMonth() + 1).padStart(2, '0');
-  var day     = String(now.getUTCDate()).padStart(2, '0');
-  var dateStr = year + '' + month + '' + day;
-  var prefix  = 'SUB-' + dateStr + '-';
-  var values  = sheet.getDataRange().getValues();
-  var max     = 0;
-  for (var i = 1; i < values.length; i++) {
-    var id = String(values[i][0]);
+  const now     = new Date();
+  const year    = now.getUTCFullYear();
+  const month   = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const day     = String(now.getUTCDate()).padStart(2, '0');
+  const dateStr = year + '' + month + '' + day;
+  const prefix  = 'SUB-' + dateStr + '-';
+  const values  = sheet.getDataRange().getValues();
+  let max     = 0;
+  for (let i = 1; i < values.length; i++) {
+    const id = String(values[i][0]);
     if (id.indexOf(prefix) === 0) {
-      var n = parseInt(id.slice(prefix.length), 10);
+      const n = parseInt(id.slice(prefix.length), 10);
       if (!isNaN(n) && n > max) max = n;
     }
   }
@@ -35,14 +35,14 @@ function generateSubscriptionId(sheet) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function computeNextPaymentDate(frequency, dayOfMonth, dayOfWeek) {
-  var today = new Date();
+  const today = new Date();
   // Work with year/month/day in local time throughout.
-  var todayYear  = today.getFullYear();
-  var todayMonth = today.getMonth();   // 0-based
-  var todayDay   = today.getDate();    // 1-based
+  const todayYear  = today.getFullYear();
+  const todayMonth = today.getMonth();   // 0-based
+  const todayDay   = today.getDate();    // 1-based
 
   // Default to day 1 when day_of_month is missing or invalid (0, NaN, empty).
-  var dom = Number(dayOfMonth) || 1;
+  const dom = Number(dayOfMonth) || 1;
 
   if (frequency === 'weekly') {
     return _nextWeeklyDate(todayYear, todayMonth, todayDay, Number(dayOfWeek));
@@ -67,10 +67,10 @@ function computeNextPaymentDate(frequency, dayOfMonth, dayOfWeek) {
 // from today inclusive.
 function _nextWeeklyDate(year, month, day, dayOfWeek) {
   // JS getDay(): 0=Sun, 1=Mon … 6=Sat  →  map to 1=Mon…7=Sun
-  var d = new Date(year, month, day);
-  var jsDay  = d.getDay();                       // 0=Sun
-  var target = dayOfWeek === 7 ? 0 : dayOfWeek; // convert 7(Sun)→0
-  var diff   = (target - jsDay + 7) % 7;        // days until next occurrence
+  const d = new Date(year, month, day);
+  const jsDay  = d.getDay();                       // 0=Sun
+  const target = dayOfWeek === 7 ? 0 : dayOfWeek; // convert 7(Sun)→0
+  const diff   = (target - jsDay + 7) % 7;        // days until next occurrence
   d.setDate(day + diff);
   return _isoDate(d);
 }
@@ -81,11 +81,11 @@ function _nextWeeklyDate(year, month, day, dayOfWeek) {
 // Clamps target day to the last day of any shorter month.
 function _nextCycleDate(year, month, day, dayOfMonth, stepMonths) {
   // Compare all candidates against today — not against today's day in the walk month.
-  var todayRef  = new Date(year, month, day);
-  var candidate = _clampedDate(year, month, dayOfMonth);
+  const todayRef  = new Date(year, month, day);
+  let candidate = _clampedDate(year, month, dayOfMonth);
   if (candidate >= todayRef) return _isoDate(candidate);
   // Walk forward in stepMonths increments until we find a future-or-today occurrence.
-  for (var i = 0; i < 100; i++) {
+  for (let i = 0; i < 100; i++) {
     month += stepMonths;
     if (month > 11) {
       year  += Math.floor(month / 12);
@@ -100,20 +100,20 @@ function _nextCycleDate(year, month, day, dayOfMonth, stepMonths) {
 // Returns a Date clamped to the last day of the month when dayOfMonth exceeds
 // the month's length (e.g. day 31 in April → April 30).
 function _clampedDate(year, month, dayOfMonth) {
-  var lastDay = new Date(year, month + 1, 0).getDate();
+  const lastDay = new Date(year, month + 1, 0).getDate();
   return new Date(year, month, Math.min(dayOfMonth, lastDay));
 }
 
 // True when date d is on or after the calendar day (year, month, day).
 function _dateGte(d, year, month, day) {
-  var ref = new Date(year, month, day);
+  const ref = new Date(year, month, day);
   return d >= ref;
 }
 
 // YYYY-MM-DD from a local Date object.
 function _isoDate(d) {
-  var y  = d.getFullYear();
-  var m  = String(d.getMonth() + 1).padStart(2, '0');
-  var dd = String(d.getDate()).padStart(2, '0');
+  const y  = d.getFullYear();
+  const m  = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
   return y + '-' + m + '-' + dd;
 }

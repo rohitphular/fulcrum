@@ -7,7 +7,7 @@
 const VALID_FREQUENCIES = ['weekly', 'monthly', 'quarterly', 'annual'];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Schema — 15 core fields in column-position order
+// Schema — 16 fields in column-position order
 // Column positions are append-only — never change an existing position.
 // ─────────────────────────────────────────────────────────────────────────────
 const SUBSCRIPTION_SCHEMA = {
@@ -120,9 +120,21 @@ const SUBSCRIPTION_SCHEMA = {
     editable: true,
     default_value: null,
   },
+  tx_type: {
+    sheet_column_name: 'tx_type',
+    sheet_column_position: 10,
+    ui_label: 'Type',
+    type: 'enum',
+    enum_values: ['money-in', 'money-out', 'money-transfer'],
+    group: 'core',
+    applies_to: null,
+    required_for: [],
+    editable: true,
+    default_value: '',
+  },
   major_category: {
     sheet_column_name: 'major_category',
-    sheet_column_position: 10,
+    sheet_column_position: 11,
     ui_label: 'Major Category',
     type: 'string',
     enum_values: null,
@@ -134,7 +146,7 @@ const SUBSCRIPTION_SCHEMA = {
   },
   minor_category: {
     sheet_column_name: 'minor_category',
-    sheet_column_position: 11,
+    sheet_column_position: 12,
     ui_label: 'Minor Category',
     type: 'string',
     enum_values: null,
@@ -146,7 +158,7 @@ const SUBSCRIPTION_SCHEMA = {
   },
   tags: {
     sheet_column_name: 'tags',
-    sheet_column_position: 12,
+    sheet_column_position: 13,
     ui_label: 'Tags',
     type: 'string',
     enum_values: null,
@@ -158,7 +170,7 @@ const SUBSCRIPTION_SCHEMA = {
   },
   is_active: {
     sheet_column_name: 'is_active',
-    sheet_column_position: 13,
+    sheet_column_position: 14,
     ui_label: 'Status',
     type: 'boolean',
     enum_values: null,
@@ -168,9 +180,9 @@ const SUBSCRIPTION_SCHEMA = {
     editable: true,
     default_value: true,
   },
-  notes: {
-    sheet_column_name: 'notes',
-    sheet_column_position: 14,
+  description: {
+    sheet_column_name: 'description',
+    sheet_column_position: 15,
     ui_label: 'Notes',
     type: 'string',
     enum_values: null,
@@ -182,7 +194,7 @@ const SUBSCRIPTION_SCHEMA = {
   },
   created_at: {
     sheet_column_name: 'created_at',
-    sheet_column_position: 15,
+    sheet_column_position: 16,
     ui_label: 'Created At',
     type: 'string',
     enum_values: null,
@@ -191,18 +203,6 @@ const SUBSCRIPTION_SCHEMA = {
     required_for: [],
     editable: false,
     default_value: null,
-  },
-  transaction_type: {
-    sheet_column_name: 'transaction_type',
-    sheet_column_position: 16,
-    ui_label: 'Transaction Type',
-    type: 'enum',
-    enum_values: ['money-in', 'money-out', 'money-transfer'],
-    group: 'core',
-    applies_to: null,
-    required_for: [],
-    editable: true,
-    default_value: '',
   },
 };
 

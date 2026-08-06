@@ -215,20 +215,10 @@ const TRANSACTION_SCHEMA = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TRANSACTION_COLUMNS — derived, not hardcoded; kept for backward compat with
-// any code that still references it by name.
-// ─────────────────────────────────────────────────────────────────────────────
-const TRANSACTION_COLUMNS = (function() {
-  return Object.values(TRANSACTION_SCHEMA)
-    .sort(function(a, b) { return a.sheet_column_position - b.sheet_column_position; })
-    .map(function(f) { return f.sheet_column_name; });
-})();
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Client payload — serialised subset returned by get_transaction_schema
 // ─────────────────────────────────────────────────────────────────────────────
 function getTransactionSchemaForClient() {
-  var TYPE_LABELS = {
+  const TYPE_LABELS = {
     'money-in':       'Money In',
     'money-out':      'Money Out',
     'money-transfer': 'Transfer',
@@ -241,7 +231,7 @@ function getTransactionSchemaForClient() {
       return TRANSACTION_SCHEMA[key].group === 'categorisation';
     }),
     transfer_fields: Object.keys(TRANSACTION_SCHEMA).filter(function(key) {
-      var f = TRANSACTION_SCHEMA[key];
+      const f = TRANSACTION_SCHEMA[key];
       return f.group === 'transfer' && f.editable;
     }),
   };
@@ -262,7 +252,7 @@ function getTransactionSheetColumns() {
 function getFieldsForTransactionType(type) {
   return Object.keys(TRANSACTION_SCHEMA)
     .filter(function(key) {
-      var f = TRANSACTION_SCHEMA[key];
+      const f = TRANSACTION_SCHEMA[key];
       return f.applies_to === null || f.applies_to.indexOf(type) !== -1;
     })
     .map(function(key) { return Object.assign({ key: key }, TRANSACTION_SCHEMA[key]); });

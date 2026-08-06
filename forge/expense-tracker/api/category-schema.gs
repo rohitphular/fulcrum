@@ -7,13 +7,13 @@
 // =============================================================================
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Schema — 14 fields in column-position order
+// Schema — 13 fields in column-position order
 // ─────────────────────────────────────────────────────────────────────────────
 const CATEGORY_SCHEMA = {
 
   // ── Core (columns 1–5, all types) ─────────────────────────────────────────
-  transaction_type: {
-    sheet_column_name: 'transaction_type',
+  tx_type: {
+    sheet_column_name: 'tx_type',
     sheet_column_position: 1,
     ui_label: 'Type',
     type: 'enum',
@@ -133,20 +133,10 @@ const CATEGORY_SCHEMA = {
     default_value:         false,
   },
 
-  // ── Meta (columns 12–14) ─────────────────────────────────────────────────
-  sort_order: {
-    sheet_column_name: 'sort_order',
-    sheet_column_position: 12,
-    ui_label: 'Sort order',
-    type: 'number',
-    enum_values: null,
-    group: 'meta',
-    editable: true,
-    default_value: 0,
-  },
+  // ── Meta (columns 12–13) ─────────────────────────────────────────────────
   workflow_type: {
     sheet_column_name: 'workflow_type',
-    sheet_column_position: 13,
+    sheet_column_position: 12,
     ui_label: 'Workflow type',
     type: 'enum',
     enum_values: ['account-credit', 'account-debit', 'funds-transfer', 'forex-transfer', 'debt-repayment'],
@@ -156,7 +146,7 @@ const CATEGORY_SCHEMA = {
   },
   is_subscription_eligible: {
     sheet_column_name:     'is_subscription_eligible',
-    sheet_column_position: 14,
+    sheet_column_position: 13,
     ui_label:              'Subscription eligible',
     type:                  'boolean',
     enum_values:           null,
@@ -172,11 +162,11 @@ const CATEGORY_SCHEMA = {
 function getCategorySchemaForClient() {
   return {
     types: VALID_TRANSACTION_TYPES.map(function(v) {
-      var labels = { 'money-in': 'Money In', 'money-out': 'Money Out', 'money-transfer': 'Transfer' };
+      const labels = { 'money-in': 'Money In', 'money-out': 'Money Out', 'money-transfer': 'Transfer' };
       return { value: v, label: labels[v] || v };
     }),
     account_types: VALID_ACCOUNT_TYPES.map(function(v) {
-      var labels = {
+      const labels = {
         current: 'Current Account', savings: 'Savings Account', cash: 'Cash',
         investment: 'Investment',
         mortgage: 'Mortgage', auto_loan: 'Auto Loan', heloc: 'HELOC',
@@ -184,7 +174,7 @@ function getCategorySchemaForClient() {
         medical_loan: 'Medical Loan', debt_consolidation: 'Debt Consolidation',
         credit_card: 'Credit Card', overdraft: 'Overdraft',
       };
-      var groups = {
+      const groups = {
         current: 'asset', savings: 'asset', cash: 'asset', investment: 'asset',
         mortgage: 'liability', auto_loan: 'liability', heloc: 'liability',
         personal_loan: 'liability', student_loan: 'liability',

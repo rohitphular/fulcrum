@@ -4,18 +4,18 @@
 // =============================================================================
 
 function generateAccountId(sheet) {
-  var now     = new Date();
-  var year    = now.getUTCFullYear();
-  var month   = String(now.getUTCMonth() + 1).padStart(2, '0');
-  var day     = String(now.getUTCDate()).padStart(2, '0');
-  var dateStr = year + '' + month + '' + day;
-  var prefix  = 'ACC-' + dateStr + '-';
-  var values  = sheet.getDataRange().getValues();
-  var max     = 0;
-  for (var i = 1; i < values.length; i++) {
-    var id = String(values[i][0]);
+  const now     = new Date();
+  const year    = now.getUTCFullYear();
+  const month   = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const day     = String(now.getUTCDate()).padStart(2, '0');
+  const dateStr = year + '' + month + '' + day;
+  const prefix  = 'ACC-' + dateStr + '-';
+  const values  = sheet.getDataRange().getValues();
+  let max     = 0;
+  for (let i = 1; i < values.length; i++) {
+    const id = String(values[i][0]);
     if (id.indexOf(prefix) === 0) {
-      var n = parseInt(id.slice(prefix.length), 10);
+      const n = parseInt(id.slice(prefix.length), 10);
       if (!isNaN(n) && n > max) max = n;
     }
   }

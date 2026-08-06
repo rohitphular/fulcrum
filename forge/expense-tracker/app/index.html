@@ -19,9 +19,9 @@
 </script>
 
 <!-- Auth overlay -->
-<div class="overlay hidden" id="pinOverlay">
+<div class="overlay" id="pinOverlay">
   <div class="pin-card">
-    <div class="pin-eyebrow">Expense Tracker</div>
+    <div class="pin-eyebrow">forge · expense tracker</div>
     <h2>Sign in</h2>
     <p>Enter your PIN and the 6-digit code from your authenticator app.</p>
     <div class="pin-field-label">PIN</div>
@@ -44,6 +44,7 @@
   <header class="app-header">
     <div class="app-header-inner">
       <div class="app-brand">
+        <p class="eyebrow">forge · expense tracker</p>
         <h1><span class="brand-dim">Expense</span> <span class="brand-ember">Tracker</span></h1>
       </div>
       <div class="header-controls">
@@ -95,6 +96,7 @@
     <div class="banner hidden" id="msgBanner">
       <span class="ico" id="msgIco">›</span>
       <div id="msgText"></div>
+      <button class="banner-close" id="msgClose" aria-label="Dismiss">×</button>
     </div>
   </div>
 

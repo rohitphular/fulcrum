@@ -1,4 +1,4 @@
-import { state, VALID_TX_TYPES } from '../core/state.js';
+import { state } from '../core/state.js';
 import { el, esc, fmtDateTime, fmtDateTimeCompact, fmtNative, fmtBase, nowLocalISO, toDateInputVal, exportData, getSymbol, localToUtcISO, utcToLocalInput, openContextMenu, closeContextMenu } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { filteredTx } from '../core/daterange.js';
@@ -68,7 +68,7 @@ function _dispatchTxAction(action, row) {
 // Major <option> list for a transaction type.
 // A major is active if at least one of its minors is active.
 function _catMajorOpts(type, selectedVal = '') {
-  const cats = state.categories.filter(c => c.transaction_type === type);
+  const cats = state.categories.filter(c => c.tx_type === type);
   const majors = [...new Map(cats.map(c => {
     const active = cats.some(x => x.major_category === c.major_category && x.is_active === true);
     return [c.major_category, { label: c.major_category, active }];
@@ -84,7 +84,7 @@ function _catMajorOpts(type, selectedVal = '') {
 
 // Minor <option> list for a type + major combo.
 function _catMinorOpts(type, major, selectedVal = '') {
-  const cats = state.categories.filter(c => c.transaction_type === type && c.major_category === major);
+  const cats = state.categories.filter(c => c.tx_type === type && c.major_category === major);
   return `<option value="">— select —</option>` +
     cats.map(c => {
       const sel = selectedVal === c.minor_category ? 'selected' : '';
@@ -99,9 +99,9 @@ function _catMinorOpts(type, major, selectedVal = '') {
 function _getCat(type, major, minor) {
   if (!type || !major || !minor) return null;
   return state.categories.find(c =>
-    c.transaction_type === type &&
-    c.major_category   === major &&
-    c.minor_category   === minor
+    c.tx_type        === type &&
+    c.major_category === major &&
+    c.minor_category === minor
   ) || null;
 }
 
@@ -110,9 +110,9 @@ function _getCat(type, major, minor) {
 function _isCatSubEligible(tx) {
   if (!tx.major_category || !tx.minor_category) return false;
   const cat = state.categories.find(c =>
-    c.transaction_type === tx.tx_type &&
-    c.major_category   === tx.major_category &&
-    c.minor_category   === tx.minor_category
+    c.tx_type        === tx.tx_type &&
+    c.major_category === tx.major_category &&
+    c.minor_category === tx.minor_category
   );
   return cat?.is_subscription_eligible === true;
 }
@@ -184,8 +184,8 @@ export function renderTransactions() {
   const txEl = el('transactionsContent');
   const rows = filteredTx();
 
-  const validRows = rows.filter(tx =>  tx.id && tx.tx_date_time && VALID_TX_TYPES.includes(tx.tx_type));
-  const warnRows  = rows.filter(tx => !tx.id || !tx.tx_date_time || !VALID_TX_TYPES.includes(tx.tx_type));
+  const validRows = rows.filter(tx =>  tx.id && tx.tx_date_time && (state.transactionSchema?.types ?? ['money-in', 'money-out', 'money-transfer']).includes(tx.tx_type));
+  const warnRows  = rows.filter(tx => !tx.id || !tx.tx_date_time || !(state.transactionSchema?.types ?? ['money-in', 'money-out', 'money-transfer']).includes(tx.tx_type));
 
   const viewTx     = state.txViewRow !== null ? validRows.find(tx => tx._row === state.txViewRow) : null;
   const editTx     = state.txEditRow !== null ? validRows.find(tx => tx._row === state.txEditRow) : null;
@@ -246,8 +246,8 @@ export function renderTransactions() {
     reader.onload = ev => {
       const parsed = _parseTxCsv(ev.target.result);
       _txImportParsed = parsed.transactions.length && !parsed.errors.length ? parsed.transactions : null;
-      const preview = el('txImportPreview');
-      if (preview) preview.innerHTML = _renderTxImportPreview(parsed);
+      const status = el('txImportStatus');
+      if (status) status.innerHTML = _renderTxImportStatus(parsed);
       const btn = el('txImportConfirm');
       if (btn) btn.disabled = !_txImportParsed;
     };
@@ -297,7 +297,7 @@ function _renderTxTable(validRows, warnRows) {
   const rowData = paged.map(tx => {
     if (state.txDeleteRow === tx._row) return { tr: _renderTxDeleteRow(tx), card: '' };
 
-    const badgeCls  = tx.tx_type === 'money-in' ? 'badge-in' : tx.tx_type === 'money-out' ? 'badge-out' : 'badge-transfer';
+    const badgeCls  = tx.tx_type === 'money-in' ? 'badge-et-in' : tx.tx_type === 'money-out' ? 'badge-et-out' : 'badge-et-transfer';
     const typeLabel = _txTypeMap()[tx.tx_type] || tx.tx_type;
     const missingRate = !state.rateMap[tx.currency];
     const rowRate     = tx.fx_rate && parseFloat(tx.fx_rate) > 0;
@@ -527,7 +527,7 @@ function _prefillAddForm(p) {
   if (!typeEl) return;
 
   // 1. Type → unlock and populate major
-  typeEl.value = p.tx_type;
+  typeEl.value = p.tx_type ?? 'FAILURE';
   const majorEl = el('afMajor');
   const minorEl = el('afMinor');
   if (p.tx_type) {
@@ -536,35 +536,35 @@ function _prefillAddForm(p) {
     minorEl.disabled  = false;
   }
 
-  // 2. Major → populate minor
+  // 2. Major → populate minor (skip for transfers — legitimately no category)
   if (p.major_category) {
-    majorEl.value    = p.major_category;
+    majorEl.value     = p.major_category;
     minorEl.innerHTML = _catMinorOpts(p.tx_type, p.major_category);
-    if (p.minor_category) minorEl.value = p.minor_category;
+    minorEl.value     = p.minor_category ?? 'FAILURE';
   }
 
   // 3. Refresh source account opts (category-filtered), then set value
   _afRefreshFromAccountOpts();
   const fromEl = el('afFromAccount');
-  if (fromEl && p.source_account) fromEl.value = p.source_account;
+  if (fromEl) fromEl.value = p.source_account ?? 'FAILURE';
 
   // 4. Refresh target account opts, then set value
   _afRefreshToAccountField();
   const toEl = el('afToAccount');
-  if (toEl && p.target_account) toEl.value = p.target_account;
+  if (toEl) toEl.value = p.target_account ?? 'FAILURE';
 
   // 5. Show/hide FX rate field
   _afRefreshFxRateVis();
 
   // 6. Remaining text fields — date stays as nowLocalISO()
-  if (p.amount)               { const f = el('afAmount');       if (f) f.value = p.amount; }
-  if (p.counterparty_name)    { const f = el('afCounterparty'); if (f) f.value = p.counterparty_name; }
-  if (p.tx_location_area)     { const f = el('afArea');         if (f) f.value = p.tx_location_area; }
-  if (p.tx_location_city)     { const f = el('afCity');         if (f) f.value = p.tx_location_city; }
-  if (p.tx_location_country)  { const f = el('afCountry');      if (f) f.value = p.tx_location_country; }
-  if (p.tags)                 { const f = el('afTags');         if (f) f.value = String(p.tags).replace(/;/g, ', '); }
-  if (p.description)          { const f = el('afDescription');  if (f) f.value = p.description; }
-  if (p.fx_rate)              { const f = el('afFxRate');       if (f) { f.value = p.fx_rate; _afUpdateFxPreview(); } }
+  const afAmount  = el('afAmount');      if (afAmount)  afAmount.value  = p.amount              ?? 'FAILURE';
+  const afCp      = el('afCounterparty'); if (afCp)     afCp.value      = p.counterparty_name   ?? 'FAILURE';
+  const afArea    = el('afArea');        if (afArea)    afArea.value    = p.tx_location_area    ?? 'FAILURE';
+  const afCity    = el('afCity');        if (afCity)    afCity.value    = p.tx_location_city    ?? 'FAILURE';
+  const afCountry = el('afCountry');     if (afCountry) afCountry.value = p.tx_location_country ?? 'FAILURE';
+  const afTags    = el('afTags');        if (afTags)    afTags.value    = p.tags !== undefined ? String(p.tags).replace(/;/g, ', ') : 'FAILURE';
+  const afDesc    = el('afDescription'); if (afDesc)    afDesc.value    = p.description         ?? 'FAILURE';
+  if (p.fx_rate !== undefined) { const f = el('afFxRate'); if (f) { f.value = p.fx_rate; _afUpdateFxPreview(); } }
 }
 
 function _attachAddFormEvents() {
@@ -886,10 +886,12 @@ async function _saveTransaction() {
       state.txAddOpen = false;
       document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
+      console.warn('[transactions] _saveTransaction failed:', res?.error);
       errEl.textContent = 'Error: ' + (res.error || 'unknown');
       btn.disabled = false; btn.textContent = 'Save';
     }
-  } catch (_) {
+  } catch (err) {
+    console.warn('[transactions] _saveTransaction failed:', err);
     errEl.textContent = 'Connection error.';
     btn.disabled = false; btn.textContent = 'Save';
   } finally {
@@ -900,7 +902,7 @@ async function _saveTransaction() {
 // ── Transaction view / edit card ──────────────────────────────────────────────
 
 function _renderTxForm(tx, mode) {
-  const badgeCls  = tx.tx_type === 'money-in' ? 'badge-in' : tx.tx_type === 'money-out' ? 'badge-out' : 'badge-transfer';
+  const badgeCls  = tx.tx_type === 'money-in' ? 'badge-et-in' : tx.tx_type === 'money-out' ? 'badge-et-out' : 'badge-et-transfer';
   const typeLabel = _txTypeMap()[tx.tx_type] || tx.tx_type;
   const fromName  = state.accountMap[tx.source_account]?.name || '—';
   const toName    = tx.target_account ? (state.accountMap[tx.target_account]?.name || '—') : 'External';
@@ -1289,9 +1291,11 @@ async function _saveEdit() {
       state.txEditRow = null;
       document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
+      console.warn('[transactions] _saveEdit failed:', res?.error);
       errEl.textContent = 'Error: ' + (res.error || 'unknown');
     }
-  } catch (_) {
+  } catch (err) {
+    console.warn('[transactions] _saveEdit failed:', err);
     errEl.textContent = 'Connection error.';
   } finally {
     hideLoading();
@@ -1307,11 +1311,13 @@ async function _confirmDelete(rowNum) {
       state.txDeleteRow = null;
       document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
+      console.warn('[transactions] _confirmDelete failed:', res?.error);
       showMsg('Delete failed: ' + (res.error || 'unknown'), 'warn');
       state.txDeleteRow = null;
       renderTransactions();
     }
-  } catch (_) {
+  } catch (err) {
+    console.warn('[transactions] _confirmDelete failed:', err);
     showMsg('Connection error.', 'warn');
     state.txDeleteRow = null;
     renderTransactions();
@@ -1464,7 +1470,7 @@ function _renderTxImportPanel() {
         <div class="field-hint">Columns: tx_date_time, tx_type, source_account, target_account, counterparty_name, amount, currency, fx_rate, major_category, minor_category, tags, tx_location_country, description</div>
       </div>
     </div>
-    <div id="txImportPreview"></div>
+    <div id="txImportStatus"></div>
     <div class="form-actions" style="margin-top:16px">
       <button class="btn btn-primary" id="txImportConfirm" disabled>Import</button>
       <button class="btn btn-secondary" id="txImportCancel">Cancel</button>
@@ -1552,37 +1558,13 @@ function _parseTxCsv(text) {
   return { transactions, errors };
 }
 
-function _renderTxImportPreview(parsed) {
+function _renderTxImportStatus(parsed) {
   const { transactions, errors } = parsed;
   const errHtml = errors.length
-    ? `<div class="pin-error" style="margin-bottom:12px">${errors.map(e => esc(e)).join('<br>')}</div>`
+    ? `<div class="pin-error" style="margin-bottom:8px">${errors.map(e => esc(e)).join('<br>')}</div>`
     : '';
   if (!transactions.length) return errHtml + '<p class="placeholder">No valid rows found.</p>';
-
-  const typeStyle = { 'money-in': 'color:var(--teal)', 'money-out': 'color:var(--ember)', 'money-transfer': 'color:var(--muted)' };
-  const typeShort = { 'money-in': 'in', 'money-out': 'out', 'money-transfer': 'transfer' };
-
-  const rows = transactions.map(tx => `
-    <tr>
-      <td style="font-size:12px;color:var(--muted)">${esc(tx.tx_date_time.replace('T', ' ').replace(':00Z', ''))}</td>
-      <td><span style="font-size:12px;font-weight:600;${typeStyle[tx.tx_type] || ''}">${esc(typeShort[tx.tx_type] || tx.tx_type)}</span></td>
-      <td class="td-mono">${esc(tx.currency)} ${parseFloat(tx.amount).toFixed(2)}</td>
-      <td style="font-size:12px">${esc(tx._src_name || '—')}</td>
-      <td style="font-size:12px">${esc(tx._tgt_name || '—')}</td>
-      <td style="font-size:12px;color:var(--muted)">${esc(tx.major_category)} / ${esc(tx.minor_category)}</td>
-      <td style="font-size:12px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tx.description || tx.counterparty_name || '')}</td>
-    </tr>`).join('');
-
-  return `${errHtml}
-    <div style="margin-bottom:8px;font-size:13px;color:var(--muted)">${transactions.length} transaction${transactions.length !== 1 ? 's' : ''} ready to import</div>
-    <div class="table-wrap" style="margin-bottom:8px">
-      <table>
-        <thead><tr>
-          <th>Date/Time</th><th>Type</th><th>Amount</th><th>From</th><th>To</th><th>Category</th><th>Description</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+  return `${errHtml}<p style="font-size:13px;color:var(--muted);margin:0">${transactions.length} transaction${transactions.length !== 1 ? 's' : ''} ready to import</p>`;
 }
 
 async function _submitTxImport(transactions) {
@@ -1603,6 +1585,7 @@ async function _submitTxImport(transactions) {
     const res = await ExpenseAPI.createTransactionsBulk({ transactions: payload });
 
     if (!res.ok && !res.results) {
+      console.warn('[transactions] _submitTxImport failed:', res?.error);
       if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
       if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
       return;
@@ -1615,28 +1598,26 @@ async function _submitTxImport(transactions) {
     if (failed === 0) {
       _txImportParsed = null;
       state.txImportOpen = false;
-      const r = await ExpenseAPI.listTransactions();
-      if (r.ok) { state.transactions = r.data || []; state.txPage = 1; }
-      renderTransactions();
       const msg = [
         created ? `${created} transaction${created !== 1 ? 's' : ''} imported` : '',
         skipped ? `${skipped} already existed` : '',
       ].filter(Boolean).join(' · ');
       showMsg(msg || 'Nothing to import.');
+      document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
       // Keep panel open — show per-row results so user can see what failed and why
       const resultRows = (res.results || []).map(r => `
         <tr>
           <td style="font-size:12px;color:var(--muted)">${esc(r.label || '')}</td>
           <td>${r.ok
-            ? `<span class="badge badge-in">created</span>`
+            ? `<span class="badge badge-et-in">created</span>`
             : r.error === 'duplicate_transaction'
               ? `<span class="badge" style="color:var(--muted)">already exists</span>`
-              : `<span class="badge badge-out">${esc(r.error || 'unknown')}</span>`}
+              : `<span class="badge badge-et-out">${esc(r.error || 'unknown')}</span>`}
           </td>
         </tr>`).join('');
-      const preview = el('txImportPreview');
-      if (preview) preview.innerHTML = `
+      const status = el('txImportStatus');
+      if (status) status.innerHTML = `
         <div style="margin-bottom:8px;font-size:13px">${created} created${skipped ? ` · ${skipped} already existed` : ''} · <span style="color:var(--ember)">${failed} failed</span></div>
         <div class="table-wrap" style="margin-bottom:8px">
           <table>
@@ -1646,13 +1627,11 @@ async function _submitTxImport(transactions) {
         </div>`;
       _txImportParsed = null;
       if (btn) { btn.disabled = true; btn.textContent = 'Import'; }
-      if (created > 0) {
-        const r = await ExpenseAPI.listTransactions();
-        if (r.ok) { state.transactions = r.data || []; state.txPage = 1; }
-      }
+      if (created > 0) { document.dispatchEvent(new CustomEvent('et:reload')); }
       showMsg(`${created} imported · ${skipped} skipped · ${failed} failed`, 'warn');
     }
-  } catch (_) {
+  } catch (err) {
+    console.warn('[transactions] _submitTxImport failed:', err);
     if (errEl) errEl.textContent = 'Connection error.';
     if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
   } finally {

@@ -31,13 +31,14 @@ function doGet(e) {
   }
   recordAccess(meta, true);
 
-  if (action === 'list_transactions')  { migrateTransactionColumnHeaders(); return json({ ok: true, data: listTransactions() }); }
-  if (action === 'list_categories')    { migrateCategoryMandatoryFlags();   return json({ ok: true, data: listCategories() }); }
+  if (action === 'list_transactions')  { return json({ ok: true, data: listTransactions() }); }
+  if (action === 'list_categories')    { return json({ ok: true, data: listCategories() }); }
   if (action === 'list_accounts')      return json({ ok: true, data: listAccounts() });
   if (action === 'list_rates')         return json({ ok: true, data: listRates() });
   if (action === 'get_account_schema')      return json({ ok: true, data: getAccountSchemaForClient() });
   if (action === 'get_transaction_schema')  return json({ ok: true, data: getTransactionSchemaForClient() });
   if (action === 'get_category_schema')     return json({ ok: true, data: getCategorySchemaForClient() });
+  if (action === 'get_rate_schema')         return json({ ok: true, data: getRateSchemaForClient() });
   if (action === 'get_advisor_history')          return json({ ok: true, data: getAdvisorHistory() });
   if (action === 'list_subscriptions')           return json({ ok: true, data: listSubscriptions() });
   if (action === 'get_subscription_schema')      return json({ ok: true, data: getSubscriptionSchemaForClient() });

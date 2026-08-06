@@ -12,7 +12,7 @@ function normaliseCandidates(str) {
 
 // Filters to only valid account type values; normalises lowercase.
 function normaliseAccountTypes(str) {
-  var valid = new Set(VALID_ACCOUNT_TYPES);
+  const valid = new Set(VALID_ACCOUNT_TYPES);
   return splitToList(str)
     .map(function(k) { return k.toLowerCase(); })
     .filter(function(k) { return valid.has(k); })

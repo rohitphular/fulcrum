@@ -48,20 +48,9 @@ function verifyTotp(token) {
 // Audit — one row per IP, running totals
 // -----------------------------------------------------------------------------
 
-function getOrCreateAuditSheet() {
-  const ss    = SpreadsheetApp.getActiveSpreadsheet();
-  let   sheet = ss.getSheetByName(AUDIT_SHEET);
-  if (!sheet) {
-    sheet = ss.insertSheet(AUDIT_SHEET);
-    sheet.appendRow(AUDIT_COLUMNS);
-    sheet.setFrozenRows(1);
-  }
-  return sheet;
-}
-
 function checkLocked(ip) {
   if (!ip || ip === 'unknown') return false;
-  const sheet  = getOrCreateAuditSheet();
+  const sheet  = getOrCreateSheet(AUDIT_SHEET, AUDIT_COLUMNS);
   const values = sheet.getDataRange().getValues();
   for (let i = 1; i < values.length; i++) {
     if (values[i][0] === ip && values[i][10] === true) return true;
@@ -73,7 +62,7 @@ function recordAccess(meta, success) {
   const ip = meta.ip;
   if (!ip || ip === 'unknown') return;
 
-  const sheet  = getOrCreateAuditSheet();
+  const sheet  = getOrCreateSheet(AUDIT_SHEET, AUDIT_COLUMNS);
   const values = sheet.getDataRange().getValues();
   const now    = new Date().toISOString();
 

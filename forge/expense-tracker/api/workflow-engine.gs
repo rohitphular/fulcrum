@@ -44,9 +44,9 @@ const VALID_WORKFLOW_TYPES = Object.keys(WORKFLOW_DEFS);
 // ─────────────────────────────────────────────────────────────────────────────
 function executeWorkflow(workflowType, ctx) {
   if (!workflowType)            return { ok: false, error: 'missing_workflow_type' };
-  var steps = WORKFLOW_DEFS[workflowType];
+  const steps = WORKFLOW_DEFS[workflowType];
   if (!steps)                   return { ok: false, error: 'unknown_workflow_type' };
-  for (var i = 0; i < steps.length; i++) {
+  for (let i = 0; i < steps.length; i++) {
     WORKFLOW_STEPS[steps[i]].forward(ctx);
   }
   return { ok: true };
@@ -57,9 +57,9 @@ function executeWorkflow(workflowType, ctx) {
 // ─────────────────────────────────────────────────────────────────────────────
 function reverseWorkflow(workflowType, ctx) {
   if (!workflowType)            return { ok: false, error: 'missing_workflow_type' };
-  var steps = WORKFLOW_DEFS[workflowType];
+  const steps = WORKFLOW_DEFS[workflowType];
   if (!steps)                   return { ok: false, error: 'unknown_workflow_type' };
-  for (var i = steps.length - 1; i >= 0; i--) {
+  for (let i = steps.length - 1; i >= 0; i--) {
     WORKFLOW_STEPS[steps[i]].inverse(ctx);
   }
   return { ok: true };

@@ -108,7 +108,7 @@ function _countAccountsWithCurrency(currency) {
 }
 
 function _countTransactionsWithCurrency(currency) {
-  const sheet  = getOrCreateSheet(TRANSACTIONS_SHEET, TRANSACTION_COLUMNS);
+  const sheet  = getOrCreateSheet(TRANSACTIONS_SHEET, getTransactionSheetColumns());
   const values = sheet.getDataRange().getValues();
   const ci     = txColIndex('currency');
   let count = 0;

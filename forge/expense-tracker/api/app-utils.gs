@@ -94,7 +94,7 @@ function normaliseTags(tags) {
 // Shared column-index helper used by every *ColIndex wrapper.
 // Returns the 0-based array index for a schema field's sheet column position.
 function getColIndex(schema, name) {
-  var f = schema[name];
+  const f = schema[name];
   if (!f) throw new Error('Unknown column: ' + name);
   return f.sheet_column_position - 1;
 }

@@ -5,38 +5,38 @@
 // by confidence descending.
 // =============================================================================
 
-var _SUGGESTION_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const _SUGGESTION_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public entry point
 // ─────────────────────────────────────────────────────────────────────────────
 
 function getSuggestedTransactions() {
-  var fnName = 'getSuggestedTransactions';
-  var today  = new Date();
+  const fnName = 'getSuggestedTransactions';
+  const today  = new Date();
 
-  var allTx = listTransactions();
-  Logger.log(fnName + ': total_transactions=' + allTx.length);
+  const allTx = listTransactions();
+  console.log(fnName + ': total_transactions=' + allTx.length);
 
   // Filter to money-out only — all signals operate on this subset
-  var outTx = allTx.filter(function(tx) {
+  const outTx = allTx.filter(function(tx) {
     return String(tx.tx_type) === 'money-out';
   });
-  Logger.log(fnName + ': money_out_count=' + outTx.length);
+  console.log(fnName + ': money_out_count=' + outTx.length);
 
   // Collect suggestions from each signal; map keyed by "counterparty_name|minor_category"
-  var suggestionMap = {};
+  const suggestionMap = {};
 
   _applyRecurringMonthly(outTx, today, suggestionMap);
   _applyRecurringWeekly(outTx, today, suggestionMap);
   _applyTimeOfDay(outTx, today, suggestionMap);
 
   // Sort by confidence descending, return top 5
-  var results = Object.values(suggestionMap)
+  const results = Object.values(suggestionMap)
     .sort(function(a, b) { return b.confidence - a.confidence; })
     .slice(0, 5);
 
-  Logger.log(fnName + ': suggestions_returned=' + results.length);
+  console.log(fnName + ': suggestions_returned=' + results.length);
   return results;
 }
 
@@ -47,51 +47,51 @@ function getSuggestedTransactions() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function _applyRecurringMonthly(outTx, today, map) {
-  var fnName   = '_applyRecurringMonthly';
-  var cutoff   = new Date(today);
+  const fnName   = '_applyRecurringMonthly';
+  const cutoff   = new Date(today);
   cutoff.setMonth(cutoff.getMonth() - 6);
   cutoff.setDate(1);
   cutoff.setHours(0, 0, 0, 0);
 
-  var thisMonth = today.getMonth();
-  var thisYear  = today.getFullYear();
-  var todayDay  = today.getDate();
+  const thisMonth = today.getMonth();
+  const thisYear  = today.getFullYear();
+  const todayDay  = today.getDate();
 
   // Group relevant transactions by key
-  var groups = {};
+  const groups = {};
   outTx.forEach(function(tx) {
-    var d = new Date(tx.tx_date_time);
+    const d = new Date(tx.tx_date_time);
     if (isNaN(d.getTime()) || d < cutoff) return;
-    var key = String(tx.counterparty_name || '') + '|' + String(tx.minor_category || '');
+    const key = String(tx.counterparty_name || '') + '|' + String(tx.minor_category || '');
     if (!groups[key]) groups[key] = { tx: tx, occurrences: [] };
     groups[key].occurrences.push({ tx: tx, date: d });
   });
 
   Object.keys(groups).forEach(function(key) {
-    var group = groups[key];
-    var occs  = group.occurrences;
+    const group = groups[key];
+    const occs  = group.occurrences;
 
     // Count distinct calendar months
-    var monthSet = {};
+    const monthSet = {};
     occs.forEach(function(o) {
-      var mk = o.date.getFullYear() + '-' + o.date.getMonth();
+      const mk = o.date.getFullYear() + '-' + o.date.getMonth();
       monthSet[mk] = true;
     });
-    var distinctMonths = Object.keys(monthSet).length;
+    const distinctMonths = Object.keys(monthSet).length;
     if (distinctMonths < 2) return;
 
     // Check if already transacted this calendar month
-    var hasThisMonth = occs.some(function(o) {
+    const hasThisMonth = occs.some(function(o) {
       return o.date.getFullYear() === thisYear && o.date.getMonth() === thisMonth;
     });
     if (hasThisMonth) return;
 
     // Median day-of-month
-    var days = occs.map(function(o) { return o.date.getDate(); }).sort(function(a, b) { return a - b; });
-    var medianDay = _median(days);
+    const days = occs.map(function(o) { return o.date.getDate(); }).sort(function(a, b) { return a - b; });
+    const medianDay = _median(days);
 
-    var confidence = Math.min(distinctMonths / 6, 1);
-    var existing   = map[key];
+    const confidence = Math.min(distinctMonths / 6, 1);
+    const existing   = map[key];
     if (existing && existing.confidence >= confidence) return;
 
     map[key] = {
@@ -106,7 +106,7 @@ function _applyRecurringMonthly(outTx, today, map) {
       reason:           'monthly \xb7 usually around the ' + _ordinal(medianDay),
     };
 
-    Logger.log(fnName + ': surfaced key=' + key + ' confidence=' + confidence);
+    console.log(fnName + ': surfaced key=' + key + ' confidence=' + confidence);
   });
 }
 
@@ -117,47 +117,47 @@ function _applyRecurringMonthly(outTx, today, map) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function _applyRecurringWeekly(outTx, today, map) {
-  var fnName  = '_applyRecurringWeekly';
-  var cutoff  = new Date(today);
+  const fnName  = '_applyRecurringWeekly';
+  const cutoff  = new Date(today);
   cutoff.setDate(cutoff.getDate() - 56);
   cutoff.setHours(0, 0, 0, 0);
 
-  var todayDow        = today.getDay();
-  var todayDateString = _calendarDateStr(today);
+  const todayDow        = today.getDay();
+  const todayDateString = _calendarDateStr(today);
 
   // Group transactions from the past 8 weeks by key
-  var groups = {};
+  const groups = {};
   outTx.forEach(function(tx) {
-    var d = new Date(tx.tx_date_time);
+    const d = new Date(tx.tx_date_time);
     if (isNaN(d.getTime()) || d < cutoff) return;
-    var key = String(tx.counterparty_name || '') + '|' + String(tx.minor_category || '');
+    const key = String(tx.counterparty_name || '') + '|' + String(tx.minor_category || '');
     if (!groups[key]) groups[key] = { tx: tx, occurrences: [] };
     groups[key].occurrences.push({ tx: tx, date: d });
   });
 
   Object.keys(groups).forEach(function(key) {
-    var group = groups[key];
-    var occs  = group.occurrences;
+    const group = groups[key];
+    const occs  = group.occurrences;
 
     // Count distinct ISO weeks
-    var weekSet = {};
+    const weekSet = {};
     occs.forEach(function(o) {
       weekSet[_isoWeekKey(o.date)] = true;
     });
-    var distinctWeeks = Object.keys(weekSet).length;
+    const distinctWeeks = Object.keys(weekSet).length;
     if (distinctWeeks < 2) return;
 
     // Mode day-of-week
-    var modeDow = _modeDayOfWeek(occs.map(function(o) { return o.date.getDay(); }));
+    const modeDow = _modeDayOfWeek(occs.map(function(o) { return o.date.getDay(); }));
 
     // Check no matching transaction today
-    var hasToday = occs.some(function(o) {
+    const hasToday = occs.some(function(o) {
       return _calendarDateStr(o.date) === todayDateString;
     });
     if (hasToday) return;
 
-    var confidence = Math.min(distinctWeeks / 8, 1);
-    var existing   = map[key];
+    const confidence = Math.min(distinctWeeks / 8, 1);
+    const existing   = map[key];
     if (existing && existing.confidence >= confidence) return;
 
     map[key] = {
@@ -172,7 +172,7 @@ function _applyRecurringWeekly(outTx, today, map) {
       reason:           'weekly \xb7 usually on ' + _SUGGESTION_DAY_NAMES[modeDow],
     };
 
-    Logger.log(fnName + ': surfaced key=' + key + ' confidence=' + confidence);
+    console.log(fnName + ': surfaced key=' + key + ' confidence=' + confidence);
   });
 }
 
@@ -184,60 +184,60 @@ function _applyRecurringWeekly(outTx, today, map) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function _applyTimeOfDay(outTx, today, map) {
-  var fnName       = '_applyTimeOfDay';
-  var cutoff       = new Date(today);
+  const fnName       = '_applyTimeOfDay';
+  const cutoff       = new Date(today);
   cutoff.setDate(cutoff.getDate() - 28);
   cutoff.setHours(0, 0, 0, 0);
 
-  var todayDow        = today.getDay();
-  var todayHourBucket = Math.floor(today.getHours() / 2);
-  var todayDateString = _calendarDateStr(today);
+  const todayDow        = today.getDay();
+  const todayHourBucket = Math.floor(today.getHours() / 2);
+  const todayDateString = _calendarDateStr(today);
 
   // Counterparties already transacted with today
-  var transactedTodayCounterparties = {};
+  const transactedTodayCounterparties = {};
   outTx.forEach(function(tx) {
-    var d = new Date(tx.tx_date_time);
+    const d = new Date(tx.tx_date_time);
     if (!isNaN(d.getTime()) && _calendarDateStr(d) === todayDateString) {
       transactedTodayCounterparties[String(tx.counterparty_name || '')] = true;
     }
   });
 
   // Group transactions from last 4 weeks by extended key (including dow + hour_bucket)
-  var groups = {};
+  const groups = {};
   outTx.forEach(function(tx) {
-    var d = new Date(tx.tx_date_time);
+    const d = new Date(tx.tx_date_time);
     if (isNaN(d.getTime()) || d < cutoff) return;
-    var dow        = d.getDay();
-    var hourBucket = Math.floor(d.getHours() / 2);
-    var extKey = String(tx.counterparty_name || '') + '|' + String(tx.minor_category || '') + '|' + dow + '|' + hourBucket;
+    const dow        = d.getDay();
+    const hourBucket = Math.floor(d.getHours() / 2);
+    const extKey = String(tx.counterparty_name || '') + '|' + String(tx.minor_category || '') + '|' + dow + '|' + hourBucket;
     if (!groups[extKey]) groups[extKey] = { tx: tx, dateSet: {}, counterparty_name: String(tx.counterparty_name || ''), minor_category: String(tx.minor_category || ''), dow: dow, occurrences: [] };
-    var dateStr = _calendarDateStr(d);
+    const dateStr = _calendarDateStr(d);
     groups[extKey].dateSet[dateStr] = true;
     groups[extKey].occurrences.push({ tx: tx, date: d });
   });
 
   // Collect candidates for this signal (at most 2)
-  var candidates = [];
+  const candidates = [];
 
   Object.keys(groups).forEach(function(extKey) {
-    var group = groups[extKey];
-    var dow   = group.dow;
+    const group = groups[extKey];
+    const dow   = group.dow;
     // Only consider groups matching current dow + hour_bucket
     if (dow !== todayDow) return;
     // Derive hour_bucket from the extKey parts
-    var parts      = extKey.split('|');
-    var hourBucket = Number(parts[3]);
+    const parts      = extKey.split('|');
+    const hourBucket = Number(parts[3]);
     if (hourBucket !== todayHourBucket) return;
 
-    var distinctDays = Object.keys(group.dateSet).length;
+    const distinctDays = Object.keys(group.dateSet).length;
     if (distinctDays < 2) return;
 
     // Filter if already transacted today with this counterparty
     if (transactedTodayCounterparties[group.counterparty_name]) return;
 
-    var confidence = Math.min((distinctDays / 4) * 0.6, 0.6);
-    var dedupeKey  = group.counterparty_name + '|' + group.minor_category;
-    var occs       = group.occurrences;
+    const confidence = Math.min((distinctDays / 4) * 0.6, 0.6);
+    const dedupeKey  = group.counterparty_name + '|' + group.minor_category;
+    const occs       = group.occurrences;
 
     candidates.push({
       dedupeKey:         dedupeKey,
@@ -255,10 +255,10 @@ function _applyTimeOfDay(outTx, today, map) {
 
   // Sort candidates by confidence and emit at most 2
   candidates.sort(function(a, b) { return b.confidence - a.confidence; });
-  var emitted = 0;
+  let emitted = 0;
   candidates.forEach(function(c) {
     if (emitted >= 2) return;
-    var existing = map[c.dedupeKey];
+    const existing = map[c.dedupeKey];
     if (existing && existing.confidence >= c.confidence) return;
     map[c.dedupeKey] = {
       signal:            c.signal,
@@ -271,7 +271,7 @@ function _applyTimeOfDay(outTx, today, map) {
       confidence:        c.confidence,
       reason:            c.reason,
     };
-    Logger.log(fnName + ': surfaced key=' + c.dedupeKey + ' confidence=' + c.confidence);
+    console.log(fnName + ': surfaced key=' + c.dedupeKey + ' confidence=' + c.confidence);
     emitted++;
   });
 }
@@ -283,8 +283,8 @@ function _applyTimeOfDay(outTx, today, map) {
 // Returns the median of a numeric array (must be non-empty).
 function _median(arr) {
   if (!arr.length) return 0;
-  var sorted = arr.slice().sort(function(a, b) { return a - b; });
-  var mid    = Math.floor(sorted.length / 2);
+  const sorted = arr.slice().sort(function(a, b) { return a - b; });
+  const mid    = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 1
     ? sorted[mid]
     : (sorted[mid - 1] + sorted[mid]) / 2;
@@ -294,10 +294,10 @@ function _median(arr) {
 // On ties, returns the first encountered winner.
 function _mostFrequent(arr) {
   if (!arr.length) return '';
-  var counts = {};
+  const counts = {};
   arr.forEach(function(v) { counts[v] = (counts[v] || 0) + 1; });
-  var best = '';
-  var max  = 0;
+  let best = '';
+  let max  = 0;
   Object.keys(counts).forEach(function(k) {
     if (counts[k] > max) { max = counts[k]; best = k; }
   });
@@ -312,11 +312,11 @@ function _modeDayOfWeek(dows) {
 // Returns "YYYY-Www" ISO week key for deduplication purposes.
 function _isoWeekKey(date) {
   // Copy date, set to nearest Thursday (ISO week definition)
-  var d    = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  var day  = d.getUTCDay() || 7;
+  const d    = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day  = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - day);
-  var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  var weekNum   = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNum   = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
   return d.getUTCFullYear() + '-W' + weekNum;
 }
 
@@ -329,7 +329,7 @@ function _calendarDateStr(date) {
 
 // Returns the English ordinal suffix string for a day number (1→"1st", etc.).
 function _ordinal(n) {
-  var s = String(n);
+  const s = String(n);
   if (n >= 11 && n <= 13) return s + 'th';
   switch (n % 10) {
     case 1:  return s + 'st';

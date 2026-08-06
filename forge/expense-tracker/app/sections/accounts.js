@@ -2,7 +2,6 @@ import { state } from '../core/state.js';
 import { el, esc, getSymbol, toBase, openContextMenu, closeContextMenu } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { ExpenseAPI } from '../core/api.js';
-import { renderDashboard } from './dashboard.js';
 
 // Module-level holding area for the current import session's parsed rows.
 let _importParsed = null;
@@ -153,10 +152,10 @@ function _renderImportPanel() {
       <div class="field form-grid-span-2">
         <label for="accImportFile">CSV file</label>
         <input type="file" id="accImportFile" accept=".csv">
-        <div class="field-hint">Columns: name, type, sub_type, currency, opening_value, current_value, is_active, notes</div>
+        <div class="field-hint">Columns: name, type, sub_type, currency, opening_value, current_value, is_active, description</div>
       </div>
     </div>
-    <div id="accImportPreview"></div>
+    <div id="accImportStatus"></div>
     <div class="form-actions" style="margin-top:16px">
       <button class="btn btn-primary" id="accImportConfirm" disabled>Import</button>
       <button class="btn btn-secondary" id="accImportCancel">Cancel</button>
@@ -210,39 +209,20 @@ function _parseAccountsCsv(text) {
         ? (row.type === 'liability' ? -(Math.abs(currentVal)) : currentVal)
         : undefined,
       is_active:     row.is_active !== 'false',
-      notes:         row.notes || '',
+      description:   row.description || '',
     });
   }
 
   return { accounts, errors };
 }
 
-function _renderImportPreview(parsed) {
+function _renderImportStatus(parsed) {
   const { accounts, errors } = parsed;
   const errHtml = errors.length
-    ? `<div class="pin-error" style="margin-bottom:12px">${errors.map(e => esc(e)).join('<br>')}</div>`
+    ? `<div class="pin-error" style="margin-bottom:8px">${errors.map(e => esc(e)).join('<br>')}</div>`
     : '';
   if (!accounts.length) return errHtml + '<p class="placeholder">No valid rows found.</p>';
-
-  const fmt = n => (n != null ? n.toFixed(2) : '0.00');
-  const rows = accounts.map(a => `
-    <tr>
-      <td>${esc(a.name)}</td>
-      <td style="color:var(--muted);font-size:12px">${esc(a.type)} · ${esc(a.sub_type)}</td>
-      <td>${esc(a.currency)}</td>
-      <td class="acc-bal-mono">${fmt(a.opening_value)}</td>
-    </tr>`).join('');
-
-  return `${errHtml}
-    <div style="margin-bottom:8px;font-size:13px;color:var(--muted)">${accounts.length} account${accounts.length !== 1 ? 's' : ''} ready to import</div>
-    <div class="table-wrap" style="margin-bottom:8px">
-      <table class="acc-table">
-        <thead><tr>
-          <th>Name</th><th>Type · Sub-type</th><th>Currency</th><th>Opening Value</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+  return `${errHtml}<p style="font-size:13px;color:var(--muted);margin:0">${accounts.length} account${accounts.length !== 1 ? 's' : ''} ready to import</p>`;
 }
 
 // ── Unified form (Add / View / Edit) ─────────────────────────────────────────
@@ -330,9 +310,9 @@ function _renderAccountForm(a, mode) {
           : v(sym + _fmtBal(parseFloat(a.current_value || 0)))}" disabled>
       </div>`}
       <div class="field">
-        <label for="${pfx}Notes">Notes</label>
-        <input type="text" id="${pfx}Notes"
-               value="${isAdd ? '' : v(a.notes || '')}"
+        <label for="${pfx}Description">Notes</label>
+        <input type="text" id="${pfx}Description"
+               value="${isAdd ? '' : v(a.description || '')}"
                ${isAdd ? 'placeholder="Optional notes"' : ''}${dis}>
       </div>
     </div>
@@ -387,7 +367,7 @@ function _renderAccountRow(a) {
   const typeSubType = `${esc(a.type)} · ${esc(a.sub_type || '—')}`;
   return `<tr>
     <td class="td-mono" style="color:var(--muted);font-size:11px">${esc(a.id)}</td>
-    <td>${esc(a.name)}${a.notes ? `<span class="info-icon-wrap"><span style="cursor:help;color:var(--teal);font-size:13px">ⓘ</span><span class="info-tooltip">${esc(a.notes)}</span></span>` : ''}</td>
+    <td>${esc(a.name)}${a.description ? `<span class="info-icon-wrap"><span style="cursor:help;color:var(--teal);font-size:13px">ⓘ</span><span class="info-tooltip">${esc(a.description)}</span></span>` : ''}</td>
     <td style="color:var(--muted);font-size:12px">${typeSubType}</td>
     <td>${esc(a.currency)}</td>
     <td>${_balanceCell(a, true)}</td>
@@ -517,8 +497,8 @@ function _attachEvents() {
     reader.onload = ev => {
       const parsed = _parseAccountsCsv(ev.target.result);
       _importParsed = parsed.accounts.length ? parsed.accounts : null;
-      const preview = el('accImportPreview');
-      if (preview) preview.innerHTML = _renderImportPreview(parsed);
+      const status = el('accImportStatus');
+      if (status) status.innerHTML = _renderImportStatus(parsed);
       const btn = el('accImportConfirm');
       if (btn) btn.disabled = !_importParsed;
     };
@@ -604,7 +584,7 @@ async function _saveNew() {
   const currency = _v('accNewCurrency');
   const type     = _v('accNewType');
   const sub_type = _v('accNewSubType');
-  const notes    = _v('accNewNotes').trim();
+  const description = _v('accNewDescription').trim();
   const errEl    = el('accAddError');
 
   if (!name)                                              { if (errEl) errEl.textContent = 'Name is required.';       return; }
@@ -621,7 +601,7 @@ async function _saveNew() {
     currency,
     type,
     sub_type,
-    notes,
+    description,
     opening_value: type === 'liability' ? -(Math.abs(openingVal)) : openingVal,
   };
 
@@ -633,10 +613,9 @@ async function _saveNew() {
     if (res.ok) {
       showMsg('Account added.');
       state.accAddOpen = false;
-      await _refreshAccounts();
-      renderAccounts();
-      renderDashboard();
+      document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
+      console.warn('[accounts] _saveNew failed:', res?.error);
       const msg = res.error === 'duplicate_account'
         ? 'An account with this name already exists.'
         : 'Error: ' + (res.error || 'unknown');
@@ -644,6 +623,7 @@ async function _saveNew() {
       if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
     }
   } catch (_) {
+    console.warn('[accounts] _saveNew failed:', _);
     if (errEl) errEl.textContent = 'Connection error.';
     if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
   } finally {
@@ -669,7 +649,7 @@ async function _saveEdit() {
     name,
     sub_type:  acc?.sub_type || '',
     is_active: el('accEditIsActive')?.value === 'true',
-    notes:     el('accEditNotes')?.value.trim() || '',
+    description: el('accEditDescription')?.value.trim() || '',
   };
 
   const btn = el('accSaveEdit');
@@ -680,14 +660,14 @@ async function _saveEdit() {
     if (res.ok) {
       showMsg('Account updated.');
       state.accEditRow = null;
-      await _refreshAccounts();
-      renderAccounts();
-      renderDashboard();
+      document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
+      console.warn('[accounts] _saveEdit failed:', res?.error);
       if (errEl) errEl.textContent = 'Update failed: ' + (res.error || 'unknown');
       if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
     }
   } catch (_) {
+    console.warn('[accounts] _saveEdit failed:', _);
     if (errEl) errEl.textContent = 'Connection error.';
     if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
   } finally {
@@ -705,9 +685,7 @@ async function _confirmDelete(rowNum) {
       showMsg('Account deleted.');
       state.accDeleteRow = null;
       state.accDeleteBlocked = null;
-      await _refreshAccounts();
-      renderAccounts();
-      renderDashboard();
+      document.dispatchEvent(new CustomEvent('et:reload'));
     } else if (res.error === 'account_in_use') {
       // Backend refused because transactions reference this account.
       // Keep the row in delete-confirm state, switch to the blocked variant
@@ -715,12 +693,14 @@ async function _confirmDelete(rowNum) {
       state.accDeleteBlocked = { referenced_count: res.referenced_count || 0 };
       renderAccounts();
     } else {
+      console.warn('[accounts] _confirmDelete failed:', res?.error);
       showMsg('Delete failed: ' + (res.error || 'unknown'), 'warn');
       state.accDeleteRow = null;
       state.accDeleteBlocked = null;
       renderAccounts();
     }
   } catch (_) {
+    console.warn('[accounts] _confirmDelete failed:', _);
     showMsg('Connection error.', 'warn');
     state.accDeleteRow = null;
     state.accDeleteBlocked = null;
@@ -741,22 +721,22 @@ async function _archiveAccount(rowNum) {
       name:      acc.name || '',
       sub_type:  acc.sub_type || '',
       is_active: false,
-      notes:     acc.notes || '',
+      description: acc.description || '',
     });
     if (res.ok) {
       showMsg('Account archived.');
       state.accDeleteRow = null;
       state.accDeleteBlocked = null;
-      await _refreshAccounts();
-      renderAccounts();
-      renderDashboard();
+      document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
+      console.warn('[accounts] _archiveAccount failed:', res?.error);
       showMsg('Archive failed: ' + (res.error || 'unknown'), 'warn');
       state.accDeleteBlocked = null;
       state.accDeleteRow = null;
       renderAccounts();
     }
   } catch (_) {
+    console.warn('[accounts] _archiveAccount failed:', _);
     showMsg('Connection error.', 'warn');
     state.accDeleteBlocked = null;
     state.accDeleteRow = null;
@@ -776,6 +756,7 @@ async function _submitImport(accounts) {
     const res = await ExpenseAPI.createAccountsBulk({ accounts });
 
     if (!res.ok && !res.results) {
+      console.warn('[accounts] _submitImport failed:', res?.error);
       if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
       if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
       return;
@@ -788,14 +769,12 @@ async function _submitImport(accounts) {
     if (failed === 0) {
       _importParsed = null;
       state.accImportOpen = false;
-      await _refreshAccounts();
-      renderAccounts();
-      renderDashboard();
       const msg = [
         created ? `${created} account${created !== 1 ? 's' : ''} imported` : '',
         skipped ? `${skipped} already existed` : '',
       ].filter(Boolean).join(' · ');
       showMsg(msg || 'Nothing to import.');
+      document.dispatchEvent(new CustomEvent('et:reload'));
     } else {
       // Keep panel open — show per-row results so user can see what failed and why
       const resultRows = (res.results || []).map(r => `
@@ -808,8 +787,8 @@ async function _submitImport(accounts) {
               : `<span class="badge badge-out">${esc(r.error || 'unknown')}</span>`}
           </td>
         </tr>`).join('');
-      const preview = el('accImportPreview');
-      if (preview) preview.innerHTML = `
+      const status = el('accImportStatus');
+      if (status) status.innerHTML = `
         <div style="margin-bottom:8px;font-size:13px">${created} created${skipped ? ` · ${skipped} already existed` : ''} · <span style="color:var(--ember)">${failed} failed</span></div>
         <div class="table-wrap" style="margin-bottom:8px">
           <table class="acc-table">
@@ -819,10 +798,11 @@ async function _submitImport(accounts) {
         </div>`;
       _importParsed = null;
       if (btn) { btn.disabled = true; btn.textContent = 'Import'; }
-      if (created > 0) { await _refreshAccounts(); renderDashboard(); }
+      if (created > 0) { document.dispatchEvent(new CustomEvent('et:reload')); }
       showMsg(`${created} imported · ${skipped} skipped · ${failed} failed`, 'warn');
     }
   } catch (_) {
+    console.warn('[accounts] _submitImport failed:', _);
     if (errEl) errEl.textContent = 'Connection error.';
     if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
   } finally {
@@ -830,10 +810,3 @@ async function _submitImport(accounts) {
   }
 }
 
-async function _refreshAccounts() {
-  const r = await ExpenseAPI.listAccounts();
-  if (r.ok) {
-    state.accounts   = r.data || [];
-    state.accountMap = Object.fromEntries(state.accounts.map(a => [a.id, a]));
-  }
-}
