@@ -136,10 +136,10 @@ function _buildShellHtml() {
         <span class="insight-custom-sep">–</span>
         <input type="date" id="insightCustomTo" value="${esc(state.insightCustomTo)}">
       </div>
-      <div style="display:flex;justify-content:flex-end">
-        <button class="btn btn-secondary btn-sm" id="insightShareBtn" data-action="snapshot">📤 Share</button>
+      <div style="display:flex;align-items:center;gap:12px">
+        ${dash.description ? `<p class="insight-description" style="margin:0;flex:1">${esc(dash.description)}</p>` : '<div style="flex:1"></div>'}
+        <button class="btn btn-secondary btn-sm" id="insightShareBtn" data-action="snapshot" style="flex-shrink:0">📤 Share</button>
       </div>
-      ${dash.description ? `<p class="insight-description">${esc(dash.description)}</p>` : ''}
       ${tabStrip}
     </div>
     <div id="insightInner"></div>`;
