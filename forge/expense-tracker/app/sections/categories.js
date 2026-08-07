@@ -1,5 +1,5 @@
 import { state } from '../core/state.js';
-import { el, esc, openContextMenu, closeContextMenu } from '../core/utils.js';
+import { el, esc, openContextMenu, closeContextMenu, exportData } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { ExpenseAPI } from '../core/api.js';
 
@@ -41,14 +41,23 @@ export function renderCategories() {
     ? state.categories
     : state.categories.filter(c => c.tx_type === state.catFilter);
 
+  const CAT_FILTERS = [
+    { key: 'all',            label: 'All' },
+    { key: 'money-in',       label: 'Money In' },
+    { key: 'money-out',      label: 'Money Out' },
+    { key: 'money-transfer', label: 'Transfer' },
+  ];
+  const filterLabel = CAT_FILTERS.find(o => o.key === (state.catFilter || 'all'))?.label || 'All';
   const anyFormOpen = state.catAddOpen || state.catViewRow !== null || state.catEditRow !== null;
   const viewCat = state.catViewRow !== null ? state.categories.find(c => c._row === state.catViewRow) : null;
   const editCat = state.catEditRow !== null ? state.categories.find(c => c._row === state.catEditRow) : null;
 
   content.innerHTML = `
-    <div class="sec-head">
-      <div style="display:flex;gap:8px;margin-left:auto">
-        <button class="btn btn-secondary btn-sm" id="catImportBtn">${state.catImportOpen ? '× Close' : 'Import'}</button>
+    <div class="sec-head" style="align-items:center;gap:8px">
+      <button class="btn btn-secondary btn-sm" id="catFilterBtn">≡ ${esc(filterLabel)}</button>
+      <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+        <button class="btn btn-secondary btn-sm" id="catExportBtn">↓ Export</button>
+        <button class="btn btn-secondary btn-sm" id="catImportBtn">${state.catImportOpen ? '× Close' : '↑ Import'}</button>
         <button class="btn btn-primary btn-sm" id="catAddBtn">${anyFormOpen ? '× Close' : '+ Add'}</button>
       </div>
     </div>
@@ -56,11 +65,6 @@ export function renderCategories() {
     ${state.catAddOpen ? _renderForm(null,    'add')  : ''}
     ${viewCat          ? _renderForm(viewCat, 'view') : ''}
     ${editCat          ? _renderForm(editCat, 'edit') : ''}
-    <div class="cat-filter" id="catTypeFilter">
-      ${[['all','All'],['money-in','Money In'],['money-out','Money Out'],['money-transfer','Transfer']].map(([t, label]) =>
-        `<button class="range-btn ${state.catFilter === t ? 'active' : ''}" data-cat-filter="${esc(t)}">${label}</button>`
-      ).join('')}
-    </div>
     <div class="cat-count-bar">
       <span class="cat-count">${filtered.length} ${filtered.length === 1 ? 'category' : 'categories'}</span>
     </div>
@@ -406,6 +410,16 @@ async function _submitCatImport(categories) {
 // ── Events ────────────────────────────────────────────────────────────────────
 
 function _attachCatEvents() {
+  el('catExportBtn')?.addEventListener('click', () => {
+    const rows = state.catFilter === 'all'
+      ? state.categories
+      : state.categories.filter(c => c.tx_type === state.catFilter);
+    openContextMenu(el('catExportBtn'), [
+      { key: 'csv',  label: '↓ CSV'  },
+      { key: 'json', label: '↓ JSON' },
+    ], key => exportData(key, rows));
+  });
+
   el('catImportBtn')?.addEventListener('click', () => {
     if (state.catImportOpen) {
       state.catImportOpen = false;
@@ -472,9 +486,14 @@ function _attachCatEvents() {
     renderCategories();
   });
 
-  el('catTypeFilter')?.querySelectorAll('[data-cat-filter]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.catFilter    = btn.dataset.catFilter;
+  el('catFilterBtn')?.addEventListener('click', () => {
+    openContextMenu(el('catFilterBtn'), [
+      { key: 'all',            label: 'All' },
+      { key: 'money-in',       label: 'Money In' },
+      { key: 'money-out',      label: 'Money Out' },
+      { key: 'money-transfer', label: 'Transfer' },
+    ], key => {
+      state.catFilter    = key;
       state.catAddOpen   = false;
       state.catViewRow   = null;
       state.catEditRow   = null;

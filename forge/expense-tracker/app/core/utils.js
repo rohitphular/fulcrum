@@ -75,3 +75,42 @@ export function openContextMenu(triggerBtn, items, onSelect) {
   };
   document.addEventListener('click', _ctxHandler, true);
 }
+
+export async function shareSnapshot(targetEl, filename = 'snapshot.png') {
+  /* global html2canvas */
+  if (typeof html2canvas === 'undefined') {
+    console.warn('[shareSnapshot] html2canvas not loaded');
+    return;
+  }
+  const btn = document.getElementById('homeShareBtn') || document.getElementById('insightShareBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#111';
+    const canvas  = await html2canvas(targetEl, {
+      backgroundColor: bgColor,
+      scale:     2,
+      useCORS:   true,
+      logging:   false,
+      scrollX:   0,
+      scrollY:   -window.scrollY,
+    });
+    canvas.toBlob(async blob => {
+      if (!blob) return;
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: filename }); return; }
+        catch (err) { if (err.name === 'AbortError') return; }
+      }
+      const url = URL.createObjectURL(blob);
+      const a   = Object.assign(document.createElement('a'), { href: url, download: filename });
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  } catch (err) {
+    console.error('[shareSnapshot]', err);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📤 Share'; }
+  }
+}

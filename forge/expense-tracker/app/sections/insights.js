@@ -1,6 +1,6 @@
 /* global Chart */
 import { state } from '../core/state.js';
-import { el, esc, getSymbol } from '../core/utils.js';
+import { el, esc, getSymbol, shareSnapshot } from '../core/utils.js';
 import { getPeriodBounds, filterTxByRange, findMissingRates, getCssColors, baseChartOptions } from './insights/insight-utils.js';
 import { ExpenseAPI } from '../core/api.js';
 
@@ -134,6 +134,9 @@ function _buildShellHtml() {
         <span class="insight-custom-sep">–</span>
         <input type="date" id="insightCustomTo" value="${esc(state.insightCustomTo)}">
       </div>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn btn-secondary btn-sm" id="insightShareBtn" data-action="snapshot">📤 Share</button>
+      </div>
       ${dash.description ? `<p class="insight-description">${esc(dash.description)}</p>` : ''}
       ${tabStrip}
     </div>
@@ -198,6 +201,13 @@ function _attachShellEvents() {
     if (action === 'go-rates') {
       e.preventDefault();
       document.dispatchEvent(new CustomEvent('et:show-section', { detail: 'rates' }));
+      return;
+    }
+
+    if (action === 'snapshot') {
+      const target = el('insightContent');
+      if (target) shareSnapshot(target, `insight-${state.insightId}.png`);
+      return;
     }
   }, { signal });
 }

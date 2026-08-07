@@ -1,6 +1,6 @@
 /* global Chart */
 import { state } from '../core/state.js';
-import { el, esc, getSymbol, toBase } from '../core/utils.js';
+import { el, esc, getSymbol, toBase, shareSnapshot } from '../core/utils.js';
 import {
   monthRange, groupByMonth, sumAmountBase,
   computeDailyTotalAssets, getCssColors, baseChartOptions, fmtMonthKey,
@@ -328,11 +328,16 @@ export function renderHome() {
   const d = _compute();
 
   content.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <button class="btn btn-secondary btn-sm" id="homeShareBtn">📤 Share</button>
+    </div>
     ${_renderHero(d)}
     <div class="home-charts-grid">
       ${_renderIncomeCard(d)}
       ${_renderDtiCard(d)}
     </div>`;
+
+  el('homeShareBtn')?.addEventListener('click', () => shareSnapshot(content, 'home-dashboard.png'));
 
   const incomeChart = _buildIncomeChart(d);
   const gaugeChart  = _buildGaugeChart(d);
