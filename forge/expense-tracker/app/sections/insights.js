@@ -42,6 +42,8 @@ const INSIGHTS = [
   { id: '27-debt-to-income',    label: 'Debt-to-income',                  group: 'Loans',                tabs: true,  description: 'Debt-to-income ratio trend and how it compares to common thresholds.', tabLabels: { transactions: 'Income trend', accounts: 'DTI ratio' } },
   // FX
   { id: '28-forex-spend',       label: 'Foreign currency spend',          group: 'FX & currency',        tabs: false, description: 'Spend in foreign currencies, converted to base currency.' },
+  // Daily
+  { id: '29-daily-spend',       label: 'Daily spend',                     group: 'Spending comparisons', tabs: false, description: 'Daily spend as a bar chart — one bar per day. Click any bar to see that day\'s transactions.', periods: ['last_7', 'last_30', 'last_60', 'last_90', 'this_month', 'last_month', 'custom'] },
 ];
 
 const PERIOD_OPTIONS = [
