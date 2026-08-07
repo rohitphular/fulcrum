@@ -1,5 +1,5 @@
 import { state } from '../core/state.js';
-import { el, esc, getSymbol, toBase, openContextMenu, closeContextMenu } from '../core/utils.js';
+import { el, esc, getSymbol, toBase, exportData, openContextMenu, closeContextMenu } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { ExpenseAPI } from '../core/api.js';
 
@@ -506,13 +506,14 @@ export function renderSubscriptions() {
   const content      = el('subscriptionsContent');
   const anyFormOpen  = state.subAddOpen || state.subEditRow !== null;
   const addBtnText   = anyFormOpen ? '× Close' : '+ Add';
-  const impBtnText   = state.subImportOpen ? '× Close' : 'Import';
+  const impBtnText   = state.subImportOpen ? '× Close' : '↑ Import';
 
   content.innerHTML = `
     <div class="sec-head">
       <div class="sec-head-left"><h2>Subscriptions</h2></div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-secondary btn-sm" id="subImportBtn">${impBtnText}</button>
+        <button class="btn btn-secondary btn-sm" id="subExportBtn">↓ Export</button>
         <button class="btn btn-primary btn-sm" id="subAddBtn">${addBtnText}</button>
       </div>
     </div>
@@ -657,6 +658,13 @@ function _attachEvents() {
     }
     if (action === 'sub-cancel-delete')  { state.subDeleteRow = null; renderSubscriptions(); }
     if (action === 'sub-confirm-delete') { _confirmDelete(row); }
+  }, { signal });
+
+  el('subExportBtn')?.addEventListener('click', () => {
+    openContextMenu(el('subExportBtn'), [
+      { key: 'csv',  label: 'CSV'  },
+      { key: 'json', label: 'JSON' },
+    ], key => exportData(key, state.subscriptions));
   }, { signal });
 }
 

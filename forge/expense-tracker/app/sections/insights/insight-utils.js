@@ -315,7 +315,7 @@ export const COUNTRY_NORM = {
 const _CURRENCY_COUNTRY = {
   GBP: 'United Kingdom', USD: 'United States', INR: 'India',
   AUD: 'Australia', CAD: 'Canada', CHF: 'Switzerland', SGD: 'Singapore',
-  AED: 'UAE', HKD: 'Hong Kong', JPY: 'Japan', NZD: 'New Zealand',
+  HKD: 'Hong Kong', JPY: 'Japan', NZD: 'New Zealand',
 };
 
 export function normCountry(raw) {

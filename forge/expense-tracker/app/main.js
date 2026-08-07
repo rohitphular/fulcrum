@@ -13,9 +13,11 @@ import { loadAccountSchema, loadTransactionSchema, loadCategorySchema } from './
 function populateQuoteCurrencySelect() {
   const sel   = el('quoteCurrencySelect');
   const saved = localStorage.getItem('et_quote_currency') || 'GBP';
-  sel.innerHTML = state.rates.map(r =>
-    `<option value="${esc(r.currency)}" ${r.currency === saved ? 'selected' : ''}>${esc(r.symbol || '')} ${esc(r.currency)}</option>`
-  ).join('');
+  sel.innerHTML = state.rates.map(r => {
+    const rate = parseFloat(r.rate);
+    const rateLabel = Number.isInteger(rate) ? rate.toFixed(2) : rate.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+    return `<option value="${esc(r.currency)}" ${r.currency === saved ? 'selected' : ''}>${esc(r.symbol || '')} ${esc(r.currency)} · ${rateLabel}</option>`;
+  }).join('');
   state.quoteCurrency = sel.value || 'GBP';
 }
 

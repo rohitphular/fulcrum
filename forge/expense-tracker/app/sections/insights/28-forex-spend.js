@@ -6,7 +6,7 @@ import { sumAmountBase, getCssColors, buildPalette } from './insight-utils.js';
 // ── Currency symbol lookup ────────────────────────────────────────────────────
 const CCY_SYMBOL = {
   GBP: '£', USD: '$', EUR: '€', INR: '₹', JPY: '¥',
-  AUD: 'A$', CAD: 'C$', CHF: 'CHF ', SGD: 'S$', AED: 'AED ',
+  AUD: 'A$', CAD: 'C$', CHF: 'CHF ', SGD: 'S$',
   HKD: 'HK$', NZD: 'NZ$', SEK: 'kr ', NOK: 'kr ', DKK: 'kr ',
 };
 function _ccySym(ccy) { return CCY_SYMBOL[ccy] || (ccy + ' '); }

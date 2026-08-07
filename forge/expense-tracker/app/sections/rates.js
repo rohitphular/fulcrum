@@ -30,7 +30,7 @@ export function renderRates() {
 
   content.innerHTML = `
     <div class="sec-head">
-      <div class="sec-head-left"><h2>Exchange rates</h2></div>
+      <div class="sec-head-left"><h2>Currencies</h2></div>
       <button class="btn btn-primary btn-sm" id="rateAddBtn">${addOrEditOpen ? '× Close' : '+ Add'}</button>
     </div>
     <p class="sec-sub" style="margin:-8px 0 16px">Units of currency per 1 GBP. GBP is the base (read-only).</p>

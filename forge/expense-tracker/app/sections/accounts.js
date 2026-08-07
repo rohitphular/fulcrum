@@ -1,5 +1,5 @@
 import { state } from '../core/state.js';
-import { el, esc, getSymbol, toBase, openContextMenu, closeContextMenu } from '../core/utils.js';
+import { el, esc, getSymbol, toBase, fmtBase, exportData, openContextMenu, closeContextMenu } from '../core/utils.js';
 import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { ExpenseAPI } from '../core/api.js';
 
@@ -41,13 +41,18 @@ function _fmtBal(n) {
 // compact = true → just the headline number (table / cards)
 // compact = false → same, but called from view form (kept for future detail rows)
 function _balanceCell(a, compact = false) {
-  const val = parseFloat(a.current_value || 0);
-  const sym = getSymbol(a.currency);
+  const val     = parseFloat(a.current_value || 0);
+  const sym     = getSymbol(a.currency);
+  const foreign = a.currency !== state.quoteCurrency;
+  const baseTag = foreign
+    ? ` <span class="td-base-amt">/ ${esc(fmtBase(Math.abs(val), a.currency, null))}</span>`
+    : '';
+
   if (_isLiability(a)) {
-    return `<span class="acc-bal-owed">−${sym}${_fmtBal(Math.abs(val))}</span>`;
+    return `<span class="acc-bal-owed">−${sym}${_fmtBal(Math.abs(val))}</span>${baseTag}`;
   }
   const cls = val < 0 ? 'negative acc-bal-mono' : 'acc-bal-mono';
-  return `<span class="${cls}">${val < 0 ? '−' : ''}${sym}${_fmtBal(val)}</span>`;
+  return `<span class="${cls}">${val < 0 ? '−' : ''}${sym}${_fmtBal(val)}</span>${baseTag}`;
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -62,7 +67,8 @@ export function renderAccounts() {
     <div class="sec-head">
       <div class="sec-head-left"><h2>Accounts</h2></div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-secondary btn-sm" id="accImportBtn">${state.accImportOpen ? '× Close' : 'Import'}</button>
+        <button class="btn btn-secondary btn-sm" id="accImportBtn">${state.accImportOpen ? '× Close' : '↑ Import'}</button>
+        <button class="btn btn-secondary btn-sm" id="accExportBtn">↓ Export</button>
         <button class="btn btn-primary btn-sm" id="accAddBtn">${anyAddOpen ? '× Close' : '+ Add'}</button>
       </div>
     </div>
@@ -342,7 +348,7 @@ function _renderAccountRow(a) {
       const n    = state.accDeleteBlocked.referenced_count || 0;
       const noun = n === 1 ? 'transaction refers' : 'transactions refer';
       return `<tr>
-        <td colspan="6">
+        <td colspan="5">
           <span class="confirm-text">Cannot delete <strong>${esc(a.name)}</strong> — <strong>${n}</strong> ${noun} to this account.</span>
           <div style="color:var(--muted);font-size:var(--text-sm);margin-top:4px">
             Delete or reassign those transactions first, or archive the account (it stays on record but is hidden from transaction forms).
@@ -355,7 +361,7 @@ function _renderAccountRow(a) {
       </tr>`;
     }
     return `<tr>
-      <td colspan="6"><span class="confirm-text">Delete <strong>${esc(a.name)}</strong>? This permanently removes the account.</span></td>
+      <td colspan="5"><span class="confirm-text">Delete <strong>${esc(a.name)}</strong>? This permanently removes the account.</span></td>
       <td><div class="row-actions">
         <button class="btn-link danger" data-action="acc-confirm-delete" data-row="${a._row}">Yes, delete</button>
         <button class="btn-link" data-action="acc-cancel-delete">Cancel</button>
@@ -363,14 +369,12 @@ function _renderAccountRow(a) {
     </tr>`;
   }
 
-  const typeSubType = `${esc(a.type)} · ${esc(a.sub_type || '—')}`;
   return `<tr>
     <td class="td-mono" style="color:var(--muted);font-size:11px">${esc(a.id)}</td>
-    <td>${esc(a.name)}${a.description ? `<span class="info-icon-wrap"><span style="cursor:help;color:var(--teal);font-size:13px">ⓘ</span><span class="info-tooltip">${esc(a.description)}</span></span>` : ''}</td>
-    <td style="color:var(--muted);font-size:12px">${typeSubType}</td>
+    <td>${_activeBadge(a)} ${esc(a.name)}${a.description ? `<span class="info-icon-wrap"><span style="cursor:help;color:var(--teal);font-size:13px">ⓘ</span><span class="info-tooltip">${esc(a.description)}</span></span>` : ''}</td>
+    <td style="color:var(--muted);font-size:12px">${esc(_subTypeLabel(a.sub_type || ''))}</td>
     <td>${esc(a.currency)}</td>
     <td>${_balanceCell(a, true)}</td>
-    <td>${_activeBadge(a)}</td>
     <td style="text-align:right">
       <button class="tx-menu-trigger" data-action="acc-menu" data-row="${a._row}" title="Actions">⋮</button>
     </td>
@@ -380,7 +384,7 @@ function _renderAccountRow(a) {
 function _groupHeader(label, total, sym, isLiab) {
   const sign = isLiab ? '−' : '';
   return `<tr class="acc-group-header">
-    <td colspan="7" style="background:var(--canvas);padding:10px 12px 4px;font-size:11px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:none">
+    <td colspan="6" style="background:var(--canvas);padding:10px 12px 4px;font-size:11px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:none">
       ${label}
       <span style="float:right;font-weight:600;color:${isLiab ? 'var(--ember)' : 'var(--teal)'}">${sign}${sym}${Math.abs(total).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
     </td>
@@ -440,10 +444,9 @@ function _renderTable() {
         <thead><tr>
           <th style="width:90px">ID</th>
           <th style="width:160px">Name</th>
-          <th style="width:160px">Type · Sub-type</th>
+          <th style="width:160px">Sub-type</th>
           <th style="width:70px">CCY</th>
           <th style="width:160px">Balance</th>
-          <th style="width:80px">Status</th>
           <th style="width:40px"></th>
         </tr></thead>
         <tbody>${bodyRows}</tbody>
@@ -569,6 +572,13 @@ function _attachEvents() {
   };
   el('accountsContent')?.querySelector('.acc-table-wrap')?.addEventListener('click', handleAccAction);
   el('accountsContent')?.querySelector('.acc-cards')?.addEventListener('click', handleAccAction);
+
+  el('accExportBtn')?.addEventListener('click', () => {
+    openContextMenu(el('accExportBtn'), [
+      { key: 'csv',  label: 'CSV'  },
+      { key: 'json', label: 'JSON' },
+    ], key => exportData(key, state.accounts));
+  });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

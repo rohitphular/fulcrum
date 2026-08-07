@@ -4,6 +4,9 @@ import { showLoading, hideLoading, showMsg } from '../core/ui.js';
 import { filteredTx } from '../core/daterange.js';
 import { ExpenseAPI } from '../core/api.js';
 
+const SUGGESTIONS_CACHE_KEY = 'et_suggestions_v1';
+const SUGGESTIONS_TTL_MS    = 6 * 60 * 60 * 1000; // 6 hours
+
 let filterOpen      = false;
 let _txImportParsed = null;
 let _txMenuKey      = null;
@@ -165,18 +168,39 @@ function _txTypeMap() {
 export function renderTransactions() {
   _txMenuKey = null;
 
-  // Fire-and-forget suggestions fetch — only once per session
+  // Load suggestions: serve from localStorage cache (6 h TTL), else fetch from API.
   if (!state.suggestionsLoaded) {
-    state.suggestionsLoaded  = true;
-    state.suggestionsFetching = true;
-    ExpenseAPI.getSuggestedTransactions().then(res => {
-      state.suggestionsFetching = false;
-      if (res.ok) state.suggestions = res.suggestions || [];
-      renderTransactions();
-    }).catch(() => {
-      state.suggestionsFetching = false;
-      renderTransactions();
-    });
+    state.suggestionsLoaded = true;
+    let servedFromCache = false;
+    try {
+      const raw = localStorage.getItem(SUGGESTIONS_CACHE_KEY);
+      if (raw) {
+        const { suggestions, ts } = JSON.parse(raw);
+        if (Array.isArray(suggestions) && Date.now() - ts < SUGGESTIONS_TTL_MS) {
+          state.suggestions = suggestions;
+          servedFromCache = true;
+        } else {
+          localStorage.removeItem(SUGGESTIONS_CACHE_KEY);
+        }
+      }
+    } catch (_) {}
+
+    if (!servedFromCache) {
+      state.suggestionsFetching = true;
+      ExpenseAPI.getSuggestedTransactions().then(res => {
+        state.suggestionsFetching = false;
+        if (res.ok) {
+          state.suggestions = res.suggestions || [];
+          try {
+            localStorage.setItem(SUGGESTIONS_CACHE_KEY, JSON.stringify({ suggestions: state.suggestions, ts: Date.now() }));
+          } catch (_) {}
+        }
+        renderTransactions();
+      }).catch(() => {
+        state.suggestionsFetching = false;
+        renderTransactions();
+      });
+    }
   }
 
   const txEl = el('transactionsContent');

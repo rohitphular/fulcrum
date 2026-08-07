@@ -3,11 +3,10 @@
 // =============================================================================
 
 const DEFAULT_RATES = [
-  { currency: 'GBP', rate: 1,    symbol: '£'    },
-  { currency: 'INR', rate: 105,  symbol: '₹'    },
-  { currency: 'USD', rate: 1.27, symbol: '$'    },
-  { currency: 'EUR', rate: 1.17, symbol: '€'    },
-  { currency: 'AED', rate: 4.66, symbol: 'AED ' },
+  { currency: 'GBP', rate: 1,    symbol: '£' },
+  { currency: 'INR', rate: 105,  symbol: '₹' },
+  { currency: 'USD', rate: 1.27, symbol: '$' },
+  { currency: 'EUR', rate: 1.17, symbol: '€' },
 ];
 
 function listRates() {
