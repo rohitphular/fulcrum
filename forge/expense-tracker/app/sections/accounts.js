@@ -65,8 +65,7 @@ export function renderAccounts() {
 
   el('accountsContent').innerHTML = `
     <div class="sec-head">
-      <div class="sec-head-left"><h2>Accounts</h2></div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;margin-left:auto">
         <button class="btn btn-secondary btn-sm" id="accImportBtn">${state.accImportOpen ? '× Close' : '↑ Import'}</button>
         <button class="btn btn-secondary btn-sm" id="accExportBtn">↓ Export</button>
         <button class="btn btn-primary btn-sm" id="accAddBtn">${anyAddOpen ? '× Close' : '+ Add'}</button>

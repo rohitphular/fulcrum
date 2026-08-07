@@ -47,8 +47,7 @@ export function renderCategories() {
 
   content.innerHTML = `
     <div class="sec-head">
-      <div class="sec-head-left"><h2>Categories</h2></div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;margin-left:auto">
         <button class="btn btn-secondary btn-sm" id="catImportBtn">${state.catImportOpen ? '× Close' : 'Import'}</button>
         <button class="btn btn-primary btn-sm" id="catAddBtn">${anyFormOpen ? '× Close' : '+ Add'}</button>
       </div>

@@ -510,8 +510,7 @@ export function renderSubscriptions() {
 
   content.innerHTML = `
     <div class="sec-head">
-      <div class="sec-head-left"><h2>Subscriptions</h2></div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;margin-left:auto">
         <button class="btn btn-secondary btn-sm" id="subImportBtn">${impBtnText}</button>
         <button class="btn btn-secondary btn-sm" id="subExportBtn">↓ Export</button>
         <button class="btn btn-primary btn-sm" id="subAddBtn">${addBtnText}</button>

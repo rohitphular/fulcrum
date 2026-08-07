@@ -219,8 +219,7 @@ export function renderTransactions() {
 
   txEl.innerHTML = `
     <div class="sec-head">
-      <div class="sec-head-left"><h2>Transactions</h2></div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;margin-left:auto">
         <button class="btn btn-secondary btn-sm" id="txImportBtn">${state.txImportOpen ? '× Close' : '↑ Import'}</button>
         <button class="btn btn-secondary btn-sm" id="txExportBtn">↓ Export</button>
         <button class="btn btn-primary btn-sm" id="txAddBtn">${anyAddOpen ? '× Close' : '+ Add'}</button>

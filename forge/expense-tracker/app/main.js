@@ -29,7 +29,7 @@ function setTheme(theme) {
   const btn = el('themeToggle');
   if (btn) btn.textContent = theme === 'dark' ? '☀' : '☽';
   if (!state.transactions.length) return;
-  showSection(sessionStorage.getItem('et_section') || 'insight');
+  showSection(sessionStorage.getItem('et_section') || 'home');
 }
 
 // ── Data loading ──────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ async function loadAll() {
     }
 
     populateQuoteCurrencySelect();
-    showSection(sessionStorage.getItem('et_section') || 'insight');
+    showSection(sessionStorage.getItem('et_section') || 'home');
 
   } catch (_) {
     console.error('[main] loadAll failed:', _);
@@ -140,7 +140,7 @@ async function init() {
   el('quoteCurrencySelect')?.addEventListener('change', e => {
     state.quoteCurrency = e.target.value;
     localStorage.setItem('et_quote_currency', state.quoteCurrency);
-    showSection(sessionStorage.getItem('et_section') || 'insight');
+    showSection(sessionStorage.getItem('et_section') || 'home');
   });
 
   // Reload events — fired by mutations instead of calling loadAll directly
