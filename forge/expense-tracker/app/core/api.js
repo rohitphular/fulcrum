@@ -27,9 +27,10 @@ export const ExpenseAPI = {
   clearAdvisorHistory: () => SheetsClient.post({ action: 'clear_advisor_history' }),
   listSubscriptions:          () => SheetsClient.get({ action: 'list_subscriptions' }),
   getSubscriptionSchema:      () => SheetsClient.get({ action: 'get_subscription_schema' }),
-  createSubscription:         f  => SheetsClient.post({ action: 'create_subscription',  ...f }),
-  updateSubscription:         f  => SheetsClient.post({ action: 'update_subscription',  ...f }),
-  deleteSubscription:         f  => SheetsClient.post({ action: 'delete_subscription',  ...f }),
+  createSubscription:         f  => SheetsClient.post({ action: 'create_subscription',       ...f }),
+  createSubscriptionsBulk:    f  => SheetsClient.post({ action: 'create_subscriptions_bulk', ...f }),
+  updateSubscription:         f  => SheetsClient.post({ action: 'update_subscription',       ...f }),
+  deleteSubscription:         f  => SheetsClient.post({ action: 'delete_subscription',       ...f }),
   getSuggestedTransactions:   () => SheetsClient.get({ action: 'get_suggested_transactions' }),
   getComputedInsights:        p  => SheetsClient.get({ action: 'get_computed_insights', ...p }),
 };

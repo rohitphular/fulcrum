@@ -74,9 +74,10 @@ export const state = {
 
   advisorMessages: [],
 
-  subscriptions: [],
-  subAddOpen:    false,
-  subEditRow:    null,
-  subDeleteRow:  null,
-  subPrefill:    null,  // { name, counterparty_name, amount, currency, source_account, major_category, minor_category, tags }
+  subscriptions:  [],
+  subAddOpen:     false,
+  subImportOpen:  false,
+  subEditRow:     null,
+  subDeleteRow:   null,
+  subPrefill:     null,  // { name, counterparty_name, amount, currency, source_account, major_category, minor_category, tags }
 };

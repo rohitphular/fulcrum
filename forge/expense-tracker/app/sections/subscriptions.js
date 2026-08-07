@@ -343,22 +343,181 @@ function _renderCards() {
   }).join('');
 }
 
-let _subMenuKey = null;
+let _importParsed = null;
+let _subMenuKey   = null;
+
+// ── CSV import ────────────────────────────────────────────────────────────────
+
+function _renderImportPanel() {
+  return `
+  <div class="card" style="margin-bottom:20px">
+    <div class="cat-form-header">Import subscriptions from CSV</div>
+    <div class="form-grid" style="margin-bottom:16px;align-items:start">
+      <div class="field form-grid-span-2">
+        <label for="subImportFile">CSV file</label>
+        <input type="file" id="subImportFile" accept=".csv">
+        <div class="field-hint">Columns: name, counterparty_name, amount, currency, frequency, day_of_month, day_of_week, source_account, tx_type, major_category, minor_category, tags, is_active, description</div>
+      </div>
+    </div>
+    <div id="subImportStatus"></div>
+    <div class="form-actions" style="margin-top:16px">
+      <button class="btn btn-primary" id="subImportConfirm" disabled>Import</button>
+      <button class="btn btn-secondary" id="subImportCancel">Cancel</button>
+    </div>
+    <div class="pin-error" id="subImportError"></div>
+  </div>`;
+}
+
+function _parseCsvRow(line) {
+  const result = [];
+  let cur = '';
+  let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
+    else { cur += c; }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function _parseSubscriptionsCsv(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) return { subscriptions: [], errors: ['File is empty.'] };
+
+  const headers = _parseCsvRow(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, '_'));
+  const subscriptions = [];
+  const errors        = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const vals = _parseCsvRow(lines[i]);
+    const row  = {};
+    headers.forEach((h, idx) => { row[h] = (vals[idx] || '').trim(); });
+
+    if (!row.name)      { errors.push(`Row ${i + 1}: missing name`);      continue; }
+    if (!row.amount)    { errors.push(`Row ${i + 1}: missing amount`);    continue; }
+    if (!row.currency)  { errors.push(`Row ${i + 1}: missing currency`);  continue; }
+    if (!row.frequency) { errors.push(`Row ${i + 1}: missing frequency`); continue; }
+
+    const amount = parseFloat(row.amount);
+    if (isNaN(amount) || amount <= 0) {
+      errors.push(`Row ${i + 1}: invalid amount "${row.amount}"`);
+      continue;
+    }
+
+    subscriptions.push({
+      name:              row.name,
+      counterparty_name: row.counterparty_name || '',
+      amount,
+      currency:          row.currency.toUpperCase(),
+      frequency:         row.frequency,
+      day_of_month:      row.day_of_month || '',
+      day_of_week:       row.day_of_week  || '',
+      source_account:    row.source_account || '',
+      tx_type:           row.tx_type        || '',
+      major_category:    row.major_category  || '',
+      minor_category:    row.minor_category  || '',
+      tags:              row.tags            || '',
+      is_active:         row.is_active !== 'false' && row.is_active !== 'FALSE',
+      description:       row.description     || '',
+    });
+  }
+
+  return { subscriptions, errors };
+}
+
+function _renderImportStatus(parsed) {
+  const { subscriptions, errors } = parsed;
+  const errHtml = errors.length
+    ? `<div class="pin-error" style="margin-bottom:8px">${errors.map(e => esc(e)).join('<br>')}</div>`
+    : '';
+  if (!subscriptions.length) return errHtml + '<p class="placeholder">No valid rows found.</p>';
+  return `${errHtml}<p style="font-size:13px;color:var(--muted);margin:0">${subscriptions.length} subscription${subscriptions.length !== 1 ? 's' : ''} ready to import</p>`;
+}
+
+async function _submitImport(subscriptions) {
+  const btn   = el('subImportConfirm');
+  const errEl = el('subImportError');
+  if (btn)   { btn.disabled = true; btn.textContent = 'Importing…'; }
+  if (errEl) errEl.textContent = '';
+  showLoading();
+  try {
+    const res = await ExpenseAPI.createSubscriptionsBulk({ subscriptions });
+
+    if (!res.ok && !res.results) {
+      console.warn('[subscriptions] _submitImport failed:', res?.error);
+      if (errEl) errEl.textContent = 'Error: ' + (res.error || 'unknown');
+      if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
+      return;
+    }
+
+    const created = res.created || 0;
+    const skipped = res.skipped || 0;
+    const failed  = res.failed  || 0;
+
+    if (failed === 0) {
+      _importParsed = null;
+      state.subImportOpen = false;
+      const msg = [
+        created ? `${created} subscription${created !== 1 ? 's' : ''} imported` : '',
+        skipped ? `${skipped} already existed` : '',
+      ].filter(Boolean).join(' · ');
+      showMsg(msg || 'Nothing to import.');
+      document.dispatchEvent(new CustomEvent('et:reload'));
+    } else {
+      const resultRows = (res.results || []).map(r => `
+        <tr>
+          <td>${esc(r.name)}</td>
+          <td>${r.ok
+            ? `<span class="badge badge-et-in">created</span>`
+            : r.error === 'duplicate_subscription'
+              ? `<span class="badge" style="color:var(--muted)">already exists</span>`
+              : `<span class="badge badge-et-out">${esc(r.error || 'unknown')}</span>`}
+          </td>
+        </tr>`).join('');
+      const status = el('subImportStatus');
+      if (status) status.innerHTML = `
+        <div style="margin-bottom:8px;font-size:13px">${created} created${skipped ? ` · ${skipped} already existed` : ''} · <span style="color:var(--ember)">${failed} failed</span></div>
+        <div class="table-wrap" style="margin-bottom:8px">
+          <table class="acc-table">
+            <thead><tr><th>Name</th><th>Result</th></tr></thead>
+            <tbody>${resultRows}</tbody>
+          </table>
+        </div>`;
+      _importParsed = null;
+      if (btn) { btn.disabled = true; btn.textContent = 'Import'; }
+      if (created > 0) { document.dispatchEvent(new CustomEvent('et:reload')); }
+      showMsg(`${created} imported · ${skipped} skipped · ${failed} failed`, 'warn');
+    }
+  } catch (err) {
+    console.error('[subscriptions] _submitImport failed:', err);
+    if (errEl) errEl.textContent = 'Connection error.';
+    if (btn)   { btn.disabled = false; btn.textContent = 'Import'; }
+  } finally {
+    hideLoading();
+  }
+}
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 export function renderSubscriptions() {
   _subMenuKey = null;
-  const content    = el('subscriptionsContent');
-  const anyOpen    = state.subAddOpen || state.subEditRow !== null;
-  const addBtnText = anyOpen ? '× Close' : '+ Add';
+  const content      = el('subscriptionsContent');
+  const anyFormOpen  = state.subAddOpen || state.subEditRow !== null;
+  const addBtnText   = anyFormOpen ? '× Close' : '+ Add';
+  const impBtnText   = state.subImportOpen ? '× Close' : 'Import';
 
   content.innerHTML = `
     <div class="sec-head">
       <div class="sec-head-left"><h2>Subscriptions</h2></div>
-      <button class="btn btn-primary btn-sm" id="subAddBtn">${addBtnText}</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" id="subImportBtn">${impBtnText}</button>
+        <button class="btn btn-primary btn-sm" id="subAddBtn">${addBtnText}</button>
+      </div>
     </div>
-    ${anyOpen ? _renderForm(state.subEditRow !== null
+    ${state.subImportOpen ? _renderImportPanel() : ''}
+    ${anyFormOpen ? _renderForm(state.subEditRow !== null
       ? state.subscriptions.find(s => s._row === state.subEditRow) || null
       : null) : ''}
     ${_renderStats()}
@@ -380,14 +539,53 @@ function _attachEvents() {
   const content = el('subscriptionsContent');
   if (!content) return;
 
+  el('subImportBtn')?.addEventListener('click', () => {
+    if (state.subImportOpen) {
+      state.subImportOpen = false;
+      _importParsed = null;
+    } else {
+      state.subImportOpen = true;
+      state.subAddOpen    = false;
+      state.subEditRow    = null;
+      state.subPrefill    = null;
+    }
+    renderSubscriptions();
+  }, { signal });
+
+  el('subImportFile')?.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const parsed = _parseSubscriptionsCsv(ev.target.result);
+      _importParsed = parsed.subscriptions.length ? parsed.subscriptions : null;
+      const status = el('subImportStatus');
+      if (status) status.innerHTML = _renderImportStatus(parsed);
+      const btn = el('subImportConfirm');
+      if (btn) btn.disabled = !_importParsed;
+    };
+    reader.readAsText(file);
+  }, { signal });
+
+  el('subImportConfirm')?.addEventListener('click', () => {
+    if (_importParsed) _submitImport(_importParsed);
+  }, { signal });
+
+  el('subImportCancel')?.addEventListener('click', () => {
+    state.subImportOpen = false;
+    _importParsed = null;
+    renderSubscriptions();
+  }, { signal });
+
   el('subAddBtn')?.addEventListener('click', () => {
     if (state.subAddOpen || state.subEditRow !== null) {
       state.subAddOpen  = false;
       state.subEditRow  = null;
       state.subPrefill  = null;
     } else {
-      state.subAddOpen  = true;
-      state.subEditRow  = null;
+      state.subAddOpen    = true;
+      state.subImportOpen = false;
+      _importParsed       = null;
     }
     renderSubscriptions();
   }, { signal });
