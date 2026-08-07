@@ -197,7 +197,8 @@ export function renderTransactions() {
     <div class="sec-head">
       <div class="sec-head-left"><h2>Transactions</h2></div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-secondary btn-sm" id="txImportBtn">${state.txImportOpen ? '× Close' : 'Import'}</button>
+        <button class="btn btn-secondary btn-sm" id="txImportBtn">${state.txImportOpen ? '× Close' : '↑ Import'}</button>
+        <button class="btn btn-secondary btn-sm tx-menu-trigger" id="txExportBtn">↓ Export</button>
         <button class="btn btn-primary btn-sm" id="txAddBtn">${anyAddOpen ? '× Close' : '+ Add'}</button>
       </div>
     </div>
@@ -208,10 +209,6 @@ export function renderTransactions() {
     ${_renderSuggestionsPanel()}
     ${_renderFilterBar()}
     ${warnRows.length ? `<div class="warning-count" id="warnToggle">⚠ ${warnRows.length} row${warnRows.length > 1 ? 's' : ''} have warnings — click to expand</div>` : ''}
-    <div class="table-controls">
-      <button class="btn btn-secondary btn-sm" id="exportCsv">Export CSV</button>
-      <button class="btn btn-secondary btn-sm" id="exportJson">Export JSON</button>
-    </div>
     ${_renderTxTable(validRows, warnRows)}
   `;
 
@@ -272,8 +269,12 @@ export function renderTransactions() {
   if (editTx) _attachTxEditCascadeEvents();
   _attachEvents();
 
-  el('exportCsv')?.addEventListener('click', () => exportData('csv', rows));
-  el('exportJson')?.addEventListener('click', () => exportData('json', rows));
+  el('txExportBtn')?.addEventListener('click', () => {
+    openContextMenu(el('txExportBtn'), [
+      { key: 'csv',  label: 'CSV'  },
+      { key: 'json', label: 'JSON' },
+    ], key => exportData(key, rows));
+  });
 
   if (warnRows.length) {
     el('warnToggle')?.addEventListener('click', () => el('warnTable')?.classList.toggle('hidden'));

@@ -385,11 +385,13 @@ h2 { font-size: var(--text-xl); font-weight: 700; margin: 0; }
   display: flex;
   gap: 10px;
   overflow-x: auto;
-  padding: 4px 16px 8px;
+  padding: 4px 0 8px;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x mandatory;
   scrollbar-width: thin;
 }
+.suggestions-scroll::before,
+.suggestions-scroll::after { content: ''; min-width: 16px; flex-shrink: 0; }
 .suggestions-scroll::-webkit-scrollbar { height: 4px; }
 .suggestions-scroll::-webkit-scrollbar-thumb { background: var(--hair-strong); border-radius: 2px; }
 
@@ -428,11 +430,6 @@ h2 { font-size: var(--text-xl); font-weight: 700; margin: 0; }
 @keyframes sugg-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 /* ── table controls ── */
-.table-controls {
-  display: flex; align-items: center; justify-content: flex-end;
-  gap: 8px; margin-bottom: 10px;
-}
-
 /* ── warning count ── */
 .warning-count {
   margin-bottom: 10px;
