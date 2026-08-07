@@ -388,10 +388,11 @@ h2 { font-size: var(--text-xl); font-weight: 700; margin: 0; }
   padding: 4px 0 8px;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x mandatory;
+  scroll-padding-left: 16px;
   scrollbar-width: thin;
 }
 .suggestions-scroll::before,
-.suggestions-scroll::after { content: ''; min-width: 16px; flex-shrink: 0; }
+.suggestions-scroll::after { content: ''; display: block; width: 16px; flex: 0 0 16px; }
 .suggestions-scroll::-webkit-scrollbar { height: 4px; }
 .suggestions-scroll::-webkit-scrollbar-thumb { background: var(--hair-strong); border-radius: 2px; }
 

@@ -70,7 +70,7 @@ export function openContextMenu(triggerBtn, items, onSelect) {
   });
 
   _ctxHandler = e => {
-    if (e.target.closest('.tx-menu-trigger')) return;
+    if (triggerBtn.contains(e.target)) return;
     if (!_ctxMenuEl?.contains(e.target)) closeContextMenu();
   };
   document.addEventListener('click', _ctxHandler, true);
